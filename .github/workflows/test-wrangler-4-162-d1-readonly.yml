@@ -46,7 +46,8 @@ jobs:
         run: pnpm dlx wrangler@4.162.0 --version
 
       - name: Note Wrangler migrations list has an initialization side effect
-        run: echo "Skipped migrations list: Wrangler initializes d1_migrations with CREATE TABLE IF NOT EXISTS before reading it. This diagnostic remains strictly read-only."
+        run: |
+          echo "Skipped migrations list: Wrangler initializes d1_migrations with CREATE TABLE IF NOT EXISTS before reading it. This diagnostic remains strictly read-only."
 
       - name: Run SELECT 1 against production D1 (read-only)
         if: always()
