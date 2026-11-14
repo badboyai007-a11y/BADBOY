@@ -57,7 +57,8 @@ export type AgenticValidation =
   | { ok: false; code: string; error: string };
 
 /** Strict arithmetic parser: no eval, identifiers, property access, or code execution. */
-export function evaluateSafeExpression(source: string): number {
+export function evaluateSafeExpression(input: string): number {
+  const source = input.trim();
   if (source.length === 0 || source.length > 120) throw new Error("Expression must contain 1–120 characters.");
   const tokens: string[] = [];
   const tokenPattern = /\s*(\d+(?:\.\d*)?|\.\d+|[()+\-*/%])/y;
@@ -336,7 +337,13 @@ async function runToolAgent(
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
+    },
   });
 }
 
@@ -376,7 +383,6 @@ function parseOpenRouterDeltas(event: string): { content: string[]; done: boolea
 async function streamFinalAnswer(
   apiKey: string,
   messages: ChatMessage[],
-  emit: (event: Record<string, unknown>) => void,
 ): Promise<Response> {
   const upstream = await requestCompletion(apiKey, messages, { stream: true, maxTokens: 2400 });
   if (!upstream.ok || !upstream.body) {
@@ -401,7 +407,6 @@ async function streamFinalAnswer(
             const parsed = parseOpenRouterDeltas(event);
             for (const content of parsed.content) send({ content });
             if (parsed.done) {
-              send("[DONE]");
               controller.close();
               return;
             }
@@ -412,7 +417,6 @@ async function streamFinalAnswer(
           const parsed = parseOpenRouterDeltas(pending);
           for (const content of parsed.content) send({ content });
         }
-        send("[DONE]");
         controller.close();
       } catch {
         send({ error: "Agent response stream was interrupted." });
@@ -427,6 +431,9 @@ async function streamFinalAnswer(
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       "X-Accel-Buffering": "no",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
     },
   });
 }
@@ -486,7 +493,7 @@ export async function handleAgenticAssistantRequest(request: Request, env: { OPE
           { role: "system", content: `${system}\n\nYou are the final synthesizer in a multi-agent workflow. Answer the user's original request directly. Incorporate valid reviewer corrections, do not mention internal orchestration unless asked, and do not claim actions that were not performed.` },
           { role: "user", content: `Original request:\n${message}\n\nPlan:\n${plan}\n\nExecutor result (including any tool findings):\n${execution}\n\nReviewer notes:\n${review}\n\nWrite the final answer in Bangla unless English was explicitly requested.` },
         ];
-        const finalResponse = await streamFinalAnswer(apiKey, finalMessages, send);
+        const finalResponse = await streamFinalAnswer(apiKey, finalMessages);
         if (!finalResponse.ok || !finalResponse.body) {
           const body = await finalResponse.text();
           send({ error: body.slice(0, 1000) || "Could not synthesize the final response." });
