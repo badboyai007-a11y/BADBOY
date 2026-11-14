@@ -79,6 +79,38 @@ test('streamReply sends owner-authenticated request and parses split SSE frames'
   assert.deepEqual(chunks, ['বাংলা উত্তর', 'সম্পূর্ণ']);
 });
 
+test('streamAgenticReply sends owner-authenticated bounded history and consumes agentic SSE', async () => {
+  const { streamAgenticReply } = await apiPromise;
+  let url = '';
+  let sent: any;
+  fetchHandler = async (input, init) => {
+    url = String(input);
+    sent = JSON.parse(String(init.body));
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    return streamResponse([
+      'data: {"type":"agent","agent":"planner","status":"completed"}\n\n',
+      'data: {"type":"tool","name":"calculator","ok":true}\n\n',
+      'data: {"content":"হিসাবের ফল " }\n\n',
+      'data: {"content":"৪২"}\n\n',
+      'data: [DONE]\n\n',
+    ]);
+  };
+  const chunks: string[] = [];
+  await streamAgenticReply(
+    '6 * 7 কত?',
+    { personality: 'বন্ধুসুলভ', voiceLanguage: 'bn-BD', developerMode: true } as any,
+    [{ role: 'user', content: 'আগের প্রশ্ন' }],
+    (chunk) => chunks.push(chunk),
+  );
+  assert.equal(url, 'https://worker.example/assistant/agent');
+  assert.equal(sent.message, '6 * 7 কত?');
+  assert.equal(sent.mode, 'multi');
+  assert.equal(sent.developerMode, true);
+  assert.deepEqual(sent.history, [{ role: 'user', content: 'আগের প্রশ্ন' }]);
+  assert.match(sent.personality, /bn-BD/);
+  assert.deepEqual(chunks, ['হিসাবের ফল ', '৪২']);
+});
+
 test('streamReply rejects HTTP errors and provider error events', async () => {
   const { streamReply } = await apiPromise;
   fetchHandler = async () => jsonResponse({ error: 'owner denied' }, 401);

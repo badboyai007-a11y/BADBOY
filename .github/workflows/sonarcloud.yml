@@ -73,6 +73,7 @@ jobs:
           functions/accessAuth.test.ts
           functions/personalAuth.test.ts
           functions/developerData.test.ts
+          functions/api/agenticAssistant.test.ts
           &&
           pnpm --filter @workspace/mobile test
           '
