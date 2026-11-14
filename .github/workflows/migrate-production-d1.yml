@@ -57,13 +57,17 @@ jobs:
         run: |
           set -uo pipefail
           for attempt in 1 2 3 4 5; do
-            if output=$(pnpm exec wrangler d1 migrations list badboy-agent-db --remote --config wrangler.json 2>&1); then
+            if output=$(pnpm dlx wrangler@4.162.0 d1 migrations list badboy-agent-db --remote --config wrangler.json 2>&1); then
               printf '%s\n' "$output"
               exit 0
             else
               status=$?
             fi
             printf '%s\n' "$output"
+            if grep -qi 'do not have permission' <<<"$output"; then
+              echo "::error::D1 migration status failed: permission denied. Check CLOUDFLARE_API_TOKEN (D1 Edit) and CLOUDFLARE_ACCOUNT_ID in the production environment. Not retrying."
+              exit "$status"
+            fi
             if ! grep -q '\[code: 7500\]' <<<"$output"; then
               echo "::error::D1 migration status failed with a non-retryable error."
               exit "$status"
@@ -85,13 +89,17 @@ jobs:
         run: |
           set -uo pipefail
           for attempt in 1 2 3 4 5; do
-            if output=$(pnpm exec wrangler d1 migrations apply badboy-agent-db --remote --config wrangler.json 2>&1); then
+            if output=$(pnpm dlx wrangler@4.162.0 d1 migrations apply badboy-agent-db --remote --config wrangler.json 2>&1); then
               printf '%s\n' "$output"
               exit 0
             else
               status=$?
             fi
             printf '%s\n' "$output"
+            if grep -qi 'do not have permission' <<<"$output"; then
+              echo "::error::D1 migration apply failed: permission denied. Check CLOUDFLARE_API_TOKEN (D1 Edit) and CLOUDFLARE_ACCOUNT_ID in the production environment. Not retrying."
+              exit "$status"
+            fi
             if ! grep -q '\[code: 7500\]' <<<"$output"; then
               echo "::error::D1 migration apply failed with a non-retryable error."
               exit "$status"
