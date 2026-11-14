@@ -190,7 +190,7 @@ test("single-agent mode skips planner and reviewer but still streams synthesis",
 test("provider fallback retries temporary/model errors and only uses free model IDs", async () => {
   const models: string[] = [];
   globalThis.fetch = async (_input, init) => {
-    const payload = JSON.parse(String(init?.body)) as { model: string };
+    const payload = JSON.parse(String(init?.body)) as { model: string; stream: boolean };
     models.push(payload.model);
     if (payload.stream) return finalStream();
     if (models.length === 1) return Response.json({ error: { message: "model unavailable" } }, { status: 404 });
