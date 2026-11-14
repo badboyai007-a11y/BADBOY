@@ -46,7 +46,7 @@ jobs:
           API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID/query"
           SQL='CREATE TABLE IF NOT EXISTS d1_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);'
           for attempt in 1 2 3 4 5; do
-            status=$(curl -sS -X POST "$API" \
+            status=$(curl -sS --connect-timeout 10 --max-time 60 -X POST "$API" \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               -H "Content-Type: application/json" \
               --data "$(jq -n --arg sql "$SQL" '{sql:$sql}')" \
@@ -70,7 +70,7 @@ jobs:
           done
 
           VERIFY='SELECT name, sql FROM sqlite_master WHERE type = "table" AND name = "d1_migrations";'
-          status=$(curl -sS -X POST "$API" \
+          status=$(curl -sS --connect-timeout 10 --max-time 60 -X POST "$API" \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             -H "Content-Type: application/json" \
             --data "$(jq -n --arg sql "$VERIFY" '{sql:$sql}')" \
