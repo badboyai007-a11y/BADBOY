@@ -15,25 +15,12 @@ async function ownerAuthorizationHeader(): Promise<string> {
   return `Bearer ${token}`;
 }
 
-export async function streamReply(
-  message: string,
-  settings: AssistantSettings,
+type ChatHistoryItem = { role: 'user' | 'assistant'; content: string };
+
+async function streamSseResponse(
+  response: Response,
   onChunk: (chunk: string) => void,
 ) {
-  const response = await expoFetch(apiUrl('/assistant/chat'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      Authorization: await ownerAuthorizationHeader(),
-    },
-    body: JSON.stringify({
-      message,
-      personality: `${settings.personality}\n\nLanguage preference: Reply in the language selected for voice input/output (locale: ${settings.voiceLanguage}). Keep the response in that language unless the user explicitly asks for another language.`,
-      developerMode: settings.developerMode,
-    }),
-  });
-
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as {
       error?: string;
@@ -71,6 +58,54 @@ export async function streamReply(
   }
 }
 
+export async function streamReply(
+  message: string,
+  settings: AssistantSettings,
+  onChunk: (chunk: string) => void,
+) {
+  const response = await expoFetch(apiUrl('/assistant/chat'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: await ownerAuthorizationHeader(),
+    },
+    body: JSON.stringify({
+      message,
+      personality: `${settings.personality}\n\nLanguage preference: Reply in the language selected for voice input/output (locale: ${settings.voiceLanguage}). Keep the response in that language unless the user explicitly asks for another language.`,
+      developerMode: settings.developerMode,
+    }),
+  });
+  await streamSseResponse(response, onChunk);
+}
+
+/** Owner-authenticated agentic chat with bounded context, safe tools and an optional multi-agent workflow. */
+export async function streamAgenticReply(
+  message: string,
+  settings: AssistantSettings,
+  history: ChatHistoryItem[],
+  onChunk: (chunk: string) => void,
+) {
+  const response = await expoFetch(apiUrl('/assistant/agent'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: await ownerAuthorizationHeader(),
+    },
+    body: JSON.stringify({
+      message,
+      personality: `${settings.personality}\n\nLanguage preference: ${settings.voiceLanguage}.`,
+      developerMode: settings.developerMode,
+      mode: 'multi',
+      history: history.slice(-8).map(({ role, content }) => ({
+        role,
+        content: content.slice(0, 3000),
+      })),
+    }),
+  });
+  await streamSseResponse(response, onChunk);
+}
 
 export type DeveloperEngineRequest = 'native' | 'copilot' | 'auto';
 

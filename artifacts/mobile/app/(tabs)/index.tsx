@@ -30,7 +30,7 @@ import {
 import { useAssistant } from '@/context/AssistantContext';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import { streamReply, transcribeRecordedAudio } from '@/lib/assistant/api';
+import { streamAgenticReply, streamReply, transcribeRecordedAudio } from '@/lib/assistant/api';
 import {
   dictateOnce,
   getVoiceErrorMessage,
@@ -316,7 +316,11 @@ export default function ChatScreen() {
     }
 
     try {
-      await streamReply(text, settings, (chunk) => {
+      await streamAgenticReply(
+        text,
+        settings,
+        messages.slice(-8).map(({ role, content }) => ({ role, content })),
+        (chunk) => {
         answer = { ...answer, content: answer.content + chunk };
         working = working.map((message) =>
           message.id === answer.id ? answer : message,
