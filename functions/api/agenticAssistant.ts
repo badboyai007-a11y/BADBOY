@@ -478,7 +478,7 @@ export async function handleAgenticAssistantRequest(request: Request, env: { OPE
           ...baseMessages.slice(1),
           { role: "assistant", content: `পরিকল্পনা:\n${plan}` },
         ];
-        execution = await runToolAgent(apiKey, executorMessages, send);
+        const execution = await runToolAgent(apiKey, executorMessages, send);
         send({ type: "agent", agent: "executor", status: "completed" });
         if (mode === "multi") {
           send({ type: "agent", agent: "reviewer", status: "started" });
