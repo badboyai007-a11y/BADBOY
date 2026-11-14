@@ -1,3 +1,4 @@
+# Read-only diagnostic: runs SELECT queries only, never applies migrations.
 name: Test Wrangler 4.162.0 D1 Read-only
 
 on:
