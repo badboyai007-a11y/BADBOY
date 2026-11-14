@@ -391,6 +391,7 @@ async function streamFinalAnswer(
   }
   const encoder = new TextEncoder();
   const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (value: unknown) => controller.enqueue(encoder.encode(`data: ${typeof value === "string" ? value : JSON.stringify(value)}\n\n`));
@@ -399,7 +400,7 @@ async function streamFinalAnswer(
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          pending += new TextDecoder().decode(value, { stream: true }).replace(/\r\n/g, "\n");
+          pending += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
           let boundary = pending.indexOf("\n\n");
           while (boundary >= 0) {
             const event = pending.slice(0, boundary);
@@ -525,6 +526,9 @@ export async function handleAgenticAssistantRequest(request: Request, env: { OPE
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       "X-Accel-Buffering": "no",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
     },
   });
 }
