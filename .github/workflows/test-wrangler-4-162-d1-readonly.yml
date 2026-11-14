@@ -45,11 +45,8 @@ jobs:
       - name: Confirm Wrangler version
         run: pnpm dlx wrangler@4.162.0 --version
 
-      - name: Read production D1 migration status (no writes)
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm dlx wrangler@4.162.0 d1 migrations list badboy-agent-db --remote --config wrangler.json
+      - name: Note Wrangler migrations list has an initialization side effect
+        run: echo "Skipped migrations list: Wrangler initializes d1_migrations with CREATE TABLE IF NOT EXISTS before reading it. This diagnostic remains strictly read-only."
 
       - name: Run SELECT 1 against production D1 (read-only)
         if: always()
