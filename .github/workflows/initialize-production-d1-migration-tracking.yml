@@ -1,6 +1,10 @@
 name: Initialize Production D1 Migration Tracking
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/initialize-production-d1-migration-tracking.yml"
   workflow_dispatch:
     inputs:
       confirm_metadata_init:
@@ -18,7 +22,7 @@ concurrency:
 
 jobs:
   initialize:
-    if: ${{ inputs.confirm_metadata_init == true }}
+    if: ${{ github.event_name == 'push' || inputs.confirm_metadata_init == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
