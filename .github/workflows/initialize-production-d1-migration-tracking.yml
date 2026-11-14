@@ -1,0 +1,77 @@
+name: Initialize Production D1 Migration Tracking
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_metadata_init:
+        description: "Create only the Wrangler d1_migrations tracking table in production. No application migration will run."
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: badboy-production-d1-metadata-init
+  cancel-in-progress: false
+
+jobs:
+  initialize:
+    if: ${{ inputs.confirm_metadata_init == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Verify required credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+
+      - name: Initialize only the Wrangler tracking table
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: be5648fd-cbb2-487c-8d99-6a0f8c72cf46
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID/query"
+          SQL='CREATE TABLE IF NOT EXISTS d1_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);'
+          for attempt in 1 2 3 4 5; do
+            status=$(curl -sS -X POST "$API" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg sql "$SQL" '{sql:$sql}')" \
+              -o /tmp/create.json -w "%{http_code}")
+            if [ "$status" -ge 200 ] && [ "$status" -lt 300 ] && [ "$(jq -r '.success // false' /tmp/create.json)" = "true" ]; then
+              echo "Tracking table CREATE succeeded."
+              break
+            fi
+            jq -c '{success, errors}' /tmp/create.json || true
+            if ! jq -e 'any(.errors[]?; .code == 7500)' /tmp/create.json >/dev/null; then
+              echo "::error::Tracking table initialization failed with a non-retryable error (HTTP $status)."
+              exit 1
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::D1 returned error 7500 for CREATE TABLE after 5 attempts."
+              exit 1
+            fi
+            delay=$((5 * (2 ** (attempt - 1))))
+            echo "D1 error 7500; retrying in ${delay}s (attempt $((attempt + 1))/5)."
+            sleep "$delay"
+          done
+
+          VERIFY='SELECT name, sql FROM sqlite_master WHERE type = "table" AND name = "d1_migrations";'
+          status=$(curl -sS -X POST "$API" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -n --arg sql "$VERIFY" '{sql:$sql}')" \
+            -o /tmp/verify.json -w "%{http_code}")
+          test "$status" -ge 200 && test "$status" -lt 300
+          test "$(jq -r '.success // false' /tmp/verify.json)" = "true"
+          jq -e '[.result[]?.results[]? | select(.name == "d1_migrations")] | length == 1' /tmp/verify.json
+          echo "Verified: d1_migrations exists. No migration history row was inserted and no application migration was run."
