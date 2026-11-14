@@ -461,7 +461,6 @@ export async function handleAgenticAssistantRequest(request: Request, env: { OPE
         controller.enqueue(encoder.encode(`data: ${typeof event === "string" ? event : JSON.stringify(event)}\n\n`));
       try {
         let plan = "এক ধাপে অনুরোধটি সমাধান করা হবে।";
-        let execution: string;
         let review = "একক Agent Mode: আলাদা Reviewer ধাপ চালানো হয়নি।";
         if (mode === "multi") {
           send({ type: "agent", agent: "planner", status: "started" });
