@@ -63,6 +63,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: pnpm dlx wrangler@4.162.0 d1 execute badboy-agent-db --remote --config wrangler.json --command "SELECT name, sql FROM sqlite_master WHERE type='table' AND name='d1_migrations'"
 
+      - name: Capture production schema definition (read-only)
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm dlx wrangler@4.162.0 d1 execute badboy-agent-db --remote --config wrangler.json --command "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name IN ('agent_tasks','agent_task_events','agent_projects','agent_project_memory','agent_audit_logs','idx_agent_tasks_owner_updated','idx_agent_tasks_owner_status_created','idx_agent_task_events_owner_task_created','idx_agent_projects_owner_updated','idx_agent_memory_owner_project_updated','idx_agent_audit_owner_created') ORDER BY type, name"
+
       - name: Confirm no migration apply command is configured
         if: always()
         run: echo "Read-only test complete. No d1 migrations apply command was run."
