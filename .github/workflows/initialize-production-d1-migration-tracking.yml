@@ -42,6 +42,7 @@ jobs:
           D1_DATABASE_ID: be5648fd-cbb2-487c-8d99-6a0f8c72cf46
         shell: bash
         run: |
+          # Retry metadata-only initialization after the previous D1 7500 platform errors.
           set -euo pipefail
           API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID/query"
           SQL='CREATE TABLE IF NOT EXISTS d1_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);'
