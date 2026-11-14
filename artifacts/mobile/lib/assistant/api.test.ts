@@ -88,11 +88,11 @@ test('streamAgenticReply sends owner-authenticated bounded history and consumes 
     sent = JSON.parse(String(init.body));
     assert.equal(authFrom(init), 'Bearer owner-token-test');
     return streamResponse([
-      'data: {"type":"agent","agent":"planner","status":"completed"}\\n\\n',
-      'data: {"type":"tool","name":"calculator","ok":true}\\n\\n',
-      'data: {"content":"হিসাবের ফল " }\\n\\n',
-      'data: {"content":"৪২"}\\n\\n',
-      'data: [DONE]\\n\\n',
+      'data: {"type":"agent","agent":"planner","status":"completed"}\n\n',
+      'data: {"type":"tool","name":"calculator","ok":true}\n\n',
+      'data: {"content":"হিসাবের ফল " }\n\n',
+      'data: {"content":"৪২"}\n\n',
+      'data: [DONE]\n\n',
     ]);
   };
   const chunks: string[] = [];
