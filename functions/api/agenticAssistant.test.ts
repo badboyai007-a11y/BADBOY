@@ -201,6 +201,8 @@ test("provider fallback retries temporary/model errors and only uses free model 
       OPENROUTER_API_KEY: "server-key",
     });
     assert.equal(response.status, 200);
+    const streamed = await response.text();
+    assert.match(streamed, /চূড়ান্ত/);
     assert.ok(models.length >= 3);
     assert.equal(models[0], "openrouter/free");
     assert.ok(models[1]?.endsWith(":free"));
