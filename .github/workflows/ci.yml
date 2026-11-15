@@ -2,9 +2,9 @@ name: Build and Test
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/agentic-tool-calling-multi-agent]
   push:
-    branches: [main, "fix/**"]
+    branches: [main, "fix/**", feat/verified-agent-integrations]
 
 permissions:
   contents: read
