@@ -4,7 +4,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches: [main, feat/agentic-tool-calling-multi-agent]
-    types: [opened, synchronize, reopened]
   push:
     branches: [main, feat/verified-agent-integrations]
   workflow_dispatch:
