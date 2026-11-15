@@ -29,6 +29,10 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/mobile-checks.yml"
 
+concurrency:
+  group: mobile-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   mobile-tests-and-typecheck:
     permissions:
