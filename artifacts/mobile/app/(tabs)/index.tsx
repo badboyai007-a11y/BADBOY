@@ -47,6 +47,7 @@ import {
 import type { ChatMessage } from '@/lib/assistant/types';
 import { useColors } from '@/hooks/useColors';
 import { getOfflineWakeWordStatus, startOfflineWakeWord, stopOfflineWakeWord, subscribeToWakeWord, subscribeToWakeWordStatus } from '@/lib/assistant/wakeWord';
+import { getActiveCustomSkillContext } from '@/lib/assistant/skillStorage';
 
 const VOICE_RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
@@ -336,6 +337,12 @@ export default function ChatScreen() {
       } catch {
         // Keep the existing chat path available when project memory is offline.
       }
+      let skillContext = '';
+      try {
+        skillContext = await getActiveCustomSkillContext() ?? '';
+      } catch {
+        // An unavailable local skill store must not block ordinary assistant chat.
+      }
       await streamAgenticReply(
         text,
         settings,
@@ -348,6 +355,7 @@ export default function ChatScreen() {
         setMessages(working);
       },
       memoryContext,
+      skillContext,
       );
     } catch (cause) {
       working = working.filter((message) => message.id !== answer.id);
