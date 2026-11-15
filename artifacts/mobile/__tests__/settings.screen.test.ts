@@ -26,7 +26,7 @@ let agentTaskHandler = async (_prompt: string, _online: boolean, _confirmed: boo
 let githubHandlers = {
   saveGitHubToken: async (_token: string) => {},
   removeGitHubToken: async () => {},
-  createGitHubPullRequest: async (_input: any) => ({ success: true, prUrl: 'https://github.com/example/repo/pull/88', prNumber: 88, summary: 'PR ready', logs: ['Branch checked', 'PR created'] }),
+  previewGitHubChanges: async (_input: any) => ({ success: true, baseSha: 'preview-base-sha', files: [{ path: 'settings.tsx', exists: true, sha: 'file-sha', content: 'export const ready = true;' }] }),
   generateDevelopmentPlan: (_prompt: string) => ({
     title: 'Settings test plan', category: 'web', featureDescription: 'Improve Settings',
     filesToModify: ['settings.tsx'], tasks: [{ id: 'task-1', title: 'Add tests' }],
@@ -190,7 +190,7 @@ mock.module('../lib/assistant/telegram.ts', {
 });
 mock.module('../lib/assistant/developer.ts', {
   namedExports: {
-    createGitHubPullRequest: (...args: [any]) => { githubCalls.push({ method: 'createGitHubPullRequest', args }); return githubHandlers.createGitHubPullRequest(...args); },
+    previewGitHubChanges: (...args: [any]) => { githubCalls.push({ method: 'previewGitHubChanges', args }); return githubHandlers.previewGitHubChanges(...args); },
     executeAgentTask: (...args: [string, boolean, boolean]) => { agentTaskCalls.push(args); return agentTaskHandler(...args); },
     generateDevelopmentPlan: (...args: [string]) => { githubCalls.push({ method: 'generateDevelopmentPlan', args }); return githubHandlers.generateDevelopmentPlan(...args); },
     getGitHubToken: async () => null,
@@ -880,7 +880,7 @@ test('Settings Agent renders permission and completed task states and opens only
   assert.doesNotMatch(html, /ONLINE/);
 });
 
-test('Settings creates a trimmed development plan and blocks PR creation without a GitHub token', async () => {
+test('Settings creates a trimmed development plan and blocks GitHub preview without a token', async () => {
   resetTelegramState();
   settings.developerMode = true;
   const planRender = createSettingsHookHarness({ 17: '  Improve Settings safely  ' });
@@ -892,50 +892,50 @@ test('Settings creates a trimmed development plan and blocks PR creation without
 
   const noTokenRender = createSettingsHookHarness({ 18: samplePlan });
   await noTokenRender();
-  pressables.find((item) => item.label.includes('GitHub-এ PR তৈরি করুন'))?.onPress();
+  pressables.find((item) => item.label.includes('GitHub read-only preview দেখুন'))?.onPress();
   html = await noTokenRender();
   assert.match(html, /GitHub Personal Access Token প্রয়োজন/);
-  assert.equal(githubCalls.filter((item) => item.method === 'createGitHubPullRequest').length, 0);
+  assert.equal(githubCalls.filter((item) => item.method === 'previewGitHubChanges').length, 0);
 });
 
-test('Settings confirms GitHub PR creation, renders success history, and surfaces API failures', async () => {
+test('Settings confirms a read-only GitHub preview and never creates a branch or PR', async () => {
   resetTelegramState();
   settings.developerMode = true;
   const successRender = createSettingsHookHarness({ 15: 'ghp_test-token', 18: samplePlan });
   await successRender();
-  pressables.find((item) => item.label.includes('GitHub-এ PR তৈরি করুন'))?.onPress();
-  assert.equal(alerts.at(-1)?.title, 'স্বয়ংক্রিয় ডেভেলপমেন্ট ওয়ার্কফ্লো শুরু করবেন?');
-  await alerts.at(-1)?.buttons.find((button) => button.text === 'হ্যাঁ, শুরু করুন')?.onPress();
+  pressables.find((item) => item.label.includes('GitHub read-only preview দেখুন'))?.onPress();
+  assert.equal(alerts.at(-1)?.title, 'GitHub read-only preview তৈরি করবেন?');
+  await alerts.at(-1)?.buttons.find((button) => button.text === 'Preview দেখুন')?.onPress();
   await new Promise((resolve) => setTimeout(resolve, 0));
   let html = await successRender();
-  assert.match(html, /PR ready/);
-  assert.match(html, /GitHub-এ PR দেখুন: #88/);
-  assert.match(html, /পূর্ববর্তী ডেভেলপমেন্ট হিস্ট্রি/);
-  assert.deepEqual(githubCalls.find((item) => item.method === 'createGitHubPullRequest')?.args, [{
-    githubToken: 'ghp_test-token', plan: samplePlan,
+  assert.match(html, /Read-only preview সম্পন্ন/);
+  assert.match(html, /কোনো PR বা file write করা হয়নি/);
+  assert.match(html, /preview-base-sha/);
+  assert.deepEqual(githubCalls.find((item) => item.method === 'previewGitHubChanges')?.args, [{
+    githubToken: 'ghp_test-token', paths: samplePlan.filesToModify,
   }]);
+  assert.equal(githubCalls.some((item) => item.method === 'createGitHubPullRequest'), false);
 
   resetTelegramState();
   settings.developerMode = true;
-  githubHandlers.createGitHubPullRequest = async () => ({
-    success: false, error: 'GitHub permission denied', logs: ['Repository write permission missing'],
+  githubHandlers.previewGitHubChanges = async () => ({
+    success: false, error: 'GitHub permission denied', files: [],
   });
   const rejectedRender = createSettingsHookHarness({ 15: 'ghp_test-token', 18: samplePlan });
   await rejectedRender();
-  pressables.find((item) => item.label.includes('GitHub-এ PR তৈরি করুন'))?.onPress();
-  await alerts.at(-1)?.buttons.find((button) => button.text === 'হ্যাঁ, শুরু করুন')?.onPress();
+  pressables.find((item) => item.label.includes('GitHub read-only preview দেখুন'))?.onPress();
+  await alerts.at(-1)?.buttons.find((button) => button.text === 'Preview দেখুন')?.onPress();
   await new Promise((resolve) => setTimeout(resolve, 0));
   html = await rejectedRender();
   assert.match(html, /GitHub permission denied/);
-  assert.match(html, /Repository write permission missing/);
 
   resetTelegramState();
   settings.developerMode = true;
-  githubHandlers.createGitHubPullRequest = async () => { throw new Error('GitHub API unavailable'); };
+  githubHandlers.previewGitHubChanges = async () => { throw new Error('GitHub API unavailable'); };
   const thrownRender = createSettingsHookHarness({ 15: 'ghp_test-token', 18: samplePlan });
   await thrownRender();
-  pressables.find((item) => item.label.includes('GitHub-এ PR তৈরি করুন'))?.onPress();
-  await alerts.at(-1)?.buttons.find((button) => button.text === 'হ্যাঁ, শুরু করুন')?.onPress();
+  pressables.find((item) => item.label.includes('GitHub read-only preview দেখুন'))?.onPress();
+  await alerts.at(-1)?.buttons.find((button) => button.text === 'Preview দেখুন')?.onPress();
   await new Promise((resolve) => setTimeout(resolve, 0));
   html = await thrownRender();
   assert.match(html, /GitHub API unavailable/);
