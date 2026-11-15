@@ -1,8 +1,6 @@
 import { createHash } from "node:crypto";
 
 const GITHUB_API = "https://api.github.com";
-const REPOSITORY = "shomratofficial007-spec/Badboy-VS-Versel-Ai";
-const BRANCH_PREFIX = "badboy/";
 const DEFAULT_BASE_BRANCH = "main";
 const ALLOWED_WORKFLOWS = new Set([
   "ci.yml",
@@ -14,6 +12,13 @@ export type GitHubWriteAction =
   | "create-branch"
   | "create-draft-pr"
   | "dispatch-workflow";
+
+export type GitHubRepositoryAccess = "read" | "write";
+
+export interface GitHubRepository {
+  /** GitHub repository in owner/name form. */
+  fullName: string;
+}
 
 export interface GitHubApproval {
   /** A short-lived, single-use approval identifier issued by the owner-auth layer. */
@@ -30,6 +35,17 @@ export interface GitHubApprovalVerifier {
   }): Promise<boolean>;
 }
 
+/**
+ * Must be backed by the authenticated GitHub owner/session, not by request-supplied
+ * identity. Implementations must fail closed when repository access is unknown.
+ */
+export interface GitHubRepositoryAccessVerifier {
+  hasAccess(input: {
+    repository: GitHubRepository;
+    access: GitHubRepositoryAccess;
+  }): Promise<boolean>;
+}
+
 export interface GitHubRequestOptions {
   token?: string;
   fetchImpl?: typeof fetch;
@@ -37,6 +53,7 @@ export interface GitHubRequestOptions {
 
 export interface DraftPullRequestInput {
   head: string;
+  base?: string;
   title: string;
   body: string;
   approval: GitHubApproval;
@@ -60,41 +77,63 @@ export class GitHubIntegrationError extends Error {
   }
 }
 
-function getToken(explicitToken?: string): string {
-  const token = explicitToken?.trim() || process.env.GITHUB_TOKEN?.trim();
-  if (!token) {
+function parseRepository(repository: GitHubRepository): { owner: string; name: string } {
+  const fullName = repository?.fullName;
+  if (
+    typeof fullName !== "string" ||
+    fullName.length > 200 ||
+    fullName.split("/").length !== 2
+  ) {
+    throw new GitHubIntegrationError("A valid owner/name repository is required.", 400, "INVALID_REPOSITORY");
+  }
+
+  const [owner, name] = fullName.split("/");
+  if (
+    !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37})$/u.test(owner) ||
+    !/^[A-Za-z0-9._-]{1,100}$/u.test(name) ||
+    name === "." ||
+    name === ".."
+  ) {
+    throw new GitHubIntegrationError("A valid owner/name repository is required.", 400, "INVALID_REPOSITORY");
+  }
+
+  return { owner, name };
+}
+
+async function requireRepositoryAccess(
+  repository: GitHubRepository,
+  access: GitHubRepositoryAccess,
+  verifier: GitHubRepositoryAccessVerifier,
+): Promise<{ owner: string; name: string }> {
+  const parsed = parseRepository(repository);
+  const allowed = await verifier.hasAccess({ repository, access });
+  if (!allowed) {
     throw new GitHubIntegrationError(
-      "GitHub integration is not configured.",
-      503,
-      "GITHUB_NOT_CONFIGURED",
+      "The authenticated owner does not have the required repository permission.",
+      403,
+      "REPOSITORY_ACCESS_DENIED",
     );
   }
-  return token;
+  return parsed;
 }
 
-function getFetch(fetchImpl?: typeof fetch): typeof fetch {
-  return fetchImpl ?? fetch;
-}
-
-function assertSafeBranch(branch: string): void {
+function assertSafeRef(ref: string): void {
   if (
-    typeof branch !== "string" ||
-    !branch.startsWith(BRANCH_PREFIX) ||
-    branch.length <= BRANCH_PREFIX.length ||
-    branch.length > 240 ||
-    branch.includes("..") ||
-    branch.startsWith("/") ||
-    branch.endsWith("/") ||
-    branch.endsWith(".") ||
-    branch.includes("//") ||
-    /[~^:?*\\[\]\\s\\\\]/u.test(branch) ||
-    branch.split("/").some((part) => part === "" || part.startsWith(".") || part.endsWith(".lock"))
+    typeof ref !== "string" ||
+    ref.length === 0 ||
+    ref.length > 250 ||
+    ref.startsWith("/") ||
+    ref.endsWith("/") ||
+    ref.endsWith(".") ||
+    ref.includes("..") ||
+    ref.includes("@{") ||
+    ref.includes("//") ||
+    /[\u0000-\u0020\u007f~^:?*\\[\\]\\\\]/u.test(ref) ||
+    ref.split("/").some((part) =>
+      part === "" || part.startsWith(".") || part.startsWith("-") || part.endsWith(".lock")
+    )
   ) {
-    throw new GitHubIntegrationError(
-      "Only valid branch names beginning with badboy/ are allowed.",
-      400,
-      "INVALID_BADBOY_BRANCH",
-    );
+    throw new GitHubIntegrationError("A valid Git branch or ref is required.", 400, "INVALID_GIT_REF");
   }
 }
 
@@ -113,20 +152,34 @@ function canonicalHash(value: unknown): string {
 }
 
 async function githubRequest<T>(
+  owner: string,
+  name: string,
   path: string,
   init: RequestInit,
   options: GitHubRequestOptions = {},
 ): Promise<T> {
-  const response = await getFetch(options.fetchImpl)(`${GITHUB_API}/repos/${REPOSITORY}${path}`, {
-    ...init,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${getToken(options.token)}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers,
+  const token = options.token?.trim() || process.env.GITHUB_TOKEN?.trim();
+  if (!token) {
+    throw new GitHubIntegrationError(
+      "GitHub integration is not configured.",
+      503,
+      "GITHUB_NOT_CONFIGURED",
+    );
+  }
+
+  const response = await (options.fetchImpl ?? fetch)(
+    `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}${path}`,
+    {
+      ...init,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     const status = response.status === 404 ? 404 : response.status === 403 ? 403 : 502;
@@ -140,17 +193,23 @@ async function githubRequest<T>(
   return (await response.json()) as T;
 }
 
-/** Repository reads are GET-only and never require a write approval. */
+/** Repository reads are GET-only and require authenticated read access to that repository. */
 export async function readRepositoryFile(
+  repository: GitHubRepository,
   path: string,
-  ref = DEFAULT_BASE_BRANCH,
+  accessVerifier: GitHubRepositoryAccessVerifier,
+  ref?: string,
   options: GitHubRequestOptions = {},
 ): Promise<unknown> {
+  const { owner, name } = await requireRepositoryAccess(repository, "read", accessVerifier);
   if (
+    typeof path !== "string" ||
     !path ||
     path.startsWith("/") ||
+    path.includes("\\") ||
+    path.includes("\u0000") ||
     path.split("/").some((part) => part === "." || part === "..") ||
-    /(^|\\/)(\.env|.*secret.*|.*credential.*)(\\/|$)/iu.test(path)
+    /(^|\/)(\.env|[^/]*secret[^/]*|[^/]*credential[^/]*)(\/|$)/iu.test(path)
   ) {
     throw new GitHubIntegrationError(
       "The requested repository path is not allowed.",
@@ -158,39 +217,46 @@ export async function readRepositoryFile(
       "INVALID_REPOSITORY_PATH",
     );
   }
-  if (!ref || ref.length > 250 || /[\\r\\n]/u.test(ref)) {
-    throw new GitHubIntegrationError("Invalid repository ref.", 400, "INVALID_REPOSITORY_REF");
-  }
+  if (ref !== undefined) assertSafeRef(ref);
+
+  const refQuery = ref === undefined ? "" : `?ref=${encodeURIComponent(ref)}`;
   return githubRequest(
-    `/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(ref)}`,
+    owner,
+    name,
+    `/contents/${path.split("/").map(encodeURIComponent).join("/")}${refQuery}`,
     { method: "GET" },
     options,
   );
 }
 
 /** Branch creation is a write and consumes its own one-time owner approval. */
-export async function createBadboyBranch(
+export async function createRepositoryBranch(
+  repository: GitHubRepository,
   branch: string,
   baseSha: string,
   approval: GitHubApproval,
   verifier: GitHubApprovalVerifier,
+  accessVerifier: GitHubRepositoryAccessVerifier,
   options: GitHubRequestOptions = {},
 ): Promise<unknown> {
-  assertSafeBranch(branch);
+  const { owner, name } = await requireRepositoryAccess(repository, "write", accessVerifier);
+  assertSafeRef(branch);
   if (!/^[a-f0-9]{40}$/iu.test(baseSha)) {
     throw new GitHubIntegrationError("A full base commit SHA is required.", 400, "INVALID_BASE_SHA");
   }
-  const request = { branch, baseSha };
+  const request = { repository: repository.fullName, branch, baseSha };
   const approved = await verifier.consume({
     approvalId: approval.approvalId,
     action: "create-branch",
-    resource: branch,
+    resource: `${repository.fullName}:${branch}`,
     requestHash: canonicalHash(request),
   });
   if (!approved) {
     throw new GitHubIntegrationError("A separate valid approval is required.", 403, "APPROVAL_REQUIRED");
   }
   return githubRequest(
+    owner,
+    name,
     "/git/refs",
     {
       method: "POST",
@@ -202,17 +268,27 @@ export async function createBadboyBranch(
 
 /** Creates Draft PRs only. There is deliberately no merge/ready-for-review API. */
 export async function createDraftPullRequest(
+  repository: GitHubRepository,
   input: DraftPullRequestInput,
   verifier: GitHubApprovalVerifier,
+  accessVerifier: GitHubRepositoryAccessVerifier,
   options: GitHubRequestOptions = {},
 ): Promise<unknown> {
-  assertSafeBranch(input.head);
-  if (!input.title.trim() || input.title.length > 256 || input.body.length > 20_000) {
+  const { owner, name } = await requireRepositoryAccess(repository, "write", accessVerifier);
+  const base = input.base ?? DEFAULT_BASE_BRANCH;
+  assertSafeRef(input.head);
+  assertSafeRef(base);
+  if (
+    !input.title.trim() ||
+    input.title.length > 256 ||
+    typeof input.body !== "string" ||
+    input.body.length > 20_000
+  ) {
     throw new GitHubIntegrationError("Invalid pull request title or body.", 400, "INVALID_PULL_REQUEST");
   }
   const request = {
     head: input.head,
-    base: DEFAULT_BASE_BRANCH,
+    base,
     title: input.title.trim(),
     body: input.body,
     draft: true,
@@ -220,13 +296,15 @@ export async function createDraftPullRequest(
   const approved = await verifier.consume({
     approvalId: input.approval.approvalId,
     action: "create-draft-pr",
-    resource: input.head,
-    requestHash: canonicalHash(request),
+    resource: `${repository.fullName}:${input.head}->${base}`,
+    requestHash: canonicalHash({ repository: repository.fullName, ...request }),
   });
   if (!approved) {
     throw new GitHubIntegrationError("A separate valid approval is required.", 403, "APPROVAL_REQUIRED");
   }
   return githubRequest(
+    owner,
+    name,
     "/pulls",
     { method: "POST", body: JSON.stringify(request) },
     options,
@@ -235,12 +313,15 @@ export async function createDraftPullRequest(
 
 /** Only explicitly allowlisted workflow files may be dispatched, each with its own approval. */
 export async function dispatchAllowlistedWorkflow(
+  repository: GitHubRepository,
   input: WorkflowDispatchInput,
   verifier: GitHubApprovalVerifier,
+  accessVerifier: GitHubRepositoryAccessVerifier,
   options: GitHubRequestOptions = {},
 ): Promise<void> {
+  const { owner, name } = await requireRepositoryAccess(repository, "write", accessVerifier);
   assertWorkflowAllowed(input.workflowId);
-  assertSafeBranch(input.ref);
+  assertSafeRef(input.ref);
   const inputs = input.inputs ?? {};
   if (
     Object.keys(inputs).length > 20 ||
@@ -252,17 +333,19 @@ export async function dispatchAllowlistedWorkflow(
   ) {
     throw new GitHubIntegrationError("Workflow inputs are invalid.", 400, "INVALID_WORKFLOW_INPUTS");
   }
-  const request = { workflowId: input.workflowId, ref: input.ref, inputs };
+  const request = { repository: repository.fullName, workflowId: input.workflowId, ref: input.ref, inputs };
   const approved = await verifier.consume({
     approvalId: input.approval.approvalId,
     action: "dispatch-workflow",
-    resource: input.workflowId,
+    resource: `${repository.fullName}:${input.workflowId}@${input.ref}`,
     requestHash: canonicalHash(request),
   });
   if (!approved) {
     throw new GitHubIntegrationError("A separate valid approval is required.", 403, "APPROVAL_REQUIRED");
   }
   await githubRequest(
+    owner,
+    name,
     `/actions/workflows/${encodeURIComponent(input.workflowId)}/dispatches`,
     { method: "POST", body: JSON.stringify({ ref: input.ref, inputs }) },
     options,
