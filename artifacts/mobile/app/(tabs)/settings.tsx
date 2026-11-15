@@ -63,7 +63,7 @@ import {
 } from '@/lib/assistant/developer';
 import { resolveDeveloperEngine } from '@/lib/assistant/developerEngine';
 import type { DeveloperEngineMode } from '@/lib/assistant/types';
-import { openAllowedApp, openCalendarDraft, openDeviceSettings, scheduleLocalReminder } from '@/lib/assistant/deviceControl';
+import { openAllowedApp, openCalendarDraft, openDeviceSettings, scheduleLocalReminder, type AllowedAppId, type DeviceSettingsId } from '@/lib/assistant/deviceControl';
 
 interface LocalTelegramMessage {
   id: number;
@@ -377,6 +377,20 @@ export default function SettingsScreen() {
       if (res.state === 'completed' && (res.outputData?.action === 'open_youtube_search' || res.outputData?.action === 'open_youtube')) {
         const query = encodeURIComponent(String(res.outputData.query || prompt));
         Linking.openURL(`https://www.youtube.com/results?search_query=${query}`).catch(() => {});
+      }
+      if (res.state === 'completed' && res.outputData?.action === 'open_allowed_app') {
+        const appId = res.outputData.appId;
+        const allowedApps = ['youtube', 'chrome', 'gmail', 'maps', 'whatsapp', 'telegram'];
+        if (typeof appId === 'string' && allowedApps.includes(appId)) {
+          await openAllowedApp(appId as AllowedAppId);
+        }
+      }
+      if (res.state === 'completed' && res.outputData?.action === 'open_device_settings') {
+        const settingId = res.outputData.settingId;
+        const allowedSettings = ['wifi', 'bluetooth', 'sound', 'app', 'notifications'];
+        if (typeof settingId === 'string' && allowedSettings.includes(settingId)) {
+          await openDeviceSettings(settingId as DeviceSettingsId);
+        }
       }
     } catch {
       // Ignore err
