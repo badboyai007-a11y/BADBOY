@@ -61,7 +61,10 @@ router.get("/owner-control", (_req, res) => {
 
 router.get("/lockdown", requireOwner, async (req, res) => {
   const id = ownerId(req);
-  if (!id) return res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+  if (!id) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+    return;
+  }
   try {
     const result = await pool.query(
       `SELECT reason, locked_at AS "lockedAt" FROM github_developer_lockdowns WHERE owner_id = $1`,
@@ -75,7 +78,10 @@ router.get("/lockdown", requireOwner, async (req, res) => {
 
 router.get("/permissions", requireOwner, async (req, res) => {
   const id = ownerId(req);
-  if (!id) return res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+  if (!id) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+    return;
+  }
   try {
     const result = await pool.query(
       `SELECT id, repository, branch_pattern AS "branchPattern", actions,
@@ -94,7 +100,10 @@ router.get("/permissions", requireOwner, async (req, res) => {
 
 router.post("/permissions", sameOrigin, requireOwner, async (req, res) => {
   const id = ownerId(req);
-  if (!id) return res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+  if (!id) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+    return;
+  }
   const { repository, branchPattern, actions, expiresInSeconds } = req.body ?? {};
   if (!validRepository(repository) || !validBranchPattern(branchPattern) ||
       !Array.isArray(actions) || actions.length === 0 ||
@@ -126,7 +135,10 @@ router.post("/permissions", sameOrigin, requireOwner, async (req, res) => {
 
 router.delete("/permissions/:permissionId", sameOrigin, requireOwner, async (req, res) => {
   const id = ownerId(req);
-  if (!id) return res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+  if (!id) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+    return;
+  }
   try {
     const result = await pool.query(
       `UPDATE github_developer_permissions
@@ -149,7 +161,10 @@ router.delete("/permissions/:permissionId", sameOrigin, requireOwner, async (req
 
 router.post("/lockdown", sameOrigin, requireOwner, async (req, res) => {
   const id = ownerId(req);
-  if (!id) return res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+  if (!id) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+    return;
+  }
   const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 500) : "Owner emergency lockdown";
   try {
     await pool.query(
@@ -171,7 +186,10 @@ router.post("/lockdown", sameOrigin, requireOwner, async (req, res) => {
 
 router.delete("/lockdown", sameOrigin, requireOwner, async (req, res) => {
   const id = ownerId(req);
-  if (!id) return res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+  if (!id) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+    return;
+  }
   try {
     await pool.query("DELETE FROM github_developer_lockdowns WHERE owner_id = $1", [String(id)]);
     await pool.query(
@@ -187,7 +205,10 @@ router.delete("/lockdown", sameOrigin, requireOwner, async (req, res) => {
 
 router.get("/audit", requireOwner, async (req, res) => {
   const id = ownerId(req);
-  if (!id) return res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+  if (!id) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+    return;
+  }
   const requested = Number(req.query.limit ?? 100);
   const limit = Number.isInteger(requested) ? Math.min(200, Math.max(1, requested)) : 100;
   try {

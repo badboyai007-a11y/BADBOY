@@ -37,7 +37,10 @@ interface AccessJwtClaims {
   email?: unknown;
 }
 
-interface AccessJwk extends JsonWebKey {
+interface AccessJwk {
+  kty?: string;
+  n?: string;
+  e?: string;
   kid?: string;
   alg?: string;
   use?: string;
@@ -203,7 +206,7 @@ export async function authenticateCloudflareAccess(
       throw new Error("Matching Access signing key not found.");
     }
 
-    const publicKey = createPublicKey({ key: jwk, format: "jwk" });
+    const publicKey = createPublicKey({ key: jwk as never, format: "jwk" });
     const signatureValid = verifySignature(
       "RSA-SHA256",
       Buffer.from(`${segments[0]}.${segments[1]}`, "utf8"),
