@@ -332,7 +332,7 @@ export default function ChatScreen() {
         }));
         memoryContext = matches.flat().slice(0, 8).map((memory) =>
           `[${memory.project} / ${memory.category}] ${memory.content.slice(0, 900)}`,
-        ).join('\\n').slice(0, 5000);
+        ).join('\n').slice(0, 5000);
       } catch {
         // Keep the existing chat path available when project memory is offline.
       }
