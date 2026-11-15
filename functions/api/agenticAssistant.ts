@@ -379,6 +379,30 @@ function modelErrorMessage(payload: CompletionResponse, status: number): string 
   return payload.error?.message?.slice(0, 300) || `OpenRouter returned HTTP ${status}.`;
 }
 
+export function normalizeStructuredAgentPlan(content: string): string | null {
+  try {
+    const value = JSON.parse(content) as Record<string, unknown>;
+    if (typeof value.goal !== "string" || !value.goal.trim()
+      || !Array.isArray(value.steps) || value.steps.length < 1 || value.steps.length > 8
+      || !Array.isArray(value.risks)) return null;
+    const steps = value.steps.map((step, index) => {
+      if (!step || typeof step !== "object" || Array.isArray(step)) throw new Error("invalid step");
+      const item = step as Record<string, unknown>;
+      if (typeof item.task !== "string" || !item.task.trim()
+        || typeof item.success_criteria !== "string" || !item.success_criteria.trim()) throw new Error("invalid step");
+      return {
+        id: typeof item.id === "string" && item.id.trim() ? item.id.slice(0, 40) : `step-${index + 1}`,
+        task: item.task.slice(0, 500),
+        success_criteria: item.success_criteria.slice(0, 300),
+      };
+    });
+    const risks = value.risks.filter((risk): risk is string => typeof risk === "string").slice(0, 8).map((risk) => risk.slice(0, 300));
+    return JSON.stringify({ goal: value.goal.slice(0, 500), steps, risks }).slice(0, 3000);
+  } catch {
+    return null;
+  }
+}
+
 export function selectAgentModels(messages: ChatMessage[]): string[] {
   const latestUser = [...messages].reverse().find((item) => item.role === "user")?.content;
   const prompt = typeof latestUser === "string" ? latestUser.toLowerCase() : "";
@@ -661,18 +685,25 @@ export async function handleAgenticAssistantRequest(request: Request, env: Agent
               { role: "system", content: "Fallback: return only valid JSON. Do not use Markdown fences." },
             ]);
           }
-          try {
-            const parsed = JSON.parse(planned.content) as { goal?: unknown; steps?: unknown };
-            if (typeof parsed.goal === "string" && Array.isArray(parsed.steps) && parsed.steps.length > 0 && parsed.steps.length <= 8
-              && parsed.steps.every((step) => !!step && typeof step === "object"
-                && typeof (step as Record<string, unknown>).task === "string"
-                && typeof (step as Record<string, unknown>).success_criteria === "string")) {
-              plan = JSON.stringify(parsed).slice(0, 3000);
-            } else plan = planned.content.slice(0, 3000) || plan;
-          } catch {
-            // Recover when a free model ignores JSON mode: retain its text plan.
-            plan = planned.content.slice(0, 3000) || plan;
+          let structuredPlan = normalizeStructuredAgentPlan(planned.content);
+          if (!structuredPlan) {
+            try {
+              const repaired = await completeText(apiKey, [
+                ...plannerMessages,
+                { role: "assistant", content: planned.content.slice(0, 3000) },
+                { role: "user", content: "Your previous plan was not valid structured JSON. Return a valid JSON object with goal, steps (1-8 task/success_criteria objects), and risks only." },
+              ], false, undefined, "json_object");
+              structuredPlan = normalizeStructuredAgentPlan(repaired.content);
+              send({ type: "recovery", reason: "invalid_structured_plan", recovered: Boolean(structuredPlan) });
+            } catch {
+              structuredPlan = null;
+            }
           }
+          plan = structuredPlan ?? JSON.stringify({
+            goal: message.slice(0, 500),
+            steps: [{ id: "step-1", task: "অনুরোধ বিশ্লেষণ করে নিরাপদ উত্তর তৈরি করা", success_criteria: "মূল অনুরোধের উত্তর দেওয়া এবং অনুমানকে সত্য হিসেবে না বলা" }],
+            risks: ["কোনো বাহ্যিক side effect অনুমোদন ছাড়া করা যাবে না"],
+          });
           send({ type: "agent", agent: "planner", status: "completed" });
         }
         send({ type: "agent", agent: "executor", status: "started" });
