@@ -53,7 +53,12 @@ const MAX_OUTPUT_BYTES = 16 * 1024;
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 function byteLength(value: string): number {
-  return new TextEncoder().encode(value).length;
+  let bytes = 0;
+  for (const character of value) {
+    const point = character.codePointAt(0) ?? 0;
+    bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
+  }
+  return bytes;
 }
 
 export function validatePluginManifest(value: unknown): PluginManifest {
@@ -75,7 +80,7 @@ export function validatePluginManifest(value: unknown): PluginManifest {
   if (new Set(capabilities).size !== capabilities.length) throw new Error('Plugin capabilities must be unique.');
   if (item.risk !== 'read_only' && item.risk !== 'side_effect') throw new Error('Plugin risk classification is invalid.');
   const normalizedCapabilities = capabilities as PluginCapability[];
-  const hasWrite = normalizedCapabilities.some((capability) => capability.endsWith('.write') || capability === 'messaging.send');
+  const hasWrite = normalizedCapabilities.some((capability) => ['calendar.write', 'messaging.send', 'device.open_app'].includes(capability));
   if (hasWrite && item.risk !== 'side_effect') throw new Error('Write capabilities must be classified as side_effect.');
   return {
     id: item.id,
