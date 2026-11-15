@@ -995,7 +995,7 @@ export async function createGitHubPullRequest(params: {
     return { success: false, summary: 'মালিকের অনুমোদন প্রয়োজন।', logs,
       error: 'GitHub-এ branch, file বা Pull Request লেখার আগে preview দেখে স্পষ্ট অনুমোদন দিতে হবে।' };
   }
-  if (!expectedBaseSha.trim()) {
+  if (typeof expectedBaseSha !== 'string' || !expectedBaseSha.trim()) {
     return { success: false, summary: 'Preview SHA অনুপস্থিত।', logs,
       error: 'প্রথমে read-only preview তৈরি করে expectedBaseSha দিতে হবে।' };
   }
