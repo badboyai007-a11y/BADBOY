@@ -18,7 +18,7 @@ This document tracks observable implementation and verification evidence. A chec
 | Third-party APIs | Server-side provider adapter pattern; secrets never sent to mobile | Provider-specific OAuth/credential UX and contract tests |
 | Advanced web research | Bounded Tavily search adapter, agentic `web_research` tool and mobile research API; HTTPS-only sources | TAVILY_API_KEY and real-provider verification |
 | Personality | Owner-editable personality prompt in settings | Presets/versioning and prompt injection evaluation |
-| Personal workflows | Multi-step mobile Workflow Builder (up to eight steps), local AsyncStorage persistence, assistant/research/reminder/Telegram steps, bounded adapter engine, manual run and per-step owner approval | Scheduled trigger runtime and background execution remain blocked pending a safe native scheduler |
+| Personal workflows | Multi-step mobile Workflow Builder (up to eight steps), local AsyncStorage persistence, assistant/research/reminder/Telegram steps, Android Calendar draft step, bounded adapter engine, manual run and per-step owner approval | Scheduled trigger runtime and background execution remain blocked pending a safe native scheduler; Calendar draft still requires the user to save in the Calendar app |
 | Offline AI | **Deferred by owner instruction; not part of this implementation scope.** Existing capability reporting is retained, but no local LLM runtime/model is being added. | Revisit only if the owner reopens this roadmap item |
 | Reliability | Health endpoints, provider fallback, request bounds and sanitized diagnostics | Recovery drills, alert delivery, backup restore and load tests |
 | Production release | CI Android APK workflows and release validation | Physical device QA, signing/release owner approval, production deployment |
@@ -59,7 +59,7 @@ The integration status endpoint returns configuration booleans only and never re
 ## Current app workflow behavior
 
 - Workflows are stored locally on the device under a versioned AsyncStorage key.
-- The current UI creates and manually runs Web Research workflows. The typed engine supports assistant prompts, research, local reminders, and Telegram sends through injected adapters.
-- Reminder and Telegram workflow steps require explicit confirmation for the exact step IDs.
+- The current UI creates and manually runs workflows with assistant prompts, web research, local reminders, Android Calendar drafts, and Telegram sends through injected adapters.
+- Reminder, Calendar draft, and Telegram workflow steps require explicit confirmation for the exact step IDs. Calendar drafts open the Android Calendar insert screen; the user must review and save the event there.
 - Scheduled workflows are validated as definitions but are not run in the background. The app explicitly reports this limitation.
 - Workflow execution is sequential, bounded to eight steps, uses per-step cancellation/timeouts, stops on first failure, and limits serialized output.
