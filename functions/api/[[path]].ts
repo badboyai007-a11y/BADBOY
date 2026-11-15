@@ -5,6 +5,7 @@ import { createAgentStorage, type D1Database } from "./agentStorage.ts";
 import { fetchGeminiChat, getGeminiModel } from "./geminiProvider.ts";
 import { handleAgenticAssistantRequest } from "./agenticAssistant.ts";
 import { handleAgentMemorySearchRequest } from "./agentMemory.ts";
+import { handleIntegrationRequest, type IntegrationEnv } from "./integrationHub.ts";
 // Cloudflare Pages Function: Native Developer Agent controls optional AI provider adapters.
 // Ordinary /api/assistant/chat remains on its existing OpenRouter route.
 
@@ -26,6 +27,10 @@ interface Env {
   GROQ_API_KEY?: string;
   BADBOY_OWNER_TOKEN?: string;
   AGENT_DB?: D1Database;
+  TAVILY_API_KEY?: string;
+  HOME_ASSISTANT_URL?: string;
+  HOME_ASSISTANT_TOKEN?: string;
+  SLACK_BOT_TOKEN?: string;
 }
 
 const CORS_HEADERS = {
@@ -1100,6 +1105,10 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       );
     }
     return jsonResponse({ error: "Endpoint not found." }, 404);
+  }
+
+  if (pathname.startsWith("/api/integrations/") || pathname === "/api/research/search") {
+    return handleIntegrationRequest(request, pathname, env as IntegrationEnv);
   }
 
   if (request.method === "POST" && pathname === "/api/developer/analyze") {
