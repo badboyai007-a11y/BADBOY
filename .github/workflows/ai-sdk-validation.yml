@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened, edited]
     branches: [main, feat/agentic-tool-calling-multi-agent]
   push:
-    branches: [feat/vercel-ai-sdk-core, feat/verified-agent-integrations]
+    branches: [feat/vercel-ai-sdk-core]
 
 permissions:
   contents: read
