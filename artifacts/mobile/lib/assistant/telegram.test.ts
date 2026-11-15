@@ -105,7 +105,7 @@ test('sendTelegramMessage validates bot and chat setup before sending', async ()
   await assert.rejects(sendTelegramMessage('hello'), /bind your owner chat first/);
 });
 
-test('sendTelegramMessage sends to the last active chat and propagates API failures', async () => {
+test('sendTelegramMessage targets only the explicitly bound owner chat and propagates API failures', async () => {
   const { sendTelegramMessage } = await telegramPromise;
   reset();
   secure.set('oi-assistant-telegram-token', 'bot-token');
