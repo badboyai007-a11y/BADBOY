@@ -11,16 +11,6 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/pr102-backend-validation.yml"
-  push:
-    branches: []
-    paths:
-      - "functions/**"
-      - "migrations/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/pr102-backend-validation.yml"
-
 permissions:
   contents: read
 
