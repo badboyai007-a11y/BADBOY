@@ -186,7 +186,8 @@ export default function WorkflowsScreen() {
         const end = new Date(input.end ?? "");
         if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) throw new Error("Calendar event date is invalid.");
         const opened = await openCalendarDraft({ title: input.title ?? "Badboy event", start, end });
-        return { calendarDraftOpened: opened, userMustSaveInCalendar: true };
+        if (!opened) throw new Error("Android Calendar did not open the event draft. No event was created.");
+        return { calendarDraftOpened: true, userMustSaveInCalendar: true };
       },
       "telegram.send": async (input) => {
         await sendTelegramMessage(input.text ?? "");
