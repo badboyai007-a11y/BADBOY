@@ -3,6 +3,7 @@ import {
   createDecipheriv,
   createHmac,
   randomBytes,
+  randomUUID,
   timingSafeEqual,
 } from "node:crypto";
 import type { Request, RequestHandler } from "express";
@@ -177,7 +178,7 @@ export async function createGitHubOwnerSession(
   if (!accessToken || accessToken.length > 8192) {
     throw new GitHubDeveloperSecurityError("GitHub OAuth did not return a valid access token.", 401, "GITHUB_OAUTH_TOKEN_INVALID");
   }
-  const id = randomBytes(18).toString("hex") + "-0000-4000-8000-000000000000";
+  const id = randomUUID();
   const encrypted = encryptToken(accessToken, env);
   await pool.query(
     `INSERT INTO github_developer_sessions
