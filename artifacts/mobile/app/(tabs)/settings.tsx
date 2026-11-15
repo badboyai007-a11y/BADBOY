@@ -608,7 +608,7 @@ export default function SettingsScreen() {
     if (!text || telegramBusy) return;
     Alert.alert(
       'Telegram-এ পাঠাবেন?',
-      'এই বার্তাটি আপনার সংযুক্ত bot-এর সর্বশেষ chat-এ পাঠানো হবে।',
+      'এই বার্তাটি শুধু আপনার স্পষ্টভাবে bind করা Owner chat-এ পাঠানো হবে।',
       [
         { text: 'বাতিল', style: 'cancel' },
         {
