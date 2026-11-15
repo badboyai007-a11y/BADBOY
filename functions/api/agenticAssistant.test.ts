@@ -153,13 +153,18 @@ test("agentic endpoint requires a server-side OpenRouter key", async () => {
 });
 
 test("multi-agent endpoint plans, executes allowlisted tools, reviews, and streams final Bangla answer", async () => {
-  const calls: Array<{ model: string; stream: boolean; messages: Array<{ role: string; content: unknown }> }> = [];
+  const calls: Array<{ model: string; stream: boolean; response_format?: { type: string }; messages: Array<{ role: string; content: unknown }> }> = [];
   globalThis.fetch = async (_input, init) => {
     const payload = JSON.parse(String(init?.body)) as {
-      model: string; stream: boolean; messages: Array<{ role: string; content: unknown }>;
+      model: string; stream: boolean; response_format?: { type: string }; messages: Array<{ role: string; content: unknown }>;
     };
     calls.push(payload);
-    if (calls.length === 1) return completion("ধাপ ১: হিসাব যাচাই");
+    if (calls.length === 1) {
+      assert.deepEqual(payload.response_format, { type: "json_object" });
+      assert.ok(payload.messages.some((item) => String(item.content).includes("memory for the owner")));
+      assert.ok(payload.messages.some((item) => String(item.content).includes("custom skill instructions")));
+      return completion("ধাপ ১: হিসাব যাচাই");
+    }
     if (calls.length === 2) return completion("", [{
       id: "tool-1", function: { name: "calculator", arguments: JSON.stringify({ expression: "6 * 7" }) },
     }]);
@@ -175,6 +180,8 @@ test("multi-agent endpoint plans, executes allowlisted tools, reviews, and strea
     const response = await handleAgenticAssistantRequest(agentRequest({
       message: "৬ × ৭ কত?", mode: "multi", personality: "বন্ধুসুলভ", developerMode: true,
       history: [{ role: "user", content: "আগের প্রশ্ন" }],
+      memoryContext: "memory for the owner",
+      skillContext: "custom skill instructions",
     }), { OPENROUTER_API_KEY: "server-key" });
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type") ?? "", /text\/event-stream/);
@@ -190,6 +197,32 @@ test("multi-agent endpoint plans, executes allowlisted tools, reviews, and strea
     assert.equal(calls.every((call) => call.model === "openrouter/free" || call.model.endsWith(":free")), true);
     assert.equal(calls[0].stream, false);
     assert.equal(calls[4].stream, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("agent retries an empty model response and reports a recoverable tool failure", async () => {
+  let calls = 0;
+  globalThis.fetch = async (_input, init) => {
+    const payload = JSON.parse(String(init?.body)) as { stream: boolean; messages: Array<{ role: string; content: unknown }> };
+    if (payload.stream) return finalStream();
+    calls += 1;
+    if (calls === 1) return completion("");
+    if (calls === 2) {
+      assert.ok(payload.messages.some((item) => String(item.content).includes("previous model response was empty")));
+      return completion("Recovered answer");
+    }
+    return completion("Reviewed recovered answer");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(agentRequest({ message: "answer safely", mode: "single" }), {
+      OPENROUTER_API_KEY: "server-key",
+    });
+    const body = await response.text();
+    assert.match(body, /empty_model_response/);
+    assert.match(body, /Recovered answer/);
+    assert.equal(calls, 2);
   } finally {
     globalThis.fetch = originalFetch;
   }
