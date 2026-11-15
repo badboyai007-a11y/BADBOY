@@ -110,7 +110,8 @@ router.post("/permissions", sameOrigin, requireOwner, async (req, res) => {
       actions.some((action: unknown) => typeof action !== "string" || !ACTIONS.has(action)) ||
       new Set(actions).size !== actions.length ||
       !Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 || expiresInSeconds > 30 * 24 * 60 * 60) {
-    return res.status(400).json({ code: "INVALID_PERMISSION_GRANT" });
+    res.status(400).json({ code: "INVALID_PERMISSION_GRANT" });
+    return;
   }
 
   try {
@@ -147,7 +148,10 @@ router.delete("/permissions/:permissionId", sameOrigin, requireOwner, async (req
         RETURNING repository, branch_pattern`,
       [req.params.permissionId, String(id)],
     );
-    if (result.rowCount !== 1) return res.status(404).json({ code: "PERMISSION_NOT_FOUND" });
+    if (result.rowCount !== 1) {
+      res.status(404).json({ code: "PERMISSION_NOT_FOUND" });
+      return;
+    }
     await pool.query(
       `INSERT INTO github_developer_audit_logs (owner_id, action, resource, outcome)
        VALUES ($1, 'permission-revoke', $2, 'owner-revoked')`,
