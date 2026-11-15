@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { createHash } from "node:crypto";
 import {
   createDraftPullRequest,
   createRepositoryBranch,
@@ -134,6 +133,22 @@ router.get("/oauth/callback", async (req, res) => {
 
 const requireOwner = requireGitHubOwnerSession(env);
 
+function requireSameOrigin(req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) {
+  try {
+    const expectedOrigin = new URL(env.APP_ORIGIN ?? "").origin;
+    const requestOrigin = req.get("origin");
+    if (!requestOrigin || requestOrigin !== expectedOrigin) {
+      res.status(403).json({ code: "CROSS_ORIGIN_REQUEST_BLOCKED", error: "This action must originate from the configured owner application." });
+      return;
+    }
+    next();
+  } catch {
+    res.status(503).json({ code: "APP_ORIGIN_INVALID", error: "Owner application origin is not configured." });
+  }
+}
+
+
+
 router.get("/me", requireOwner, (req, res) => {
   const owner = (req as GitHubDeveloperRequest).githubOwner;
   if (!owner) {
@@ -143,10 +158,6 @@ router.get("/me", requireOwner, (req, res) => {
   res.json({ id: owner.identity.id, login: owner.identity.login, name: owner.identity.name });
 });
 
-
-function requestHash(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
-}
 
 function repositoryFromParams(req: import("express").Request) {
   return { fullName: `${req.params.owner}/${req.params.repo}` };
@@ -206,7 +217,7 @@ router.get("/repositories/:owner/:repo/contents", requireOwner, async (req, res)
   }
 });
 
-router.post("/repositories/:owner/:repo/branches", requireOwner, async (req, res) => {
+router.post("/repositories/:owner/:repo/branches", requireSameOrigin, requireOwner, async (req, res) => {
   const owner = (req as GitHubDeveloperRequest).githubOwner;
   if (!owner) {
     res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
@@ -242,7 +253,7 @@ router.post("/repositories/:owner/:repo/branches", requireOwner, async (req, res
   }
 });
 
-router.post("/repositories/:owner/:repo/pull-requests/draft", requireOwner, async (req, res) => {
+router.post("/repositories/:owner/:repo/pull-requests/draft", requireSameOrigin, requireOwner, async (req, res) => {
   const owner = (req as GitHubDeveloperRequest).githubOwner;
   if (!owner) {
     res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
@@ -276,7 +287,7 @@ router.post("/repositories/:owner/:repo/pull-requests/draft", requireOwner, asyn
   }
 });
 
-router.post("/repositories/:owner/:repo/workflows/dispatch", requireOwner, async (req, res) => {
+router.post("/repositories/:owner/:repo/workflows/dispatch", requireSameOrigin, requireOwner, async (req, res) => {
   const owner = (req as GitHubDeveloperRequest).githubOwner;
   if (!owner) {
     res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
@@ -310,7 +321,7 @@ router.post("/repositories/:owner/:repo/workflows/dispatch", requireOwner, async
   }
 });
 
-router.post("/approvals", requireOwner, async (req, res) => {
+router.post("/approvals", requireSameOrigin, requireOwner, async (req, res) => {
   const owner = (req as GitHubDeveloperRequest).githubOwner;
   if (!owner) {
     res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
@@ -343,7 +354,7 @@ router.post("/approvals", requireOwner, async (req, res) => {
   }
 });
 
-router.post("/oauth/logout", async (req, res) => {
+router.post("/oauth/logout", requireSameOrigin, async (req, res) => {
   try {
     await deleteGitHubOwnerSession(req.cookies?.[githubDeveloperCookies.session] as string | undefined, env);
     res.clearCookie(githubDeveloperCookies.session, githubDeveloperCookieOptions(env));
