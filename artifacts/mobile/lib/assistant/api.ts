@@ -343,3 +343,36 @@ export async function searchWebResearch(query: string): Promise<WebResearchResul
     retrievedAt: typeof result.retrievedAt === 'string' ? result.retrievedAt : new Date().toISOString(),
   };
 }
+
+export interface IntegrationProviderStatus {
+  configured: boolean;
+  mode: string;
+}
+export interface AssistantIntegrationStatus {
+  research: IntegrationProviderStatus;
+  homeAssistant: IntegrationProviderStatus;
+  slack: IntegrationProviderStatus;
+  telegram: IntegrationProviderStatus;
+  writesRequireOwnerApproval: boolean;
+  providerSecretsStayServerSide: boolean;
+}
+
+/** Read only provider readiness flags; never returns tokens or credential metadata. */
+export async function getIntegrationStatus(): Promise<AssistantIntegrationStatus> {
+  const response = await expoFetch(apiUrl('/integrations/status'), {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: await ownerAuthorizationHeader(),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Integration status failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { integrations?: AssistantIntegrationStatus };
+  if (!body.integrations || typeof body.integrations !== 'object') {
+    throw new Error('Integration status response is invalid.');
+  }
+  return body.integrations;
+}

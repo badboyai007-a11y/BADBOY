@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAssistant } from "@/context/AssistantContext";
 import { useColors } from "@/hooks/useColors";
-import { searchWebResearch, streamReply } from "@/lib/assistant/api";
+import { getIntegrationStatus, searchWebResearch, streamReply, type AssistantIntegrationStatus } from "@/lib/assistant/api";
 import { executePersonalWorkflow, type WorkflowAdapters } from "@/lib/assistant/workflowEngine";
 import { workflowNeedsOwnerApproval, type PersonalWorkflow } from "@/lib/assistant/workflowBuilder";
 import { deletePersonalWorkflow, loadPersonalWorkflows, savePersonalWorkflow } from "@/lib/assistant/workflowStorage";
@@ -22,6 +22,7 @@ export default function WorkflowsScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string>("");
+  const [integrationStatus, setIntegrationStatus] = useState<AssistantIntegrationStatus | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -31,6 +32,16 @@ export default function WorkflowsScreen() {
       if (active) setError(cause instanceof Error ? cause.message : "Workflow data could not be loaded.");
     }).finally(() => {
       if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void getIntegrationStatus().then((status) => {
+      if (active) setIntegrationStatus(status);
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Integration status could not be loaded.");
     });
     return () => { active = false; };
   }, []);
@@ -132,6 +143,30 @@ export default function WorkflowsScreen() {
         আপনার নিজের ছোট workflow তৈরি করুন। এখন manual trigger চালু; scheduled workflow ও background execution আলাদা runtime verification না হওয়া পর্যন্ত বন্ধ।
       </Text>
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Integration Status</Text>
+        {integrationStatus ? (
+          <>
+            {([
+              ["Web Research", integrationStatus.research.configured],
+              ["Home Assistant", integrationStatus.homeAssistant.configured],
+              ["Slack", integrationStatus.slack.configured],
+              ["Telegram (mobile)", integrationStatus.telegram.mode === "mobile_secure_store"],
+            ] as const).map(([label, ready]) => (
+              <View key={label} style={styles.statusRow}>
+                <Text style={[styles.meta, { color: colors.foreground }]}>{label}</Text>
+                <Text style={[styles.meta, { color: ready ? colors.primary : colors.mutedForeground }]}>{ready ? "Configured" : "Not configured"}</Text>
+              </View>
+            ))}
+            <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+              Provider secrets stay server-side. Smart-home and Slack actions are read-only until secure owner approval is enabled.
+            </Text>
+          </>
+        ) : (
+          <Text style={[styles.meta, { color: colors.mutedForeground }]}>Provider readiness is loading or the backend is unavailable.</Text>
+        )}
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>নতুন Web Research workflow</Text>
         <TextInput value={name} onChangeText={setName} maxLength={80} placeholder="Workflow-এর নাম" placeholderTextColor={colors.mutedForeground} accessibilityLabel="Workflow name" style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />
         <TextInput value={query} onChangeText={setQuery} maxLength={500} placeholder="কী বিষয়ে research করবে?" placeholderTextColor={colors.mutedForeground} accessibilityLabel="Research query" style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />
@@ -182,6 +217,7 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14 },
   primaryButton: { minHeight: 42, borderRadius: 11, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   workflowName: { fontSize: 15, fontWeight: "700" },
   meta: { fontSize: 12, lineHeight: 18 },
   result: { borderWidth: 1, borderRadius: 14, padding: 14, marginTop: 18, gap: 8 },

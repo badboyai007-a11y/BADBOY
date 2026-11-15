@@ -305,3 +305,35 @@ test('searchWebResearch rejects empty queries and provider failures', async () =
   fetchHandler = async () => jsonResponse({ error: 'research not configured' }, 503);
   await assert.rejects(searchWebResearch('current news'), /research not configured/);
 });
+
+
+test('getIntegrationStatus uses owner authentication and returns readiness flags only', async () => {
+  const { getIntegrationStatus } = await apiPromise;
+  let url = '';
+  fetchHandler = async (input, init) => {
+    url = String(input);
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    assert.equal(new Headers(init.headers).get('Accept'), 'application/json');
+    return jsonResponse({ integrations: {
+      research: { configured: true, mode: 'read_only' },
+      homeAssistant: { configured: false, mode: 'read_only' },
+      slack: { configured: true, mode: 'read_only' },
+      telegram: { configured: false, mode: 'mobile_secure_store' },
+      writesRequireOwnerApproval: true,
+      providerSecretsStayServerSide: true,
+    } });
+  };
+  const result = await getIntegrationStatus();
+  assert.equal(url, 'https://worker.example/integrations/status');
+  assert.equal(result.research.configured, true);
+  assert.equal(result.homeAssistant.configured, false);
+  assert.equal(result.providerSecretsStayServerSide, true);
+});
+
+test('getIntegrationStatus reports backend errors and malformed responses', async () => {
+  const { getIntegrationStatus } = await apiPromise;
+  fetchHandler = async () => jsonResponse({ error: 'owner auth required' }, 401);
+  await assert.rejects(getIntegrationStatus(), /owner auth required/);
+  fetchHandler = async () => jsonResponse({ integrations: null });
+  await assert.rejects(getIntegrationStatus(), /response is invalid/);
+});
