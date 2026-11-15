@@ -147,7 +147,9 @@ test("model router prioritizes code and reasoning models while retaining free fa
   assert.equal(code[0], "cohere/north-mini-code:free");
   assert.equal(reasoning[0], "nvidia/nemotron-3.5-lightning:free");
   assert.equal(general[0], "openrouter/free");
-  assert.ok([...code, ...reasoning, ...general].every((model) => model === "openrouter/free" || model.endsWith(":free")));
+  const synthesis = selectAgentModels([{ role: "user", content: "Original request:\ntest\n\nPlan:\nA multi-step plan" }]);
+  assert.equal(synthesis[0], "openrouter/free");
+  assert.ok([...code, ...reasoning, ...general, ...synthesis].every((model) => model === "openrouter/free" || model.endsWith(":free")));
 });
 
 test("agentic endpoint rejects media type, malformed JSON, oversized body, and invalid payload", async () => {
