@@ -270,3 +270,38 @@ test('requestSpeech returns audio bytes and rejects HTTP or empty audio response
   fetchHandler = async () => new Response(new Uint8Array([]), { status: 200 });
   await assert.rejects(requestSpeech('hello', 'en-US'), /empty audio file/);
 });
+
+
+test('searchWebResearch uses owner auth, bounds queries and returns HTTPS sources', async () => {
+  const { searchWebResearch } = await apiPromise;
+  let url = '';
+  let sent: any;
+  fetchHandler = async (input, init) => {
+    url = String(input);
+    sent = JSON.parse(String(init.body));
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    return jsonResponse({
+      query: 'AI research',
+      answer: 'A sourced answer',
+      results: [
+        { title: 'Secure source', url: 'https://example.com', content: 'source text', score: 0.9 },
+        { title: 'Unsafe source', url: 'http://example.com', content: 'not trusted', score: 0.8 },
+      ],
+      sourceCount: 2,
+      retrievedAt: '2026-11-15T00:00:00.000Z',
+    });
+  };
+  const result = await searchWebResearch('  AI research  ');
+  assert.equal(url, 'https://worker.example/research/search');
+  assert.deepEqual(sent, { query: 'AI research', maxResults: 5 });
+  assert.equal(result.results.length, 1);
+  assert.equal(result.results[0].url, 'https://example.com');
+});
+
+test('searchWebResearch rejects empty queries and provider failures', async () => {
+  const { searchWebResearch } = await apiPromise;
+  fetchHandler = async () => { throw new Error('should not fetch'); };
+  await assert.rejects(searchWebResearch('  '), /query is required/);
+  fetchHandler = async () => jsonResponse({ error: 'research not configured' }, 503);
+  await assert.rejects(searchWebResearch('current news'), /research not configured/);
+});

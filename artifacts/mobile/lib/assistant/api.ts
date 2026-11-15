@@ -301,3 +301,45 @@ export async function requestSpeech(text: string, language: string): Promise<Uin
     clearTimeout(timeout);
   }
 }
+
+export interface WebResearchSource {
+  title: string;
+  url: string;
+  content: string;
+  score: number | null;
+}
+export interface WebResearchResult {
+  query: string;
+  answer: string | null;
+  results: WebResearchSource[];
+  sourceCount: number;
+  retrievedAt: string;
+}
+
+/** Search public web sources through the owner-authenticated server adapter. */
+export async function searchWebResearch(query: string): Promise<WebResearchResult> {
+  const cleanQuery = query.trim().slice(0, 500);
+  if (!cleanQuery) throw new Error("Research query is required.");
+  const response = await expoFetch(apiUrl('/research/search'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: await ownerAuthorizationHeader(),
+    },
+    body: JSON.stringify({ query: cleanQuery, maxResults: 5 }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Web research failed (HTTP ${response.status}).`);
+  }
+  const result = await response.json() as WebResearchResult;
+  if (!Array.isArray(result.results)) throw new Error("Web research returned an invalid result.");
+  return {
+    query: cleanQuery,
+    answer: typeof result.answer === 'string' ? result.answer.slice(0, 4000) : null,
+    results: result.results.filter((item) => typeof item?.url === 'string' && item.url.startsWith('https://')).slice(0, 5),
+    sourceCount: Math.min(5, result.results.length),
+    retrievedAt: typeof result.retrievedAt === 'string' ? result.retrievedAt : new Date().toISOString(),
+  };
+}
