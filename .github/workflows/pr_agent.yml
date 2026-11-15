@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: pr-agent-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   pr_agent_job:
@@ -27,7 +27,12 @@ jobs:
           # Use the Google AI Studio LiteLLM provider explicitly.
           # gemini-2.5-flash is unavailable to new API users.
           config.model: "gemini/gemini-3.8-flash"
-          config.fallback_models: '[]'
+          config.fallback_models: '["gemini/gemini-3.5-flash-lite"]'
+          # Fall back quickly when the primary Gemini model is quota-limited.
+          config.num_retries: "1"
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "false"
+          github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "review_requested", "synchronize", "edited"]'
           GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           config.git_provider: "github"
           config.allow_bugs: "true"

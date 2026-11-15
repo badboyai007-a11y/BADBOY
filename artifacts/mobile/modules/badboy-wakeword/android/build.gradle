@@ -9,7 +9,7 @@ apply plugin: 'kotlin-android'
 android {
   namespace "expo.modules.badboywakeword"
   compileSdkVersion safeExtGet("compileSdkVersion", 36)
-  defaultConfig { minSdkVersion safeExtGet("minSdkVersion", 34) }
+  defaultConfig { minSdkVersion safeExtGet("minSdkVersion", 24) }
   sourceSets { main { assets.srcDirs += ['src/main/assets'] } }
 }
 dependencies {

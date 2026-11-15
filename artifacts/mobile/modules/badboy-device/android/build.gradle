@@ -9,7 +9,7 @@ apply plugin: 'kotlin-android'
 android {
   namespace "expo.modules.badboydevice"
   compileSdkVersion safeExtGet("compileSdkVersion", 36)
-  defaultConfig { minSdkVersion safeExtGet("minSdkVersion", 34) }
+  defaultConfig { minSdkVersion safeExtGet("minSdkVersion", 24) }
 }
 dependencies {
   implementation project(':expo-modules-core')
