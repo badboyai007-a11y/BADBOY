@@ -10,6 +10,7 @@ const writeManifest = {
   id: 'sample-calendar', name: 'Sample Calendar', version: '1.0.0',
   description: 'Creates a calendar draft.', capabilities: ['calendar.write'], risk: 'side_effect',
 };
+const readContext = { ownerId: 'owner-1', requestId: 'read-1' };
 
 test('plugin manifest validates and normalizes a safe read-only plugin', () => {
   const manifest = validatePluginManifest(readManifest);
@@ -29,46 +30,103 @@ test('plugin manifest rejects malformed ids, unknown capabilities, duplicate cap
 test('registry disables plugins by default and denies undeclared capabilities', async () => {
   const registry = new PluginRegistry();
   registry.register(readManifest, { execute: async () => ({ value: 'safe' }) });
-  const disabled = await registry.invoke('sample-reader', 'memory.read', {}, { ownerId: 'owner', approved: true, requestId: 'r1' });
+  const disabled = await registry.invoke('sample-reader', 'memory.read', {}, readContext);
   assert.equal('code' in disabled ? disabled.code : null, 'DISABLED');
   registry.setEnabled('sample-reader', true);
-  const denied = await registry.invoke('sample-reader', 'web.read', {}, { ownerId: 'owner', approved: true, requestId: 'r2' });
+  const denied = await registry.invoke('sample-reader', 'web.read', {}, readContext);
   assert.equal('code' in denied ? denied.code : null, 'CAPABILITY_DENIED');
-  assert.deepEqual(await registry.invoke('sample-reader', 'memory.read', {}, { ownerId: 'owner', approved: false, requestId: 'r3' }), {
+  assert.deepEqual(await registry.invoke('sample-reader', 'memory.read', {}, readContext), {
     ok: true, pluginId: 'sample-reader', output: { value: 'safe' },
   });
 });
 
-test('side-effect plugins require per-invocation owner approval', async () => {
+test('side-effect plugins fail closed without a trusted verifier and cannot use a boolean approval', async () => {
   const registry = new PluginRegistry();
-  registry.register(writeManifest, { execute: async (input) => ({ created: input.title }) });
+  let executions = 0;
+  registry.register(writeManifest, { execute: async () => { executions += 1; return { created: true }; } });
   registry.setEnabled('sample-calendar', true);
   const denied = await registry.invoke('sample-calendar', 'calendar.write', { title: 'Test' }, {
-    ownerId: 'owner', approved: false, requestId: 'r1',
+    ...readContext, approvalToken: 'unverified-token',
   });
   assert.equal('code' in denied ? denied.code : null, 'OWNER_APPROVAL_REQUIRED');
-  assert.deepEqual(await registry.invoke('sample-calendar', 'calendar.write', { title: 'Test' }, {
-    ownerId: 'owner', approved: true, requestId: 'r2',
-  }), { ok: true, pluginId: 'sample-calendar', output: { created: 'Test' } });
+  assert.equal(executions, 0);
 });
 
-test('registry rejects oversized input and duplicate registration', async () => {
+test('side-effect approval is verified against owner, plugin, capability and request id', async () => {
+  const verified: unknown[] = [];
+  const registry = new PluginRegistry(async (request) => {
+    verified.push(request);
+    return request.ownerId === 'owner-1'
+      && request.pluginId === 'sample-calendar'
+      && request.capability === 'calendar.write'
+      && request.requestId === 'write-1'
+      && request.approvalToken === 'signed-one-time-token';
+  });
+  registry.register(writeManifest, { execute: async (input) => ({ created: input.title }) });
+  registry.setEnabled('sample-calendar', true);
+
+  const denied = await registry.invoke('sample-calendar', 'calendar.write', { title: 'Test' }, {
+    ownerId: 'someone-else', requestId: 'write-1', approvalToken: 'signed-one-time-token',
+  });
+  assert.equal('code' in denied ? denied.code : null, 'OWNER_APPROVAL_REQUIRED');
+
+  const allowed = await registry.invoke('sample-calendar', 'calendar.write', { title: 'Test' }, {
+    ownerId: 'owner-1', requestId: 'write-1', approvalToken: 'signed-one-time-token',
+  });
+  assert.deepEqual(allowed, { ok: true, pluginId: 'sample-calendar', output: { created: 'Test' } });
+  assert.equal(verified.length, 2);
+});
+
+test('approval verifier failures deny the action', async () => {
+  const registry = new PluginRegistry(async () => { throw new Error('approval store unavailable'); });
+  registry.register(writeManifest, { execute: async () => ({ created: true }) });
+  registry.setEnabled('sample-calendar', true);
+  const result = await registry.invoke('sample-calendar', 'calendar.write', {}, {
+    ownerId: 'owner-1', requestId: 'write-2', approvalToken: 'token',
+  });
+  assert.equal('code' in result ? result.code : null, 'OWNER_APPROVAL_REQUIRED');
+});
+
+test('registry rejects malformed context, oversized input and duplicate registration', async () => {
   const registry = new PluginRegistry();
   registry.register(readManifest, { execute: async () => 'ok' });
   assert.throws(() => registry.register(readManifest, { execute: async () => 'duplicate' }));
   registry.setEnabled('sample-reader', true);
-  const result = await registry.invoke('sample-reader', 'memory.read', { value: 'x'.repeat(9000) }, {
-    ownerId: 'owner', approved: true, requestId: 'r1',
-  });
+  const malformed = await registry.invoke('sample-reader', 'memory.read', {}, null as never);
+  assert.equal('code' in malformed ? malformed.code : null, 'INVALID_INPUT');
+  const result = await registry.invoke('sample-reader', 'memory.read', { value: 'x'.repeat(9000) }, readContext);
   assert.equal('code' in result ? result.code : null, 'INVALID_INPUT');
 });
 
-test('registry converts adapter exceptions to safe errors and enforces output limits', async () => {
+test('registry converts adapter exceptions to safe errors and rejects non-JSON output', async () => {
   const registry = new PluginRegistry();
   registry.register(readManifest, { execute: async () => { throw new Error('secret internal detail'); } });
   registry.setEnabled('sample-reader', true);
-  const result = await registry.invoke('sample-reader', 'memory.read', {}, {
-    ownerId: 'owner', approved: true, requestId: 'r1',
-  });
+  const result = await registry.invoke('sample-reader', 'memory.read', {}, readContext);
   assert.deepEqual(result, { ok: false, pluginId: 'sample-reader', code: 'EXECUTION_FAILED', error: 'Plugin execution failed.' });
+});
+
+test('timeout aborts the adapter signal and returns a bounded timeout result', async () => {
+  const registry = new PluginRegistry();
+  let signalAborted = false;
+  registry.register(readManifest, {
+    execute: async (_input, context) => new Promise((resolve) => {
+      context.signal.addEventListener('abort', () => {
+        signalAborted = true;
+        resolve({ stopped: true });
+      }, { once: true });
+    }),
+  });
+  registry.setEnabled('sample-reader', true);
+  const result = await registry.invoke('sample-reader', 'memory.read', {}, readContext, 5);
+  assert.deepEqual(result, { ok: false, pluginId: 'sample-reader', code: 'TIMEOUT', error: 'Plugin execution timed out.' });
+  assert.equal(signalAborted, true);
+});
+
+test('registry enforces output size and returns defensive JSON copies', async () => {
+  const registry = new PluginRegistry();
+  registry.register(readManifest, { execute: async () => ({ value: 'x'.repeat(17 * 1024) }) });
+  registry.setEnabled('sample-reader', true);
+  const result = await registry.invoke('sample-reader', 'memory.read', {}, readContext);
+  assert.equal('code' in result ? result.code : null, 'EXECUTION_FAILED');
 });

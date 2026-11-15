@@ -1,9 +1,11 @@
 /**
  * Safe, runtime-neutral custom plugin registry.
  *
- * Plugins are adapters supplied by trusted application code. This registry never
- * evaluates downloaded code, loads arbitrary modules, or grants network/shell access.
- * Side-effecting capabilities require an explicit owner approval per invocation.
+ * Plugins are trusted in-app adapters only. This module never evaluates downloaded
+ * code or grants arbitrary shell, filesystem, or network access.
+ *
+ * Side-effecting calls are fail-closed: a trusted verifier must validate and consume
+ * a one-time owner approval bound to owner, plugin, capability, and request id.
  */
 
 export const PLUGIN_CAPABILITIES = [
@@ -30,12 +32,31 @@ export interface PluginManifest {
 
 export interface PluginInvocationContext {
   ownerId: string;
-  approved: boolean;
   requestId: string;
+  /** Opaque token issued by the trusted owner-approval flow. Never a boolean. */
+  approvalToken?: string;
+}
+
+export interface PluginApprovalRequest {
+  ownerId: string;
+  pluginId: string;
+  capability: PluginCapability;
+  requestId: string;
+  approvalToken: string;
+}
+
+/** Implement with the app's authenticated, one-time, owner-scoped approval store. */
+export type PluginApprovalVerifier = (request: PluginApprovalRequest) => Promise<boolean>;
+
+export interface PluginExecutionContext {
+  ownerId: string;
+  requestId: string;
+  /** Adapters should pass this signal to cancellable I/O and stop before new side effects. */
+  signal: AbortSignal;
 }
 
 export interface PluginAdapter {
-  execute(input: Record<string, unknown>, context: PluginInvocationContext): Promise<unknown>;
+  execute(input: Record<string, unknown>, context: PluginExecutionContext): Promise<unknown>;
 }
 
 export interface PluginRecord {
@@ -51,6 +72,7 @@ const ID_PATTERN = /^[a-z][a-z0-9-]{1,47}$/;
 const MAX_INPUT_BYTES = 8 * 1024;
 const MAX_OUTPUT_BYTES = 16 * 1024;
 const DEFAULT_TIMEOUT_MS = 10_000;
+const MAX_TIMEOUT_MS = 30_000;
 
 function byteLength(value: string): number {
   let bytes = 0;
@@ -68,7 +90,7 @@ export function validatePluginManifest(value: unknown): PluginManifest {
   const item = value as Record<string, unknown>;
   if (typeof item.id !== 'string' || !ID_PATTERN.test(item.id)) throw new Error('Plugin id is invalid.');
   if (typeof item.name !== 'string' || !item.name.trim() || item.name.length > 80) throw new Error('Plugin name is invalid.');
-  if (typeof item.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(item.version)) throw new Error('Plugin version must use semantic x.y.z format.');
+  if (typeof item.version !== 'string' || !/^\\d+\\.\\d+\\.\\d+$/.test(item.version)) throw new Error('Plugin version must use semantic x.y.z format.');
   if (typeof item.description !== 'string' || !item.description.trim() || item.description.length > 500) throw new Error('Plugin description is invalid.');
   if (!Array.isArray(item.capabilities) || item.capabilities.length < 1 || item.capabilities.length > 8) {
     throw new Error('Plugin must declare between one and eight capabilities.');
@@ -95,6 +117,10 @@ export function validatePluginManifest(value: unknown): PluginManifest {
 export class PluginRegistry {
   private readonly records = new Map<string, PluginRecord>();
   private readonly adapters = new Map<string, PluginAdapter>();
+
+  constructor(
+    private readonly verifyOwnerApproval: PluginApprovalVerifier = async () => false,
+  ) {}
 
   register(manifestInput: unknown, adapter: PluginAdapter): PluginRecord {
     const manifest = validatePluginManifest(manifestInput);
@@ -133,36 +159,74 @@ export class PluginRegistry {
     if (!record.manifest.capabilities.includes(capability)) {
       return { ok: false, pluginId, code: 'CAPABILITY_DENIED', error: 'Plugin does not declare this capability.' };
     }
-    if (record.manifest.risk === 'side_effect' && context.approved !== true) {
-      return { ok: false, pluginId, code: 'OWNER_APPROVAL_REQUIRED', error: 'Owner approval is required for this action.' };
-    }
-    if (!context.ownerId.trim() || !context.requestId.trim() || !input || typeof input !== 'object' || Array.isArray(input)) {
+    if (!context || typeof context.ownerId !== 'string' || !context.ownerId.trim()
+      || typeof context.requestId !== 'string' || !context.requestId.trim()
+      || !input || typeof input !== 'object' || Array.isArray(input)) {
       return { ok: false, pluginId, code: 'INVALID_INPUT', error: 'Owner, request id, and an input object are required.' };
     }
+
+    if (record.manifest.risk === 'side_effect') {
+      if (typeof context.approvalToken !== 'string' || !context.approvalToken.trim()) {
+        return { ok: false, pluginId, code: 'OWNER_APPROVAL_REQUIRED', error: 'Owner approval is required for this action.' };
+      }
+      let approved = false;
+      try {
+        approved = await this.verifyOwnerApproval({
+          ownerId: context.ownerId,
+          pluginId,
+          capability,
+          requestId: context.requestId,
+          approvalToken: context.approvalToken,
+        });
+      } catch {
+        approved = false;
+      }
+      if (!approved) {
+        return { ok: false, pluginId, code: 'OWNER_APPROVAL_REQUIRED', error: 'A valid, unused owner approval is required for this action.' };
+      }
+    }
+
     let encodedInput: string;
     try { encodedInput = JSON.stringify(input); } catch {
       return { ok: false, pluginId, code: 'INVALID_INPUT', error: 'Plugin input must be JSON-serializable.' };
     }
-    if (byteLength(encodedInput) > MAX_INPUT_BYTES) {
-      return { ok: false, pluginId, code: 'INVALID_INPUT', error: 'Plugin input exceeds the 8 KiB limit.' };
+    if (typeof encodedInput !== 'string' || byteLength(encodedInput) > MAX_INPUT_BYTES) {
+      return { ok: false, pluginId, code: 'INVALID_INPUT', error: 'Plugin input exceeds the 8 KiB limit or is not serializable.' };
     }
+
     const adapter = this.adapters.get(pluginId);
     if (!adapter) return { ok: false, pluginId, code: 'NOT_FOUND', error: 'Plugin adapter is unavailable.' };
+
+    const controller = new AbortController();
+    const boundedTimeout = Math.max(1, Math.min(
+      Number.isFinite(timeoutMs) ? Math.trunc(timeoutMs) : DEFAULT_TIMEOUT_MS,
+      MAX_TIMEOUT_MS,
+    ));
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+
     try {
-      const output = await Promise.race([
-        adapter.execute(JSON.parse(encodedInput) as Record<string, unknown>, context),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(() => reject(new Error('PLUGIN_TIMEOUT')), Math.max(1, Math.min(timeoutMs, 30_000)));
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+          reject(new Error('PLUGIN_TIMEOUT'));
+        }, boundedTimeout);
+      });
+      const executionPromise = Promise.resolve().then(() =>
+        adapter.execute(JSON.parse(encodedInput) as Record<string, unknown>, {
+          ownerId: context.ownerId,
+          requestId: context.requestId,
+          signal: controller.signal,
         }),
-      ]);
+      );
+      const output = await Promise.race([executionPromise, timeoutPromise]);
       const encodedOutput = JSON.stringify(output);
       if (typeof encodedOutput !== 'string' || byteLength(encodedOutput) > MAX_OUTPUT_BYTES) {
         return { ok: false, pluginId, code: 'EXECUTION_FAILED', error: 'Plugin output is not serializable or exceeds 16 KiB.' };
       }
       return { ok: true, pluginId, output: JSON.parse(encodedOutput) as unknown };
-    } catch (error) {
-      const timedOut = error instanceof Error && error.message === 'PLUGIN_TIMEOUT';
+    } catch {
       return {
         ok: false,
         pluginId,
