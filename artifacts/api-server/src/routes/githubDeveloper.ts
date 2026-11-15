@@ -1,4 +1,4 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import {
   createGitHubOwnerSession,
   createOAuthState,
@@ -7,7 +7,6 @@ import {
   githubDeveloperCookies,
   GitHubDeveloperSecurityError,
   GitHubOwnerRepositoryAccessVerifier,
-  getGitHubOwnerSession,
   issueGitHubWriteApproval,
   requireGitHubOwnerSession,
   verifyOAuthState,
