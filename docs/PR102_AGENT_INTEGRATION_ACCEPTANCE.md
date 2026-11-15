@@ -189,3 +189,22 @@ A check is **PASS** only when its job/test actually ran on the exact head SHA an
 ## Release policy
 
 PR #102 may be marked ready for review only after all code-level CI checks pass. Hardware- or credential-dependent capabilities must remain explicitly Blocked until the matching integration/device evidence is attached. Never mark the whole roadmap complete by averaging partial results.
+
+
+## Implementation progress (updated on 2026-11-15)
+
+### Added in this PR branch
+- Owner-scoped project-memory search in D1 using parameterized statements.
+- New authenticated route: `POST /api/agent/memory/search`.
+- Request body is bounded to 8 KiB; only `projectId`, `query`, and optional integer `limit` are accepted.
+- The route receives owner identity only from the existing upstream personal-owner authentication gate; client-supplied owner IDs are not accepted.
+- Sensitive memories are excluded unconditionally by the route. There is no request flag to bypass this privacy boundary.
+- Search results exclude soft-deleted records and are scoped by both project ID and verified owner ID.
+- Unit tests cover owner scoping, sensitive-memory exclusion, malformed payloads, unsupported fields/content types, missing D1 storage, and request-size limits.
+- Added the backend memory-search test to the functions test script.
+
+### Current verification status
+- **Implemented:** code and test files are committed to the PR branch.
+- **CI verified:** pending exact-head CI execution; do not mark PASS until the run completes.
+- **Device / provider verified:** not applicable to this server-side memory search route; Android client integration and real D1 environment verification remain separate work.
+- Existing mobile-local memory behavior and the existing D1 schema/migration are unchanged. No production migration was run.
