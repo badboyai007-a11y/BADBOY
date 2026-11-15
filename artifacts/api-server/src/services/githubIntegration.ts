@@ -127,7 +127,10 @@ function assertSafeRef(ref: string): void {
     ref.includes("..") ||
     ref.includes("@{") ||
     ref.includes("//") ||
-    /[\u0000-\u0020\u007f~^:?*\\[\\]\\\\]/u.test(ref) ||
+    Array.from(ref).some((character) => {
+      const code = character.charCodeAt(0);
+      return code <= 0x20 || code === 0x7f || "~^:?*[]\\\\".includes(character);
+    }) ||
     ref.split("/").some((part) =>
       part === "" || part.startsWith(".") || part.startsWith("-") || part.endsWith(".lock")
     )
