@@ -184,6 +184,38 @@ test('streamDeveloperAnalysis handles HTTP, stream, and event errors', async () 
   );
 });
 
+test('searchAgentMemory uses owner auth and bounds the project search request', async () => {
+  const { searchAgentMemory } = await apiPromise;
+  let url = '';
+  let sent: any;
+  fetchHandler = async (input, init) => {
+    url = String(input);
+    sent = JSON.parse(String(init.body));
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    return jsonResponse({ memories: [{
+      id: 'memory-1',
+      projectId: 'project-1',
+      category: 'architecture',
+      content: 'Keep existing features',
+      source: 'owner',
+      privacyLevel: 'private',
+      updatedAt: '2026-11-15T00:00:00.000Z',
+    }], sensitiveExcluded: true });
+  };
+  const memories = await searchAgentMemory(' project-1 ', '  preserve features  ', 500);
+  assert.equal(url, 'https://worker.example/agent/memory/search');
+  assert.deepEqual(sent, { projectId: 'project-1', query: 'preserve features', limit: 10 });
+  assert.equal(memories[0].content, 'Keep existing features');
+});
+
+test('searchAgentMemory skips empty input and reports server errors', async () => {
+  const { searchAgentMemory } = await apiPromise;
+  fetchHandler = async () => { throw new Error('should not fetch'); };
+  assert.deepEqual(await searchAgentMemory(' ', 'query'), []);
+  fetchHandler = async () => jsonResponse({ error: 'memory unavailable' }, 503);
+  await assert.rejects(searchAgentMemory('project-1', 'query'), /memory unavailable/);
+});
+
 test('transcribeAudio maps language, sends audio and returns trimmed transcript', async () => {
   const { transcribeAudio } = await apiPromise;
   let sent: any;
