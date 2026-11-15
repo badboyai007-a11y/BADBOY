@@ -1,12 +1,13 @@
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAssistant } from "@/context/AssistantContext";
 import { useColors } from "@/hooks/useColors";
 import { getIntegrationStatus, searchWebResearch, streamReply, type AssistantIntegrationStatus } from "@/lib/assistant/api";
 import { executePersonalWorkflow, type WorkflowAdapters } from "@/lib/assistant/workflowEngine";
 import { workflowNeedsOwnerApproval, type PersonalWorkflow } from "@/lib/assistant/workflowBuilder";
+import { resolveOfflineCapability } from "@/lib/assistant/offlineCapability";
 import { deletePersonalWorkflow, loadPersonalWorkflows, savePersonalWorkflow } from "@/lib/assistant/workflowStorage";
 import { scheduleLocalReminder } from "@/lib/assistant/deviceControl";
 import { sendTelegramMessage } from "@/lib/assistant/telegram";
@@ -15,6 +16,7 @@ export default function WorkflowsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings } = useAssistant();
+  const offlineCapability = resolveOfflineCapability({ platform: Platform.OS, modelInstalled: false, runtimeReady: false });
   const [workflows, setWorkflows] = useState<PersonalWorkflow[]>([]);
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
@@ -147,14 +149,15 @@ export default function WorkflowsScreen() {
         {integrationStatus ? (
           <>
             {([
-              ["Web Research", integrationStatus.research.configured],
-              ["Home Assistant", integrationStatus.homeAssistant.configured],
-              ["Slack", integrationStatus.slack.configured],
-              ["Telegram (mobile)", integrationStatus.telegram.mode === "mobile_secure_store"],
-            ] as const).map(([label, ready]) => (
+              ["Web Research", integrationStatus.research.configured ? "Configured" : "Not configured", integrationStatus.research.configured],
+              ["Home Assistant", integrationStatus.homeAssistant.configured ? "Configured" : "Not configured", integrationStatus.homeAssistant.configured],
+              ["Slack", integrationStatus.slack.configured ? "Configured" : "Not configured", integrationStatus.slack.configured],
+              ["Telegram (mobile)", "Managed on device", true],
+              ["Offline AI", offlineCapability.mode === "cached_assistance" ? "Cached assistance only" : "Unavailable", false],
+            ] as const).map(([label, status, ready]) => (
               <View key={label} style={styles.statusRow}>
                 <Text style={[styles.meta, { color: colors.foreground }]}>{label}</Text>
-                <Text style={[styles.meta, { color: ready ? colors.primary : colors.mutedForeground }]}>{ready ? "Configured" : "Not configured"}</Text>
+                <Text style={[styles.meta, { color: ready ? colors.primary : colors.mutedForeground }]}>{status}</Text>
               </View>
             ))}
             <Text style={[styles.meta, { color: colors.mutedForeground }]}>
