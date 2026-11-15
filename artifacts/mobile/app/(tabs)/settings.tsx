@@ -1085,12 +1085,12 @@ export default function SettingsScreen() {
                 <Text style={[styles.body, { color: colors.foreground, marginTop: 6 }]}>{currentPlan.featureDescription}</Text>
 
                 <Text style={[styles.label, { color: colors.foreground, marginTop: 10 }]}>পরিবর্তনযোগ্য ফাইলসমূহ:</Text>
-                {currentPlan.filesToModify.map((f) => (
+                {(Array.isArray(currentPlan.filesToModify) ? currentPlan.filesToModify : []).map((f) => (
                   <Text key={f} style={[styles.smallNote, { color: colors.mutedForeground, marginTop: 2 }]}>• {f}</Text>
                 ))}
 
                 <Text style={[styles.label, { color: colors.foreground, marginTop: 10 }]}>কাজসমূহ (Tasks):</Text>
-                {currentPlan.tasks.map((t) => (
+                {(Array.isArray(currentPlan.tasks) ? currentPlan.tasks : []).map((t) => (
                   <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                     <Feather name="alert-circle" size={13} color={colors.mutedForeground} />
                     <Text style={[styles.body, { color: colors.foreground }]}>{t.title}</Text>
