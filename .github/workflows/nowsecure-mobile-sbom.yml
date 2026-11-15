@@ -2,9 +2,9 @@ name: Mobile SBOM
 
 on:
   push:
-    branches: ["main"]
+    branches: [main, feat/verified-agent-integrations]
   pull_request:
-    branches: ["main"]
+    branches: [main, feat/agentic-tool-calling-multi-agent]
   schedule:
     - cron: "26 13 * * 3"
 
