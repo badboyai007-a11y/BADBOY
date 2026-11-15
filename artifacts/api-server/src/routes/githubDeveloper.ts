@@ -127,7 +127,7 @@ router.get("/oauth/callback", async (req, res) => {
     res.cookie(githubDeveloperCookies.session, sessionCookie, githubDeveloperCookieOptions(env));
     const origin = env.APP_ORIGIN?.trim();
     if (!origin) throw new GitHubDeveloperSecurityError("APP_ORIGIN is not configured.", 503, "APP_ORIGIN_INVALID");
-    res.redirect(302, new URL("/", origin).toString());
+    res.redirect(302, new URL("/api/github/controls/owner-control", origin).toString());
   } catch (error) {
     oauthError(res, error);
   }

@@ -13,12 +13,16 @@ The API server exposes the owner-scoped GitHub developer gateway under `/api/git
    - `GITHUB_OWNER_IDS`: comma-separated numeric GitHub account IDs; do not use a display name or email as the owner identifier.
    - `GITHUB_SESSION_SECRET`: at least 32 random bytes, encoded as a hex string.
    - `GITHUB_TOKEN_ENCRYPTION_KEY`: base64 encoding of exactly 32 random bytes.
-   - `APP_ORIGIN`: the exact HTTPS origin of the owner-facing application.
+   - `APP_ORIGIN`: the exact HTTPS origin of the API server hosting the Owner Control Center. The browser dashboard is served by the API itself so its HttpOnly session cookie remains first-party; do not point this at a separate cross-site frontend.
    - `DATABASE_URL`
 4. Apply the database schema before enabling the gateway. The Drizzle schema is in `lib/db/src/schema/githubDeveloper.ts`; the equivalent SQL is in `lib/db/migrations/0001_github_developer_security.sql`. Use the repository's normal reviewed database migration process. Do not run a force schema push against production.
-5. Start owner authentication at `GET /api/github/oauth/start`.
+5. Open `https://<api-host>/api/github/controls/owner-control` and choose **Continue with GitHub**. The OAuth callback returns to this first-party dashboard.
 
 The OAuth App requests `read:user repo` so the authenticated owner's accessible private repositories can be checked and acted on. GitHub access tokens are encrypted at rest with AES-256-GCM and are never returned by the API. The numeric GitHub account ID allowlist is checked on callback and on every session lookup.
+
+## Owner Control Center
+
+The responsive first-party dashboard is served at `/api/github/controls/owner-control`. It provides Owner sign-in, temporary repository/branch/action grants, grant revocation, emergency lockdown/release, audit history, and sign-out. It uses a per-response CSP nonce, a restrictive content security policy, no-store caching, same-origin requests, and explicit confirmations for every permission/lockdown action.
 
 ## Endpoints
 

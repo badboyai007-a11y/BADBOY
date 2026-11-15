@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 process.env.DATABASE_URL ??= "postgres://test:test@127.0.0.1:5432/test";
@@ -128,5 +129,29 @@ describe("GitHub write approval guardrails", () => {
       { token: "owner-token", fetchImpl },
     )).rejects.toMatchObject({ code: "REPOSITORY_ACCESS_DENIED" });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("Owner permission SQL guard", () => {
+  it("uses literal prefix matching rather than SQL LIKE wildcards", () => {
+    const migration = readFileSync(
+      new URL("../../lib/db/migrations/0002_github_developer_permissions.sql", import.meta.url),
+      "utf8",
+    );
+    expect(migration).toContain(
+      "starts_with(branch_ref, left(p.branch_pattern, length(p.branch_pattern) - 1))",
+    );
+    expect(migration).not.toMatch(/branch_ref\s+LIKE/i);
+  });
+
+  it("preserves workflow refs containing an at-sign after the workflow separator", () => {
+    const migration = readFileSync(
+      new URL("../../lib/db/migrations/0002_github_developer_permissions.sql", import.meta.url),
+      "utf8",
+    );
+    expect(migration).toContain(
+      "substring(branch_ref from position('@' in branch_ref) + 1)",
+    );
   });
 });

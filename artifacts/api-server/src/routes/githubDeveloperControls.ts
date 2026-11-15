@@ -1,4 +1,5 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import { githubOwnerControlPage } from "./githubOwnerControlPage";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { pool } from "@workspace/db";
 import {
@@ -45,6 +46,32 @@ function validBranchPattern(value: unknown): value is string {
     !branch.includes("//") &&
     !/[\u0000-\u0020~^:?\[\]\\]/u.test(branch);
 }
+
+
+router.get("/owner-control", (_req, res) => {
+  const nonce = randomBytes(18).toString("base64");
+  res.set({
+    "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+  });
+  res.type("html").send(githubOwnerControlPage.replace("__NONCE__", nonce));
+});
+
+router.get("/lockdown", requireOwner, async (req, res) => {
+  const id = ownerId(req);
+  if (!id) return res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED" });
+  try {
+    const result = await pool.query(
+      `SELECT reason, locked_at AS "lockedAt" FROM github_developer_lockdowns WHERE owner_id = $1`,
+      [String(id)],
+    );
+    res.json({ locked: result.rowCount === 1, ...(result.rows[0] ?? {}) });
+  } catch {
+    res.status(503).json({ code: "LOCKDOWN_STATUS_UNAVAILABLE" });
+  }
+});
 
 router.get("/permissions", requireOwner, async (req, res) => {
   const id = ownerId(req);

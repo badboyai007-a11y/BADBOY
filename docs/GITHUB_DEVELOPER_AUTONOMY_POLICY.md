@@ -31,6 +31,10 @@ Audit records are append-only at the database trigger level for the configured a
 - Emergency lockdown blocks the existing approval issuance and consumption path.
 - Offline AI remains excluded.
 
+## Owner Control Center
+
+A responsive first-party Owner Control Center is served at `/api/github/controls/owner-control`. It supports Owner sign-in, temporary scoped grants, revocation, emergency lockdown/release, audit review and session sign-out. The dashboard is served from the API origin so the HttpOnly session cookie remains first-party; configure `APP_ORIGIN` to that exact API origin.
+
 ## Remaining integration work
 
-This backend addition does not itself provide a visual Owner Control Center. A frontend must call these endpoints and render grant/revoke/lockdown/audit controls with clear confirmation dialogs. Generic arbitrary-file commit/push, rollback orchestration, multi-agent runtime, dependency scanning, cost accounting and intelligent routing remain separate implementation tasks; they must not be represented as complete until implemented and tested.
+Generic arbitrary-file commit/push orchestration, automatic rollback, a production multi-agent runtime, dependency intelligence/scanning, cost accounting and intelligent model routing are not implemented by this gateway. Do not represent them as complete until implemented and tested.

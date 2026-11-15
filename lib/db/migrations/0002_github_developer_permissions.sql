@@ -40,7 +40,7 @@ BEGIN
   IF NEW.action = 'create-draft-pr' THEN
     branch_ref := split_part(branch_ref, '->', 1);
   ELSIF NEW.action = 'dispatch-workflow' THEN
-    branch_ref := split_part(branch_ref, '@', 2);
+    branch_ref := substring(branch_ref from position('@' in branch_ref) + 1);
   END IF;
 
   SELECT EXISTS (
@@ -55,7 +55,7 @@ BEGIN
          p.branch_pattern = '*'
          OR p.branch_pattern = branch_ref
          OR (right(p.branch_pattern, 2) = '/*'
-             AND branch_ref LIKE left(p.branch_pattern, length(p.branch_pattern) - 1) || '%')
+             AND starts_with(branch_ref, left(p.branch_pattern, length(p.branch_pattern) - 1)))
        )
   ) INTO permitted;
 
