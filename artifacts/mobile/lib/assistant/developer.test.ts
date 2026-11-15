@@ -324,6 +324,33 @@ test('previewGitHubChanges rejects secret paths without reading them', async () 
   }
 });
 
+test('GitHub default repository targets the current Badboy project', () => {
+  assert.equal(DEFAULT_REPO_CONFIG.owner, 'shomratofficial007-spec');
+  assert.equal(DEFAULT_REPO_CONFIG.repo, 'Badboy-VS-Versel-Ai');
+});
+
+test('GitHub write validation rejects traversal and secret paths before network access', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; throw new Error('must not fetch'); };
+  try {
+    for (const path of ['../outside.ts', '.env.production', 'keys/signing.keystore']) {
+      const result = await createGitHubPullRequest({
+        githubToken: 'write-token',
+        plan: generateDevelopmentPlan('Add a feature'),
+        changes: [{ path, content: 'unsafe' }],
+        approved: true,
+        expectedBaseSha: 'preview-sha',
+      });
+      assert.equal(result.success, false);
+      assert.match(result.error ?? '', /নিরাপদ file path/);
+    }
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('GitHub writes stop unless owner approval is explicit', async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;
