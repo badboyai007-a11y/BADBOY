@@ -7,9 +7,10 @@ concurrency:
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
-    branches: ["main"]
+    types: [opened, synchronize, reopened, edited]
+    branches: [main, feat/agentic-tool-calling-multi-agent]
   schedule:
     - cron: "43 13 * * 1"
 
@@ -66,6 +67,23 @@ jobs:
       - name: Generate native Android project with Expo Prebuild
         if: matrix.language == 'java-kotlin'
         run: pnpm --filter @workspace/mobile exec expo prebuild --platform android --no-install
+
+      - name: Use preinstalled Java instead of resolving an extra Foojay toolchain
+        if: matrix.language == 'java-kotlin'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETTINGS_FILE="$(find node_modules/.pnpm -path '*/@react-native/gradle-plugin/settings.gradle.kts' -print -quit)"
+          test -n "$SETTINGS_FILE"
+          if grep -q 'foojay-resolver-convention' "$SETTINGS_FILE"; then
+            # CodeQL's Gradle build uses the JDK installed above; no JDK download resolver is needed.
+            sed -i '/foojay-resolver-convention/d' "$SETTINGS_FILE"
+          fi
+          if grep -q 'foojay-resolver-convention' "$SETTINGS_FILE"; then
+            echo "::error::Foojay resolver plugin was not removed from the generated CI-only settings file."
+            exit 1
+          fi
+          echo "Using the preinstalled JDK for CodeQL's Android build."
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4

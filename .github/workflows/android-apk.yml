@@ -4,6 +4,7 @@ name: Android APK (automatic + manual)
 # Manual workflow_dispatch remains available for on-demand builds.
 on:
   push:
+    branches: [main]
     paths:
       - "artifacts/mobile/**"
       - "package.json"
@@ -11,6 +12,7 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/android-apk.yml"
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     paths:
       - "artifacts/mobile/**"
       - "package.json"
@@ -28,7 +30,7 @@ concurrency:
 
 jobs:
   android-debug-apk:
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/verified-agent-integrations'
     name: Validate and build Android debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -74,6 +76,22 @@ jobs:
       - name: Generate native Android project with Expo Prebuild
         run: pnpm --filter @workspace/mobile exec expo prebuild --platform android --no-install
 
+      - name: Use preinstalled Java instead of resolving an extra Foojay toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETTINGS_FILE="$(find node_modules/.pnpm -path '*/@react-native/gradle-plugin/settings.gradle.kts' -print -quit)"
+          test -n "$SETTINGS_FILE"
+          if grep -q 'foojay-resolver-convention' "$SETTINGS_FILE"; then
+            # CI installs the required JDK explicitly; Foojay is only needed to download missing JDK toolchains.
+            sed -i '/foojay-resolver-convention/d' "$SETTINGS_FILE"
+          fi
+          if grep -q 'foojay-resolver-convention' "$SETTINGS_FILE"; then
+            echo "::error::Foojay resolver plugin was not removed from the generated CI-only settings file."
+            exit 1
+          fi
+          echo "Using the preinstalled JDK; no toolchain download resolver is needed."
+
       - name: Verify React Native debug bundle configuration
         working-directory: artifacts/mobile/android
         run: |
@@ -92,7 +110,7 @@ jobs:
 
       - name: Run Android native unit tests
         working-directory: artifacts/mobile/android
-        run: ./gradlew --no-daemon :badboy-wakeword:testDebugUnitTest
+        run: ./gradlew --no-daemon :badboy-wakeword:testDebugUnitTest :badboy-device:testDebugUnitTest
 
       - name: Build installable debug APK with embedded JavaScript
         working-directory: artifacts/mobile/android

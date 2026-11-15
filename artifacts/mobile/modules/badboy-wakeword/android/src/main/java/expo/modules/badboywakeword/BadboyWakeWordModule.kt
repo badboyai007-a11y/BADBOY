@@ -1,6 +1,8 @@
 package expo.modules.badboywakeword
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import expo.modules.kotlin.modules.Module
@@ -17,6 +19,9 @@ class BadboyWakeWordModule : Module() {
     AsyncFunction("start") { options: Map<String, Double>? ->
       val context = appContext.reactContext ?: throw IllegalStateException("Android context unavailable")
       if (Build.VERSION.SDK_INT < 34) throw IllegalStateException("Android 14 or newer is required")
+      if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        throw SecurityException("Microphone permission is required before starting Hey Badboy.")
+      }
       val threshold = options?.get("threshold") ?: 0.696
       if (threshold <= 0.0 || threshold >= 1.0) throw IllegalArgumentException("Invalid wake threshold")
       val intent = Intent(context, BadboyWakeWordService::class.java).putExtra("threshold", threshold)

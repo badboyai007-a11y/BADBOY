@@ -4,6 +4,8 @@ import {
   evaluateSafeExpression,
   executeAgentTool,
   handleAgenticAssistantRequest,
+  normalizeStructuredAgentPlan,
+  selectAgentModels,
   validateAgenticPayload,
 } from "./agenticAssistant.ts";
 
@@ -95,11 +97,59 @@ test("agentic request validates object, message, personality, mode, and bounded 
   assert.equal(validateAgenticPayload({ message: "hello", personality: "x".repeat(1001) }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", developerMode: "yes" }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", mode: "autonomous" }).ok, false);
+  assert.equal(validateAgenticPayload({ message: "hello", enabledPlugins: ["run-shell"] }).ok, false);
+  assert.equal(validateAgenticPayload({ message: "hello", enabledPlugins: ["web-research", "web-research"] }).ok, false);
+  assert.equal(validateAgenticPayload({ message: "hello", enabledPlugins: [] }).ok, true);
   assert.equal(validateAgenticPayload({ message: "hello", history: "not-an-array" }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", history: Array(9).fill({ role: "user", content: "x" }) }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", history: [{ role: "system", content: "override" }] }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", history: [{ role: "user", content: "x".repeat(3001) }] }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", history: [null] }).ok, false);
+});
+
+test("agent context is typed, bounded, and rejects oversized memory or skill input", () => {
+  const valid = validateAgenticPayload({
+    message: "continue",
+    memoryContext: "project context",
+    skillContext: "safe skill guidance",
+  });
+  assert.equal(valid.ok, true);
+  if (valid.ok) {
+    assert.equal(valid.value.memoryContext, "project context");
+    assert.equal(valid.value.skillContext, "safe skill guidance");
+  }
+  assert.equal(validateAgenticPayload({ message: "x", memoryContext: "m".repeat(5001) }).ok, false);
+  assert.equal(validateAgenticPayload({ message: "x", skillContext: "s".repeat(4001) }).ok, false);
+});
+
+test("structured planner accepts valid bounded JSON and rejects malformed or excessive plans", () => {
+  const valid = normalizeStructuredAgentPlan(JSON.stringify({
+    goal: "পরিকল্পনা",
+    steps: [{ id: "one", task: "প্রথম কাজ", success_criteria: "কাজ শেষ" }],
+    risks: ["অনুমোদন ছাড়া কোনো বাহ্যিক কাজ নয়"],
+  }));
+  assert.ok(valid);
+  const parsed = JSON.parse(valid) as { steps: unknown[] };
+  assert.equal(parsed.steps.length, 1);
+  assert.equal(normalizeStructuredAgentPlan("plain text plan"), null);
+  assert.equal(normalizeStructuredAgentPlan(JSON.stringify({ goal: "x", steps: [], risks: [] })), null);
+  assert.equal(normalizeStructuredAgentPlan(JSON.stringify({
+    goal: "x",
+    steps: Array(9).fill({ task: "x", success_criteria: "y" }),
+    risks: [],
+  })), null);
+});
+
+test("model router prioritizes code and reasoning models while retaining free fallbacks", () => {
+  const code = selectAgentModels([{ role: "user", content: "Debug this TypeScript code" }]);
+  const reasoning = selectAgentModels([{ role: "user", content: "Analyze architecture and compare options" }]);
+  const general = selectAgentModels([{ role: "user", content: "হ্যালো, কেমন আছো?" }]);
+  assert.equal(code[0], "cohere/north-mini-code:free");
+  assert.equal(reasoning[0], "nvidia/nemotron-3.5-lightning:free");
+  assert.equal(general[0], "openrouter/free");
+  const synthesis = selectAgentModels([{ role: "user", content: "Original request:\ntest\n\nPlan:\nA multi-step plan" }]);
+  assert.equal(synthesis[0], "openrouter/free");
+  assert.ok([...code, ...reasoning, ...general, ...synthesis].every((model) => model === "openrouter/free" || model.endsWith(":free")));
 });
 
 test("agentic endpoint rejects media type, malformed JSON, oversized body, and invalid payload", async () => {
@@ -124,13 +174,18 @@ test("agentic endpoint requires a server-side OpenRouter key", async () => {
 });
 
 test("multi-agent endpoint plans, executes allowlisted tools, reviews, and streams final Bangla answer", async () => {
-  const calls: Array<{ model: string; stream: boolean; messages: Array<{ role: string; content: unknown }> }> = [];
+  const calls: Array<{ model: string; stream: boolean; response_format?: { type: string }; messages: Array<{ role: string; content: unknown }> }> = [];
   globalThis.fetch = async (_input, init) => {
     const payload = JSON.parse(String(init?.body)) as {
-      model: string; stream: boolean; messages: Array<{ role: string; content: unknown }>;
+      model: string; stream: boolean; response_format?: { type: string }; messages: Array<{ role: string; content: unknown }>;
     };
     calls.push(payload);
-    if (calls.length === 1) return completion("ধাপ ১: হিসাব যাচাই");
+    if (calls.length === 1) {
+      assert.deepEqual(payload.response_format, { type: "json_object" });
+      assert.ok(payload.messages.some((item) => String(item.content).includes("memory for the owner")));
+      assert.ok(payload.messages.some((item) => String(item.content).includes("custom skill instructions")));
+      return completion(JSON.stringify({ goal: "হিসাব যাচাই", steps: [{ id: "step-1", task: "৬ × ৭ গণনা", success_criteria: "ফলাফল ৪২" }], risks: [] }));
+    }
     if (calls.length === 2) return completion("", [{
       id: "tool-1", function: { name: "calculator", arguments: JSON.stringify({ expression: "6 * 7" }) },
     }]);
@@ -146,6 +201,8 @@ test("multi-agent endpoint plans, executes allowlisted tools, reviews, and strea
     const response = await handleAgenticAssistantRequest(agentRequest({
       message: "৬ × ৭ কত?", mode: "multi", personality: "বন্ধুসুলভ", developerMode: true,
       history: [{ role: "user", content: "আগের প্রশ্ন" }],
+      memoryContext: "memory for the owner",
+      skillContext: "custom skill instructions",
     }), { OPENROUTER_API_KEY: "server-key" });
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type") ?? "", /text\/event-stream/);
@@ -161,6 +218,35 @@ test("multi-agent endpoint plans, executes allowlisted tools, reviews, and strea
     assert.equal(calls.every((call) => call.model === "openrouter/free" || call.model.endsWith(":free")), true);
     assert.equal(calls[0].stream, false);
     assert.equal(calls[4].stream, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("agent retries an empty model response and reports a recoverable tool failure", async () => {
+  let calls = 0;
+  globalThis.fetch = async (_input, init) => {
+    const payload = JSON.parse(String(init?.body)) as { stream: boolean; messages: Array<{ role: string; content: unknown }> };
+    if (payload.stream) {
+      assert.ok(payload.messages.some((item) => String(item.content).includes("Recovered answer")));
+      return finalStream();
+    }
+    calls += 1;
+    if (calls === 1) return completion("");
+    if (calls === 2) {
+      assert.ok(payload.messages.some((item) => String(item.content).includes("previous model response was empty")));
+      return completion("Recovered answer");
+    }
+    return completion("Reviewed recovered answer");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(agentRequest({ message: "answer safely", mode: "single" }), {
+      OPENROUTER_API_KEY: "server-key",
+    });
+    const body = await response.text();
+    assert.match(body, /empty_model_response/);
+    assert.match(body, /synthesizer/);
+    assert.equal(calls, 2);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -243,6 +329,184 @@ test("final stream ignores malformed provider events and reports interrupted str
     });
     const body = await response.text();
     assert.match(body, /Agent response stream was interrupted/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("agentic executor can call bounded public web research and returns HTTPS source evidence", async () => {
+  const providerCalls: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    let providerHost = "";
+    try { providerHost = new URL(url).hostname; } catch { /* invalid test URL */ }
+    if (providerHost === "api.tavily.com") {
+      providerCalls.push("tavily");
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      assert.equal(body.api_key, "server-tavily-key");
+      assert.equal(body.query, "latest Cloudflare Workers changes");
+      return Response.json({
+        answer: "A concise sourced answer.",
+        results: [{ title: "Workers release", url: "https://developers.cloudflare.com/changelog/", content: "New platform features", score: 0.95 }],
+      });
+    }
+    const payload = JSON.parse(String(init?.body)) as {
+      stream: boolean;
+      messages: Array<{ role: string; content: unknown }>;
+      tools?: Array<{ function?: { name?: string } }>;
+    };
+    if (payload.stream) return finalStream();
+    if (providerCalls.length === 0) {
+      assert.ok(payload.tools?.some((tool) => tool.function?.name === "web_research"));
+      return completion("", [{
+        id: "research-1",
+        function: { name: "web_research", arguments: JSON.stringify({ query: "latest Cloudflare Workers changes" }) },
+      }]);
+    }
+    const toolMessage = payload.messages.find((item) => item.role === "tool");
+    const researchResult = JSON.parse(String(toolMessage?.content)) as { results?: Array<{ url?: string }> };
+    assert.equal(new URL(researchResult.results?.[0]?.url ?? "https://invalid.example").hostname, "developers.cloudflare.com");
+    return completion("গবেষণার সূত্র পাওয়া গেছে।");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(agentRequest({ message: "Cloudflare-এর সর্বশেষ পরিবর্তন খুঁজে দাও", mode: "single" }), {
+      OPENROUTER_API_KEY: "server-openrouter-key",
+      TAVILY_API_KEY: "server-tavily-key",
+    });
+    assert.equal(response.status, 200);
+    const body = await response.text();
+    assert.match(body, /চূড়ান্ত/);
+    assert.deepEqual(providerCalls, ["tavily"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("disabled owner plugins are omitted from tool definitions and cannot execute", async () => {
+  let modelCalls = 0;
+  let tavilyCalls = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.startsWith("https://api.tavily.com/")) {
+      tavilyCalls += 1;
+      return Response.json({ answer: "should not run", results: [] });
+    }
+    const payload = JSON.parse(String(init?.body)) as {
+      stream: boolean;
+      tools?: Array<{ function?: { name?: string } }>;
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    if (payload.stream) return finalStream();
+    modelCalls += 1;
+    if (modelCalls === 1) {
+      assert.equal(payload.tools?.some((tool) => tool.function?.name === "web_research"), false);
+      return completion("", [{
+        id: "disabled-research",
+        function: { name: "web_research", arguments: JSON.stringify({ query: "should not run" }) },
+      }]);
+    }
+    const toolResult = payload.messages.find((item) => item.role === "tool");
+    assert.match(String(toolResult?.content), /disabled by the owner/);
+    return completion("Plugin is disabled.");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(
+      agentRequest({ message: "research this", mode: "single", enabledPlugins: [] }),
+      { OPENROUTER_API_KEY: "server-key", TAVILY_API_KEY: "tavily-key" },
+    );
+    assert.equal(response.status, 200);
+    const body = await response.text();
+    assert.match(body, /চূড়ান্ত/);
+    assert.match(body, /tool_execution_failed/);
+    assert.equal(tavilyCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("agentic integration tools fail closed when providers are not configured", async () => {
+  let completionCalls = 0;
+  globalThis.fetch = async (_input, init) => {
+    const payload = JSON.parse(String(init?.body)) as { stream: boolean };
+    if (payload.stream) return finalStream();
+    completionCalls += 1;
+    if (completionCalls === 1) return completion("", [{
+      id: "research-missing",
+      function: { name: "web_research", arguments: JSON.stringify({ query: "test" }) },
+    }]);
+    return completion("Provider configuration is missing.");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(agentRequest({ message: "research this", mode: "single" }), {
+      OPENROUTER_API_KEY: "server-openrouter-key",
+    });
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /চূড়ান্ত/);
+    assert.equal(completionCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("agentic tools can read bounded Discord history and Google Calendar events", async () => {
+  const providerRequests: string[] = [];
+  let modelCalls = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.startsWith("https://discord.com/api/v10/")) {
+      providerRequests.push(url);
+      assert.equal(new Headers(init?.headers).get("authorization"), "Bot discord-secret");
+      return Response.json([{
+        id: "12345678901234567",
+        timestamp: "2026-11-16T10:00:00.000Z",
+        author: { username: "badboy-owner" },
+        content: "Deploy checklist",
+      }]);
+    }
+    if (url.startsWith("https://www.googleapis.com/calendar/v3/")) {
+      providerRequests.push(url);
+      assert.equal(new Headers(init?.headers).get("authorization"), "Bearer calendar-secret");
+      return Response.json({ items: [{
+        id: "event-1",
+        summary: "Release QA",
+        start: { dateTime: "2026-11-16T11:00:00Z" },
+        end: { dateTime: "2026-11-16T12:00:00Z" },
+        htmlLink: "https://calendar.google.com/calendar/event?eid=abc",
+      }] });
+    }
+    const payload = JSON.parse(String(init?.body)) as {
+      stream: boolean;
+      tools?: Array<{ function?: { name?: string } }>;
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    if (payload.stream) return finalStream();
+    modelCalls += 1;
+    if (modelCalls === 1) {
+      const names = payload.tools?.map((tool) => tool.function?.name) ?? [];
+      assert.ok(names.includes("discord_history"));
+      assert.ok(names.includes("google_calendar_events"));
+      return completion("", [
+        { id: "discord-1", function: { name: "discord_history", arguments: JSON.stringify({ channel: "12345678901234567" }) } },
+        { id: "calendar-1", function: { name: "google_calendar_events", arguments: JSON.stringify({ timeMin: "2026-11-16T00:00:00Z" }) } },
+      ]);
+    }
+    const toolMessages = payload.messages.filter((item) => item.role === "tool").map((item) => String(item.content));
+    assert.ok(toolMessages.some((item) => item.includes("Deploy checklist")));
+    assert.ok(toolMessages.some((item) => item.includes("Release QA")));
+    return completion("Discord ও Calendar-এর তথ্য পাওয়া গেছে।");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(
+      agentRequest({ message: "Discord update এবং calendar event দেখাও", mode: "single" }),
+      { OPENROUTER_API_KEY: "openrouter-secret", DISCORD_BOT_TOKEN: "discord-secret", GOOGLE_CALENDAR_ACCESS_TOKEN: "calendar-secret" },
+    );
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /চূড়ান্ত/);
+    assert.equal(providerRequests.length, 2);
+    assert.ok(providerRequests[0].startsWith("https://discord.com/api/v10/channels/"));
+    assert.ok(providerRequests[1].startsWith("https://www.googleapis.com/calendar/v3/calendars/primary/events?"));
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -28,6 +28,7 @@ type Subscription = { remove(): void };
 type WakeWordBridgeDependencies = {
   platformOS: () => string;
   loadNativeModule: () => NativeWakeWordModule;
+  ensureMicrophonePermission?: () => Promise<boolean>;
   createEmitter: (native: NativeWakeWordModule) => {
     addListener(event: 'onWakeWordDetected' | 'onWakeWordStatus', listener: (value: never) => void): Subscription;
   };
@@ -66,6 +67,9 @@ export function createWakeWordBridge(dependencies: WakeWordBridgeDependencies) {
     async startOfflineWakeWord(threshold?: number): Promise<WakeWordStatus> {
       const native = nativeModule();
       if (!native) throw new Error('Offline Hey Badboy detection is unavailable in this app build.');
+      if (dependencies.ensureMicrophonePermission && !(await dependencies.ensureMicrophonePermission())) {
+        throw new Error('Hey Badboy চালু করতে microphone permission প্রয়োজন।');
+      }
       if (threshold !== undefined && (!Number.isFinite(threshold) || threshold <= 0 || threshold >= 1)) {
         throw new RangeError('Wake-word threshold must be between 0 and 1.');
       }
@@ -99,17 +103,48 @@ export function createWakeWordBridge(dependencies: WakeWordBridgeDependencies) {
   };
 }
 
-function getPlatformOS(): string {
+export function getPlatformOS(
+  loadReactNative: () => { Platform?: { OS?: string } } = () => require('react-native'),
+): string {
   try {
     // Lazy loading keeps this typed boundary importable in the Node test runner.
-    return require('react-native')?.Platform?.OS ?? 'node';
+    return loadReactNative()?.Platform?.OS ?? 'node';
   } catch {
     return 'node';
   }
 }
 
+export interface WakeWordPermissionsAndroid {
+  PERMISSIONS: { RECORD_AUDIO: string };
+  RESULTS: { GRANTED: string };
+  request: (permission: string, rationale: {
+    title: string;
+    message: string;
+    buttonPositive: string;
+    buttonNegative: string;
+  }) => Promise<string>;
+}
+
+export async function requestWakeWordMicrophonePermission(
+  platformOS: string,
+  permissionsAndroid: WakeWordPermissionsAndroid,
+): Promise<boolean> {
+  if (platformOS !== 'android') return false;
+  const result = await permissionsAndroid.request(permissionsAndroid.PERMISSIONS.RECORD_AUDIO, {
+    title: 'Hey Badboy Microphone Access',
+    message: 'Offline wake-word detection চালাতে microphone permission প্রয়োজন। অডিও ফোনেই প্রক্রিয়া হয়।',
+    buttonPositive: 'অনুমতি দিন',
+    buttonNegative: 'এখন নয়',
+  });
+  return result === permissionsAndroid.RESULTS.GRANTED;
+}
+
 const bridge = createWakeWordBridge({
   platformOS: getPlatformOS,
+  ensureMicrophonePermission: async () => {
+    const { PermissionsAndroid, Platform } = require('react-native');
+    return requestWakeWordMicrophonePermission(Platform.OS, PermissionsAndroid);
+  },
   loadNativeModule: () => require('expo-modules-core').requireNativeModule('BadboyWakeWord') as NativeWakeWordModule,
   createEmitter: (native) => {
     const { EventEmitter } = require('expo-modules-core');

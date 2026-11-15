@@ -51,6 +51,7 @@ test('disconnectTelegramBot clears token, chat and update cursor', async () => {
   reset();
   secure.set('oi-assistant-telegram-token', 'token');
   secure.set('oi-assistant-telegram-chat-id', '99');
+  secure.set('oi-assistant-telegram-owner-chat-id', '99');
   secure.set('oi-assistant-telegram-offset', '100');
   await disconnectTelegramBot();
   assert.equal(await hasTelegramBot(), false);
@@ -69,17 +70,16 @@ test('checkTelegramMessages requires a connected bot and maps text and non-text 
       offset: 0, timeout: 0, allowed_updates: ['message'],
     });
     return response({ ok: true, result: [
-      { update_id: 10, message: { message_id: 1, date: 100, text: 'হ্যালো', chat: { id: 77, first_name: 'Bad Boy' } } },
-      { update_id: 11, message: { message_id: 2, date: 101, chat: { id: 88, username: 'helper' } } },
+      { update_id: 10, message: { message_id: 1, date: 100, text: 'হ্যালো', chat: { id: 77, type: 'private', first_name: 'Bad Boy' } } },
+      { update_id: 11, message: { message_id: 2, date: 101, chat: { id: 88, type: 'group', username: 'helper' } } },
       { update_id: 12 },
     ] });
   };
   const messages = await checkTelegramMessages();
   assert.deepEqual(messages, [
     { id: 10, chatId: 77, sender: 'Bad Boy', text: 'হ্যালো', date: 100 },
-    { id: 11, chatId: 88, sender: 'helper', text: '(non-text message)', date: 101 },
   ]);
-  assert.equal(secure.get('oi-assistant-telegram-chat-id'), '88');
+  assert.equal(secure.has('oi-assistant-telegram-chat-id'), false);
   assert.equal(secure.get('oi-assistant-telegram-offset'), '13');
 });
 
@@ -94,7 +94,7 @@ test('checkTelegramMessages skips cursor writes when there are no messages and a
   };
   assert.deepEqual(await checkTelegramMessages(), []);
   assert.equal(secure.has('oi-assistant-telegram-chat-id'), false);
-  assert.equal(secure.get('oi-assistant-telegram-offset'), '20');
+  assert.equal(secure.get('oi-assistant-telegram-offset'), '22');
 });
 
 test('sendTelegramMessage validates bot and chat setup before sending', async () => {
@@ -102,14 +102,15 @@ test('sendTelegramMessage validates bot and chat setup before sending', async ()
   reset();
   await assert.rejects(sendTelegramMessage('hello'), /Connect your bot first/);
   secure.set('oi-assistant-telegram-token', 'bot-token');
-  await assert.rejects(sendTelegramMessage('hello'), /send it \/start first/);
+  await assert.rejects(sendTelegramMessage('hello'), /bind your owner chat/i);
 });
 
-test('sendTelegramMessage sends to the last active chat and propagates API failures', async () => {
+test('sendTelegramMessage targets only the explicitly bound owner chat and propagates API failures', async () => {
   const { sendTelegramMessage } = await telegramPromise;
   reset();
   secure.set('oi-assistant-telegram-token', 'bot-token');
-  secure.set('oi-assistant-telegram-chat-id', '12345');
+  secure.set('oi-assistant-telegram-chat-id', '99999');
+  secure.set('oi-assistant-telegram-owner-chat-id', '12345');
   fetchHandler = async (url, init) => {
     assert.equal(String(url), 'https://api.telegram.org/botbot-token/sendMessage');
     assert.equal(init.method, 'POST');
@@ -120,3 +121,22 @@ test('sendTelegramMessage sends to the last active chat and propagates API failu
   fetchHandler = async () => response({ ok: false }, 500);
   await assert.rejects(sendTelegramMessage('hello'), /Telegram could not complete/);
 });
+
+test('Telegram owner chat must be explicitly bound and only private chat commands are accepted', async () => {
+  const { bindTelegramOwnerChat, getTelegramOwnerChatId, parseTelegramOwnerCommand } = await telegramPromise;
+  reset();
+  assert.equal(await getTelegramOwnerChatId(), null);
+  await assert.rejects(bindTelegramOwnerChat(-1), /invalid/);
+  await bindTelegramOwnerChat(12345);
+  assert.equal(await getTelegramOwnerChatId(), 12345);
+  assert.equal(secure.get('oi-assistant-telegram-chat-id'), '12345');
+  assert.deepEqual(parseTelegramOwnerCommand('/badboy ask আজকের কাজগুলো সাজিয়ে দাও'), {
+    kind: 'ask', prompt: 'আজকের কাজগুলো সাজিয়ে দাও',
+  });
+  assert.deepEqual(parseTelegramOwnerCommand('/badboy youtube বাংলা গান'), {
+    kind: 'youtube_search', query: 'বাংলা গান',
+  });
+  assert.equal(parseTelegramOwnerCommand('/badboy send email now'), null);
+  assert.equal(parseTelegramOwnerCommand('please delete all files'), null);
+});
+

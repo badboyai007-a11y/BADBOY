@@ -7,6 +7,7 @@ import { getOwnerToken } from './ownerAuth';
 // This repository deploys its own Worker; do not send native APK traffic to the
 // unrelated legacy Voice-Memory-Assistant Worker.
 import { apiUrl } from "./ownerJsonRequest";
+import { DEFAULT_AGENT_PLUGIN_IDS, type AgentPluginId } from "./pluginCatalog";
 async function ownerAuthorizationHeader(): Promise<string> {
   const token = await getOwnerToken();
   if (!token) {
@@ -85,7 +86,12 @@ export async function streamAgenticReply(
   settings: AssistantSettings,
   history: ChatHistoryItem[],
   onChunk: (chunk: string) => void,
+  memoryContext = '',
+  skillContext = '',
+  enabledPluginIds: AgentPluginId[] = DEFAULT_AGENT_PLUGIN_IDS,
 ) {
+  const safeMemoryContext = memoryContext.trim().slice(0, 5000);
+  const safeSkillContext = skillContext.trim().slice(0, 4000);
   const response = await expoFetch(apiUrl('/assistant/agent'), {
     method: 'POST',
     headers: {
@@ -96,8 +102,11 @@ export async function streamAgenticReply(
     body: JSON.stringify({
       message,
       personality: `${settings.personality}\n\nLanguage preference: ${settings.voiceLanguage}.`,
+      memoryContext: safeMemoryContext,
+      skillContext: safeSkillContext,
       developerMode: settings.developerMode,
       mode: 'multi',
+      enabledPlugins: enabledPluginIds,
       history: history.slice(-8).map(({ role, content }) => ({
         role,
         content: content.slice(0, 3000),
@@ -178,6 +187,71 @@ export async function streamDeveloperAnalysis(
   return { taskId, engine };
 }
 
+export interface AgentMemorySearchResult {
+  id: string;
+  projectId: string;
+  category: string;
+  content: string;
+  source: string;
+  privacyLevel: string;
+  updatedAt: string;
+}
+
+/** Search owner-scoped project memory; the server always excludes sensitive entries. */
+export async function searchAgentMemory(
+  projectId: string,
+  query: string,
+  limit = 5,
+): Promise<AgentMemorySearchResult[]> {
+  const cleanProjectId = projectId.trim();
+  const cleanQuery = query.trim().slice(0, 1000);
+  if (!cleanProjectId || !cleanQuery) return [];
+  const response = await expoFetch(apiUrl('/agent/memory/search'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: await ownerAuthorizationHeader(),
+    },
+    body: JSON.stringify({
+      projectId: cleanProjectId,
+      query: cleanQuery,
+      limit: Math.max(1, Math.min(10, Math.floor(limit))),
+    }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Project memory search failed (HTTP ${response.status}).`);
+  }
+  const body = (await response.json()) as { memories?: unknown };
+  if (!Array.isArray(body.memories)) return [];
+
+  // Defense in depth: the Worker excludes sensitive rows, but never trust a
+  // provider/cache/proxy response to preserve that invariant for the Agent.
+  return body.memories.flatMap((value): AgentMemorySearchResult[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const memory = value as Record<string, unknown>;
+    if (
+      typeof memory.id !== 'string' ||
+      typeof memory.projectId !== 'string' || memory.projectId !== cleanProjectId ||
+      typeof memory.category !== 'string' ||
+      typeof memory.content !== 'string' ||
+      typeof memory.source !== 'string' ||
+      typeof memory.privacyLevel !== 'string' || memory.privacyLevel.trim().toLowerCase() === 'sensitive' ||
+      typeof memory.updatedAt !== 'string'
+    ) return [];
+    return [{
+      id: memory.id.slice(0, 160),
+      projectId: memory.projectId,
+      category: memory.category.slice(0, 80),
+      content: memory.content.slice(0, 2000),
+      source: memory.source.slice(0, 80),
+      privacyLevel: memory.privacyLevel.slice(0, 40),
+      updatedAt: memory.updatedAt.slice(0, 40),
+    }];
+  }).slice(0, 10);
+}
+
 export async function transcribeAudio(
   audioBase64: string,
   format: string,
@@ -254,4 +328,206 @@ export async function requestSpeech(text: string, language: string): Promise<Uin
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export interface WebResearchSource {
+  title: string;
+  url: string;
+  content: string;
+  score: number | null;
+}
+export interface WebResearchResult {
+  query: string;
+  answer: string | null;
+  results: WebResearchSource[];
+  sourceCount: number;
+  retrievedAt: string;
+}
+
+/** Search public web sources through the owner-authenticated server adapter. */
+export async function searchWebResearch(query: string): Promise<WebResearchResult> {
+  const cleanQuery = query.trim().slice(0, 500);
+  if (!cleanQuery) throw new Error("Research query is required.");
+  const response = await expoFetch(apiUrl('/research/search'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: await ownerAuthorizationHeader(),
+    },
+    body: JSON.stringify({ query: cleanQuery, maxResults: 5 }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Web research failed (HTTP ${response.status}).`);
+  }
+  const result = await response.json() as WebResearchResult;
+  if (!Array.isArray(result.results)) throw new Error("Web research returned an invalid result.");
+  return {
+    query: cleanQuery,
+    answer: typeof result.answer === 'string' ? result.answer.slice(0, 4000) : null,
+    results: result.results.filter((item) => typeof item?.url === 'string' && item.url.startsWith('https://')).slice(0, 5),
+    sourceCount: Math.min(5, result.results.length),
+    retrievedAt: typeof result.retrievedAt === 'string' ? result.retrievedAt : new Date().toISOString(),
+  };
+}
+
+export interface IntegrationProviderStatus {
+  configured: boolean;
+  mode: string;
+}
+export interface AssistantIntegrationStatus {
+  research: IntegrationProviderStatus;
+  homeAssistant: IntegrationProviderStatus;
+  slack: IntegrationProviderStatus;
+  discord: IntegrationProviderStatus;
+  googleCalendar: IntegrationProviderStatus;
+  telegram: IntegrationProviderStatus;
+  writesRequireOwnerApproval: boolean;
+  providerSecretsStayServerSide: boolean;
+}
+
+/** Read only provider readiness flags; never returns tokens or credential metadata. */
+export async function getIntegrationStatus(): Promise<AssistantIntegrationStatus> {
+  const response = await expoFetch(apiUrl('/integrations/status'), {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: await ownerAuthorizationHeader(),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Integration status failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { integrations?: AssistantIntegrationStatus };
+  if (!body.integrations || typeof body.integrations !== 'object') {
+    throw new Error('Integration status response is invalid.');
+  }
+  return body.integrations;
+}
+
+
+export interface DiscordMessage {
+  id: string;
+  timestamp: string;
+  author: string;
+  content: string;
+}
+
+/** Read a bounded Discord channel history through the server-side bot adapter. */
+export async function getDiscordMessages(channelId: string): Promise<DiscordMessage[]> {
+  const cleanChannelId = channelId.trim();
+  if (!/^\d{17,20}$/.test(cleanChannelId)) throw new Error("A valid Discord channel ID is required.");
+  const response = await expoFetch(
+    apiUrl(`/integrations/discord/messages?channel=${encodeURIComponent(cleanChannelId)}`),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: await ownerAuthorizationHeader(),
+      },
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Discord history failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { messages?: DiscordMessage[] };
+  if (!Array.isArray(body.messages)) throw new Error("Discord returned an invalid message list.");
+  return body.messages.slice(0, 20).filter((item) =>
+    typeof item?.id === "string" && typeof item.timestamp === "string"
+    && typeof item.author === "string" && typeof item.content === "string"
+  );
+}
+
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  start: string;
+  end: string;
+  location: string | null;
+  htmlLink: string | null;
+}
+
+/** Read a bounded list of upcoming primary-calendar events via the authenticated Worker. */
+export async function getCalendarEvents(timeMin = new Date().toISOString()): Promise<CalendarEvent[]> {
+  const parsed = Date.parse(timeMin);
+  if (!Number.isFinite(parsed) || !timeMin.endsWith("Z")) throw new Error("Calendar time must be a UTC ISO-8601 timestamp.");
+  const response = await expoFetch(
+    apiUrl(`/integrations/google-calendar/events?timeMin=${encodeURIComponent(timeMin)}`),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: await ownerAuthorizationHeader(),
+      },
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Calendar request failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { events?: CalendarEvent[] };
+  if (!Array.isArray(body.events)) throw new Error("Google Calendar returned an invalid event list.");
+  return body.events.slice(0, 20).filter((item) =>
+    typeof item?.id === "string" && typeof item.summary === "string"
+    && typeof item.start === "string" && typeof item.end === "string"
+    && (item.location === null || typeof item.location === "string")
+    && (item.htmlLink === null || (typeof item.htmlLink === "string" && item.htmlLink.startsWith("https://calendar.google.com/")))
+  );
+}
+
+
+export interface SlackMessage {
+  timestamp: string;
+  user: string;
+  text: string;
+}
+
+/** Read a bounded Slack channel history through the owner-authenticated Worker. */
+export async function getSlackMessages(channelId: string): Promise<SlackMessage[]> {
+  const cleanChannelId = channelId.trim();
+  if (!/^[A-Z0-9]{6,32}$/.test(cleanChannelId)) throw new Error("A valid Slack channel ID is required.");
+  const response = await expoFetch(
+    apiUrl(`/integrations/slack/history?channel=${encodeURIComponent(cleanChannelId)}`),
+    {
+      method: "GET",
+      headers: { Accept: "application/json", Authorization: await ownerAuthorizationHeader() },
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Slack history failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { messages?: SlackMessage[] };
+  if (!Array.isArray(body.messages)) throw new Error("Slack returned an invalid message list.");
+  return body.messages.slice(0, 20).filter((item) =>
+    typeof item?.timestamp === "string" && typeof item.user === "string" && typeof item.text === "string"
+  );
+}
+
+export interface HomeAssistantState {
+  entityId: string;
+  state: string;
+  friendlyName: string | null;
+}
+
+/** Read a bounded Home Assistant entity-state list through the authenticated Worker. */
+export async function getHomeAssistantStates(): Promise<HomeAssistantState[]> {
+  const response = await expoFetch(apiUrl("/integrations/home-assistant/states"), {
+    method: "GET",
+    headers: { Accept: "application/json", Authorization: await ownerAuthorizationHeader() },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Home Assistant request failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { states?: HomeAssistantState[] };
+  if (!Array.isArray(body.states)) throw new Error("Home Assistant returned an invalid state list.");
+  return body.states.slice(0, 100).filter((item) =>
+    typeof item?.entityId === "string" && typeof item.state === "string"
+    && (item.friendlyName === null || typeof item.friendlyName === "string")
+  );
 }

@@ -34,10 +34,13 @@ import {
 import { buildExpertReviewPrompt, inspectBadboyRepository, type RepositoryEvidence } from '@/lib/assistant/expertReview';
 import { useColors } from '@/hooks/useColors';
 import {
+  bindTelegramOwnerChat,
   checkTelegramMessages,
   connectTelegramBot,
   disconnectTelegramBot,
+  getTelegramOwnerChatId,
   hasTelegramBot,
+  parseTelegramOwnerCommand,
   sendTelegramMessage,
 } from '@/lib/assistant/telegram';
 import {
@@ -48,7 +51,7 @@ import {
   PluginItem,
   ProjectBrain,
   QAResult,
-  createGitHubPullRequest,
+  previewGitHubChanges,
   executeAgentTask,
   generateDevelopmentPlan,
   getGitHubToken,
@@ -60,6 +63,7 @@ import {
 } from '@/lib/assistant/developer';
 import { resolveDeveloperEngine } from '@/lib/assistant/developerEngine';
 import type { DeveloperEngineMode } from '@/lib/assistant/types';
+import { openAllowedApp, openCalendarDraft, openDeviceSettings, scheduleLocalReminder, type AllowedAppId, type DeviceSettingsId } from '@/lib/assistant/deviceControl';
 
 interface LocalTelegramMessage {
   id: number;
@@ -77,6 +81,7 @@ export default function SettingsScreen() {
   const [personalityDraft, setPersonalityDraft] = useState(settings.personality);
   const [botTokenDraft, setBotTokenDraft] = useState('');
   const [telegramConnected, setTelegramConnected] = useState(false);
+  const [telegramOwnerChatId, setTelegramOwnerChatId] = useState<number | null>(null);
   const [botUsername, setBotUsername] = useState('');
   const [telegramMessage, setTelegramMessage] = useState('');
   const [telegramItems, setTelegramItems] = useState<LocalTelegramMessage[]>([]);
@@ -85,6 +90,11 @@ export default function SettingsScreen() {
   const [languageSearch, setLanguageSearch] = useState('');
   const [availableVoices, setAvailableVoices] = useState<AvailableSpeechVoice[]>([]);
   const [voiceListLoading, setVoiceListLoading] = useState(false);
+  const [reminderTitle, setReminderTitle] = useState('');
+  const [reminderBody, setReminderBody] = useState('');
+  const [reminderAt, setReminderAt] = useState('');
+  const [deviceActionBusy, setDeviceActionBusy] = useState(false);
+  const [deviceActionError, setDeviceActionError] = useState<string | null>(null);
 
   // Agent Execution System States
   const [agentPrompt, setAgentPrompt] = useState('');
@@ -160,7 +170,7 @@ export default function SettingsScreen() {
           ...projectBrain.frameworks,
           ...projectBrain.apiEndpoints,
           ...projectBrain.knownLimitations,
-        ].join('\\n').slice(0, 4000),
+        ].join('\n').slice(0, 4000),
       });
       setSelectedDeveloperProjectId(project.projectId);
       await refreshDeveloperProjects();
@@ -219,6 +229,12 @@ export default function SettingsScreen() {
       if (active) setTelegramConnected(connected);
     }).catch(() => {
       if (active) setTelegramError('ফোনের নিরাপদ স্টোরেজ পরীক্ষা করা যায়নি।');
+    });
+
+    getTelegramOwnerChatId().then((chatId) => {
+      if (active) setTelegramOwnerChatId(chatId);
+    }).catch(() => {
+      if (active) setTelegramError('Telegram owner chat যাচাই করা যায়নি।');
     });
 
     getGitHubToken().then((token) => {
@@ -362,6 +378,20 @@ export default function SettingsScreen() {
         const query = encodeURIComponent(String(res.outputData.query || prompt));
         Linking.openURL(`https://www.youtube.com/results?search_query=${query}`).catch(() => {});
       }
+      if (res.state === 'completed' && res.outputData?.action === 'open_allowed_app') {
+        const appId = res.outputData.appId;
+        const allowedApps = ['youtube', 'chrome', 'gmail', 'maps', 'whatsapp', 'telegram'];
+        if (typeof appId === 'string' && allowedApps.includes(appId)) {
+          await openAllowedApp(appId as AllowedAppId);
+        }
+      }
+      if (res.state === 'completed' && res.outputData?.action === 'open_device_settings') {
+        const settingId = res.outputData.settingId;
+        const allowedSettings = ['wifi', 'bluetooth', 'sound', 'app', 'notifications'];
+        if (typeof settingId === 'string' && allowedSettings.includes(settingId)) {
+          await openDeviceSettings(settingId as DeviceSettingsId);
+        }
+      }
     } catch {
       // Ignore err
     } finally {
@@ -403,34 +433,46 @@ export default function SettingsScreen() {
     }
 
     Alert.alert(
-      'স্বয়ংক্রিয় ডেভেলপমেন্ট ওয়ার্কফ্লো শুরু করবেন?',
-      `ব্রাঞ্চ: ${currentPlan.branchName}\nলক্ষ্য: GitHub-এ Pull Request তৈরি করা।\n\nআপনি কি নিশ্চিত?`,
+      'GitHub read-only preview তৈরি করবেন?',
+      `Repository: shomratofficial007-spec/Badboy-VS-Versel-Ai\nBase branch: main\nFiles: ${currentPlan.filesToModify.length}\n\nএখন শুধু GET/read preview হবে। কোনো branch, file, commit বা Pull Request তৈরি হবে না।`,
       [
         { text: 'বাতিল', style: 'cancel' },
         {
-          text: 'হ্যাঁ, শুরু করুন',
+          text: 'Preview দেখুন',
           onPress: async () => {
             setDevBusy(true);
             setDevError(null);
-            setDevStatusLog((prev) => [...prev, `[${new Date().toISOString().slice(11, 19)}] সোর্স কোড ও ব্রাঞ্চ যাচাই চলছে...`]);
-
+            setPrResult(null);
+            setDevStatusLog((prev) => [...prev, `[${new Date().toISOString().slice(11, 19)}] GitHub read-only preview চলছে...`]);
             try {
-              const res = await createGitHubPullRequest({
+              const preview = await previewGitHubChanges({
                 githubToken,
-                plan: currentPlan,
+                paths: currentPlan.filesToModify,
               });
-
-              setPrResult(res);
-              if (res.logs && res.logs.length) {
-                setDevStatusLog((prev) => [...prev, ...res.logs]);
+              if (!preview.success || !preview.baseSha) {
+                throw new Error(preview.error || 'GitHub preview তৈরি করা যায়নি।');
               }
-              if (res.success) {
-                setDevHistory((prev) => [{ plan: currentPlan, prUrl: res.prUrl, date: new Date().toLocaleTimeString() }, ...prev]);
-              } else {
-                setDevError(res.error || 'Pull Request তৈরি করা ব্যর্থ হয়েছে।');
-              }
+              const summary = preview.files.map((file) =>
+                `${file.exists ? 'EXISTS' : 'NEW'}  ${file.path}${file.content ? ` (${file.content.length} chars)` : ''}`,
+              );
+              const previewLog = [
+                `Read-only preview SHA: ${preview.baseSha}`,
+                ...summary,
+                'No repository writes were performed.',
+              ];
+              setDevStatusLog((prev) => [...prev, ...previewLog]);
+              setPrResult({
+                success: false,
+                summary: 'Read-only preview সম্পন্ন; কোনো PR বা file write করা হয়নি।',
+                logs: previewLog,
+                error: 'পরবর্তী write ধাপে যেতে হলে exact code diff review, explicit owner approval এবং একই base SHA পুনরায় যাচাই আবশ্যক।',
+              });
+              Alert.alert(
+                'GitHub preview সম্পন্ন',
+                `Base SHA: ${preview.baseSha.slice(0, 12)}\n\n${summary.join('\n')}\n\nকোনো branch, file বা PR তৈরি হয়নি।`,
+              );
             } catch (err) {
-              setDevError(err instanceof Error ? err.message : 'অপ্রত্যাশিত ত্রুটি ঘটেছে।');
+              setDevError(err instanceof Error ? err.message : 'GitHub preview ব্যর্থ হয়েছে।');
             } finally {
               setDevBusy(false);
             }
@@ -479,6 +521,7 @@ export default function SettingsScreen() {
           onPress: () => {
             void disconnectTelegramBot().then(() => {
               setTelegramConnected(false);
+              setTelegramOwnerChatId(null);
               setBotUsername('');
               setTelegramItems([]);
             }).catch(() => setTelegramError('Bot token মুছতে সমস্যা হয়েছে।'));
@@ -502,12 +545,70 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleBindTelegramOwnerChat = async (item: LocalTelegramMessage) => {
+    if (telegramBusy || telegramOwnerChatId !== null) return;
+    Alert.alert(
+      'এই Telegram chat-কে Owner হিসেবে bind করবেন?',
+      `Chat ID: ${item.chatId}\nSender: ${item.sender}\n\nশুধু এই private chat থেকে আসা অনুমোদিত command-ই Badboy গ্রহণ করবে।`,
+      [
+        { text: 'বাতিল', style: 'cancel' },
+        {
+          text: 'Owner chat bind',
+          onPress: () => {
+            setTelegramBusy(true);
+            void bindTelegramOwnerChat(item.chatId)
+              .then(() => setTelegramOwnerChatId(item.chatId))
+              .catch((cause) => setTelegramError(cause instanceof Error ? cause.message : 'Owner chat bind করা যায়নি।'))
+              .finally(() => setTelegramBusy(false));
+          },
+        },
+      ],
+    );
+  };
+
+  const handleApproveTelegramCommand = (item: LocalTelegramMessage) => {
+    if (telegramOwnerChatId !== item.chatId || telegramBusy) return;
+    const command = parseTelegramOwnerCommand(item.text);
+    if (!command) {
+      setTelegramError('এই Telegram command অনুমোদিত নয়। /badboy ask অথবা /badboy youtube ব্যবহার করুন।');
+      return;
+    }
+    const description = command.kind === 'ask'
+      ? `AI উত্তর তৈরি করে আপনার bound Telegram chat-এ পাঠাবে:\n${command.prompt}`
+      : `YouTube search খুলবে:\n${command.query}`;
+    Alert.alert('Telegram request অনুমোদন করবেন?', description, [
+      { text: 'বাতিল', style: 'cancel' },
+      {
+        text: 'অনুমোদন করুন',
+        onPress: () => {
+          setTelegramBusy(true);
+          setTelegramError(null);
+          void (async () => {
+            if (command.kind === 'ask') {
+              if (!settings.onlineAI) throw new Error('AI উত্তর তৈরির জন্য Online AI চালু করুন।');
+              let answer = '';
+              await streamReply(command.prompt, settings, (chunk) => { answer += chunk; });
+              if (!answer.trim()) throw new Error('AI থেকে কোনো উত্তর পাওয়া যায়নি।');
+              await sendTelegramMessage(answer.slice(0, 3500));
+            } else {
+              const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(command.query)}`;
+              await Linking.openURL(url);
+              await sendTelegramMessage(`YouTube search খোলা হয়েছে: ${command.query}`);
+            }
+          })().catch((cause) => {
+            setTelegramError(cause instanceof Error ? cause.message : 'Telegram request সম্পন্ন হয়নি।');
+          }).finally(() => setTelegramBusy(false));
+        },
+      },
+    ]);
+  };
+
   const sendTelegram = () => {
     const text = telegramMessage.trim();
     if (!text || telegramBusy) return;
     Alert.alert(
       'Telegram-এ পাঠাবেন?',
-      'এই বার্তাটি আপনার সংযুক্ত bot-এর সর্বশেষ chat-এ পাঠানো হবে।',
+      'এই বার্তাটি শুধু আপনার স্পষ্টভাবে bind করা Owner chat-এ পাঠানো হবে।',
       [
         { text: 'বাতিল', style: 'cancel' },
         {
@@ -523,6 +624,60 @@ export default function SettingsScreen() {
         },
       ],
     );
+  };
+
+  const handleScheduleReminder = async () => {
+    if (!reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy) return;
+    const at = new Date(reminderAt);
+    if (!Number.isFinite(at.getTime())) {
+      setDeviceActionError('তারিখ ও সময় YYYY-MM-DDTHH:mm ফরম্যাটে দিন।');
+      return;
+    }
+    setDeviceActionBusy(true);
+    setDeviceActionError(null);
+    try {
+      const result = await scheduleLocalReminder({ title: reminderTitle, body: reminderBody, at });
+      setReminderTitle('');
+      setReminderBody('');
+      setReminderAt('');
+      Alert.alert('Reminder সংরক্ষিত', `ফোনে reminder সেট হয়েছে। Android battery saver-এর কারণে notification কিছুটা দেরিতে আসতে পারে।\n\n${new Date(result.scheduledAt).toLocaleString()}`);
+    } catch (cause) {
+      setDeviceActionError(cause instanceof Error ? cause.message : 'Reminder সেট করা যায়নি।');
+    } finally {
+      setDeviceActionBusy(false);
+    }
+  };
+
+  const handleCalendarDraft = async () => {
+    if (!reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy) return;
+    const start = new Date(reminderAt);
+    if (!Number.isFinite(start.getTime())) {
+      setDeviceActionError('Calendar-এর তারিখ ও সময় YYYY-MM-DDTHH:mm ফরম্যাটে দিন।');
+      return;
+    }
+    setDeviceActionBusy(true);
+    setDeviceActionError(null);
+    try {
+      await openCalendarDraft({ title: reminderTitle, start, end: new Date(start.getTime() + 60 * 60 * 1000) });
+    } catch (cause) {
+      setDeviceActionError(cause instanceof Error ? cause.message : 'Calendar খোলা যায়নি।');
+    } finally {
+      setDeviceActionBusy(false);
+    }
+  };
+
+  const runDeviceAction = async (action: () => Promise<boolean>, successMessage: string) => {
+    if (deviceActionBusy) return;
+    setDeviceActionBusy(true);
+    setDeviceActionError(null);
+    try {
+      await action();
+      Alert.alert('সম্পন্ন', successMessage);
+    } catch (cause) {
+      setDeviceActionError(cause instanceof Error ? cause.message : 'Device action সম্পন্ন করা যায়নি।');
+    } finally {
+      setDeviceActionBusy(false);
+    }
   };
 
   const sectionCard = { backgroundColor: colors.card, borderColor: colors.border };
@@ -923,19 +1078,19 @@ export default function SettingsScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={[styles.planTitle, { color: colors.primary }]}>{currentPlan.title}</Text>
                   <View style={[styles.categoryPill, { backgroundColor: colors.secondary }]}>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.secondaryForeground }}>{currentPlan.category.toUpperCase()}</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.secondaryForeground }}>{(currentPlan.category || 'general').toUpperCase()}</Text>
                   </View>
                 </View>
 
                 <Text style={[styles.body, { color: colors.foreground, marginTop: 6 }]}>{currentPlan.featureDescription}</Text>
 
                 <Text style={[styles.label, { color: colors.foreground, marginTop: 10 }]}>পরিবর্তনযোগ্য ফাইলসমূহ:</Text>
-                {currentPlan.filesToModify.map((f) => (
+                {(Array.isArray(currentPlan.filesToModify) ? currentPlan.filesToModify : []).map((f) => (
                   <Text key={f} style={[styles.smallNote, { color: colors.mutedForeground, marginTop: 2 }]}>• {f}</Text>
                 ))}
 
                 <Text style={[styles.label, { color: colors.foreground, marginTop: 10 }]}>কাজসমূহ (Tasks):</Text>
-                {currentPlan.tasks.map((t) => (
+                {(Array.isArray(currentPlan.tasks) ? currentPlan.tasks : []).map((t) => (
                   <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                     <Feather name="alert-circle" size={13} color={colors.mutedForeground} />
                     <Text style={[styles.body, { color: colors.foreground }]}>{t.title}</Text>
@@ -953,7 +1108,7 @@ export default function SettingsScreen() {
                   style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 12 }]}
                 >
                   {devBusy ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Feather name="git-pull-request" size={15} color={colors.primaryForeground} />}
-                  <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>GitHub-এ PR তৈরি করুন</Text>
+                  <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>GitHub read-only preview দেখুন</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -1173,7 +1328,7 @@ export default function SettingsScreen() {
           </View>
         ) : (
           <Text style={[styles.smallNote, { color: colors.mutedForeground }]}>
-            এই মোড অন করলে আপনি ভয়েস বা টেক্সটে নির্দেশনা দিয়ে ফিচার যোগ ও Pull Request তৈরি করার সুবিধা পাবেন।
+            এই মোডে ফিচার পরিকল্পনা ও GitHub read-only preview দেখা যাবে। যাচাই করা code diff ও মালিকের অনুমোদন ছাড়া কোনো repository write বা Pull Request তৈরি হবে না।
           </Text>
         )}
       </View>
@@ -1256,9 +1411,55 @@ export default function SettingsScreen() {
         <View style={[styles.wakeCard, { backgroundColor: colors.accent }]}>
           <Feather name="shield" size={16} color={colors.accentForeground} />
           <Text style={[styles.wakeText, { color: colors.accentForeground }]}>
-            Wake Word চালু করতে Voice Consent, microphone permission এবং সমর্থিত Android build দরকার। Settings-এর সুইচ বন্ধ করলে listener আর শুরু হবে না।
+            Offline wake model বর্তমানে “Hey Badboy” phrase শনাক্ত করে; “Oi/ওহে” background wake phrase হিসেবে এখনো model-এ নেই। চালাতে Voice Consent, microphone permission এবং Android 14+ native build দরকার। Android battery policy বা process kill হলে listener থেমে যেতে পারে; বাস্তব ফোনে পরীক্ষা প্রয়োজন।
           </Text>
         </View>
+      </View>
+
+      <View style={[styles.section, sectionCard]}>
+        <View style={styles.sectionTitleRow}>
+          <Feather name="smartphone" size={17} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Android Control & Reminders</Text>
+        </View>
+        <Text style={[styles.body, { color: colors.mutedForeground }]}>
+          অনুমোদিত অ্যাপ খোলা, Wi-Fi/Bluetooth settings-এ যাওয়া, ফোনে local reminder এবং Calendar event draft তৈরি করা যাবে। কোনো system toggle গোপনে পরিবর্তন করা হবে না।
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+          {([
+            ['youtube', 'YouTube'], ['chrome', 'Chrome'], ['gmail', 'Gmail'],
+            ['maps', 'Maps'], ['whatsapp', 'WhatsApp'], ['telegram', 'Telegram'],
+          ] as const).map(([id, label]) => (
+            <Pressable key={id} onPress={() => void runDeviceAction(() => openAllowedApp(id), `${label} খোলার অনুরোধ পাঠানো হয়েছে।`)} style={[styles.secondaryButton, { backgroundColor: colors.secondary, paddingHorizontal: 12 }]}>
+              <Text style={{ color: colors.secondaryForeground, fontWeight: '700', fontSize: 12 }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+          {([
+            ['wifi', 'Wi-Fi settings'], ['bluetooth', 'Bluetooth'], ['sound', 'Sound'], ['app', 'App settings'],
+          ] as const).map(([id, label]) => (
+            <Pressable key={id} onPress={() => void runDeviceAction(() => openDeviceSettings(id), `${label} খোলা হয়েছে।`)} style={[styles.secondaryButton, { backgroundColor: colors.secondary, paddingHorizontal: 12 }]}>
+              <Text style={{ color: colors.secondaryForeground, fontWeight: '700', fontSize: 12 }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={[styles.rule, { backgroundColor: colors.border, marginVertical: 12 }]} />
+        <Text style={[styles.label, { color: colors.foreground }]}>Reminder / Calendar event</Text>
+        <TextInput value={reminderTitle} onChangeText={setReminderTitle} maxLength={80} placeholder="কাজের নাম / Title" placeholderTextColor={colors.mutedForeground} style={[styles.telegramInput, { color: colors.foreground, borderColor: colors.input }]} />
+        <TextInput value={reminderBody} onChangeText={setReminderBody} maxLength={240} placeholder="বিস্তারিত (ঐচ্ছিক)" placeholderTextColor={colors.mutedForeground} style={[styles.telegramInput, { color: colors.foreground, borderColor: colors.input }]} />
+        <TextInput value={reminderAt} onChangeText={setReminderAt} autoCapitalize="none" placeholder="YYYY-MM-DDTHH:mm (ফোনের local time)" placeholderTextColor={colors.mutedForeground} style={[styles.telegramInput, { color: colors.foreground, borderColor: colors.input }]} />
+        <Pressable onPress={() => void handleScheduleReminder()} disabled={!reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy} style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy ? 0.5 : 1 }]}>
+          {deviceActionBusy ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Feather name="bell" size={15} color={colors.primaryForeground} />}
+          <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>ফোনে Reminder সেট করুন</Text>
+        </Pressable>
+        <Pressable onPress={() => void handleCalendarDraft()} disabled={!reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy} style={[styles.secondaryButton, { backgroundColor: colors.secondary, opacity: !reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy ? 0.5 : 1 }]}>
+          <Feather name="calendar" size={15} color={colors.secondaryForeground} />
+          <Text style={{ color: colors.secondaryForeground, fontWeight: '700' }}>Calendar-এ event draft খুলুন</Text>
+        </Pressable>
+        <Text style={[styles.smallNote, { color: colors.mutedForeground }]}>
+          Android-এর battery saver reminder notification দেরি করাতে পারে। Calendar draft ফোনের Calendar app-এ খুলবে; সংরক্ষণ করতে সেখানে Save চাপতে হবে।
+        </Text>
+        {deviceActionError ? <Text style={[styles.errorText, { color: colors.destructive }]}>{deviceActionError}</Text> : null}
       </View>
 
       <View style={[styles.section, sectionCard]}>
@@ -1319,14 +1520,28 @@ export default function SettingsScreen() {
               <Text style={{ color: colors.secondaryForeground, fontWeight: '700' }}>Inbox দেখুন</Text>
             </Pressable>
             <Text style={[styles.smallNote, { color: colors.mutedForeground }]}>
-              প্রথমে Telegram-এ আপনার bot-কে /start পাঠান। নতুন বার্তা শুধু আপনি “Inbox দেখুন” চাপলে আনা হবে।
+              প্রথমে bot-এ /start পাঠিয়ে Inbox দেখুন। একটি private chat-কে একবার Owner হিসেবে bind করুন। অনুমোদিত command: /badboy ask ... অথবা /badboy youtube ...। অন্য command কোনো কাজ চালাবে না।
             </Text>
-            {telegramItems.map((item) => (
-              <View key={item.id} style={[styles.telegramItem, { borderColor: colors.border }]}>
-                <Text style={[styles.messageSender, { color: colors.foreground }]}>{item.sender}</Text>
-                <Text style={[styles.body, { color: colors.mutedForeground }]}>{item.text}</Text>
-              </View>
-            ))}
+            {telegramOwnerChatId ? <Text style={[styles.smallNote, { color: colors.primary }]}>Owner chat bound: {telegramOwnerChatId}</Text> : null}
+            {telegramItems.map((item) => {
+              const command = parseTelegramOwnerCommand(item.text);
+              const isBoundOwner = telegramOwnerChatId === item.chatId;
+              return (
+                <View key={item.id} style={[styles.telegramItem, { borderColor: colors.border }]}>
+                  <Text style={[styles.messageSender, { color: colors.foreground }]}>{item.sender}</Text>
+                  <Text style={[styles.body, { color: colors.mutedForeground }]}>{item.text}</Text>
+                  {!telegramOwnerChatId ? (
+                    <Pressable onPress={() => handleBindTelegramOwnerChat(item)} disabled={telegramBusy} style={[styles.secondaryButton, { backgroundColor: colors.secondary, marginTop: 8 }]}>
+                      <Text style={{ color: colors.secondaryForeground, fontWeight: '700' }}>এই private chat-কে Owner bind করুন</Text>
+                    </Pressable>
+                  ) : isBoundOwner && command ? (
+                    <Pressable onPress={() => handleApproveTelegramCommand(item)} disabled={telegramBusy} style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 8 }]}>
+                      <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>Request review ও approve করুন</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              );
+            })}
             <TextInput
               value={telegramMessage}
               onChangeText={setTelegramMessage}

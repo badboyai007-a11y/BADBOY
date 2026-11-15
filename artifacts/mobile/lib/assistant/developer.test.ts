@@ -11,6 +11,7 @@ import {
   buildStructuredReasoning,
   DEFAULT_REPO_CONFIG,
   createGitHubPullRequest,
+  previewGitHubChanges,
 } from './developer';
 
 test('detectMessageLanguage - identifies Bengali, Banglish, English, and mixed script', () => {
@@ -181,6 +182,24 @@ test('executeAgentTask - executes live web search when research prompt is detect
   }
 });
 
+test('executeAgentTask - Android app launch requires explicit owner confirmation', async () => {
+  const pending = await executeAgentTask('Open YouTube app', false, false);
+  assert.equal(pending.state, 'permission_pending');
+  assert.equal(pending.requiresConfirmation, true);
+  const approved = await executeAgentTask('Open YouTube app', false, true);
+  assert.equal(approved.state, 'completed');
+  assert.deepEqual(approved.outputData, { action: 'open_allowed_app', appId: 'youtube' });
+});
+
+test('executeAgentTask - Android Settings shortcuts require confirmation and use an allowlist', async () => {
+  const pending = await executeAgentTask('Open Wi-Fi settings', false, false);
+  assert.equal(pending.state, 'permission_pending');
+  const approved = await executeAgentTask('Open Wi-Fi settings', false, true);
+  assert.deepEqual(approved.outputData, { action: 'open_device_settings', settingId: 'wifi' });
+  const unsupported = await executeAgentTask('Open developer options settings', false, true);
+  assert.equal(unsupported.outputData, undefined);
+});
+
 test('executeAgentTask - YouTube command distinguishes search opening vs in-app playback', async () => {
   const result = await executeAgentTask('Play a song on YouTube', true);
   assert.strictEqual(result.state, 'completed');
@@ -282,8 +301,117 @@ test('getPluginRegistryStatus - lists active and not_connected tool adapters', (
 
 test('DEFAULT_REPO_CONFIG has target repository details', () => {
   assert.strictEqual(DEFAULT_REPO_CONFIG.owner, 'shomratofficial007-spec');
-  assert.strictEqual(DEFAULT_REPO_CONFIG.repo, 'Voice-Memory-Assistant-net');
+  assert.strictEqual(DEFAULT_REPO_CONFIG.repo, 'Badboy-VS-Versel-Ai');
   assert.strictEqual(DEFAULT_REPO_CONFIG.baseBranch, 'main');
+});
+
+test('previewGitHubChanges is read-only and returns the exact base SHA and file contents', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; method: string }> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    const method = init?.method ?? 'GET';
+    calls.push({ url, method });
+    if (url.endsWith('/git/ref/heads/main')) return Response.json({ object: { sha: 'preview-sha' } });
+    if (url.includes('/contents/src/app.ts?ref=main')) {
+      return Response.json({ type: 'file', encoding: 'base64', sha: 'blob-sha', content: btoa('export const ok = true;') });
+    }
+    throw new Error(`Unexpected preview request: ${method} ${url}`);
+  };
+  try {
+    const result = await previewGitHubChanges({ githubToken: 'read-token', paths: ['src/app.ts'] });
+    assert.equal(result.success, true);
+    assert.equal(result.baseSha, 'preview-sha');
+    assert.equal(result.files[0].content, 'export const ok = true;');
+    assert.ok(calls.every((call) => call.method === 'GET'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('previewGitHubChanges rejects secret paths without reading them', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return Response.json({ object: { sha: 'sha' } }); };
+  try {
+    const result = await previewGitHubChanges({ githubToken: 'read-token', paths: ['.env.production'] });
+    assert.equal(result.success, false);
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('GitHub default repository targets the current Badboy project', () => {
+  assert.equal(DEFAULT_REPO_CONFIG.owner, 'shomratofficial007-spec');
+  assert.equal(DEFAULT_REPO_CONFIG.repo, 'Badboy-VS-Versel-Ai');
+});
+
+test('GitHub write validation rejects traversal and secret paths before network access', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; throw new Error('must not fetch'); };
+  try {
+    for (const path of ['../outside.ts', '.env.production', 'keys/signing.keystore']) {
+      const result = await createGitHubPullRequest({
+        githubToken: 'write-token',
+        plan: generateDevelopmentPlan('Add a feature'),
+        changes: [{ path, content: 'unsafe' }],
+        approved: true,
+        expectedBaseSha: 'preview-sha',
+      });
+      assert.equal(result.success, false);
+      assert.match(result.error ?? '', /নিরাপদ file path/);
+    }
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('GitHub writes stop unless owner approval is explicit', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; throw new Error('must not fetch'); };
+  try {
+    const result = await createGitHubPullRequest({
+      githubToken: 'write-token',
+      plan: generateDevelopmentPlan('Add a feature'),
+      changes: [{ path: 'src/feature.ts', content: 'export {};' }],
+      approved: false,
+      expectedBaseSha: 'preview-sha',
+    });
+    assert.equal(result.success, false);
+    assert.match(result.error ?? '', /স্পষ্ট অনুমোদন/);
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('GitHub writes stop when the base branch changed after preview', async () => {
+  const originalFetch = globalThis.fetch;
+  let writes = 0;
+  globalThis.fetch = async (_input, init) => {
+    if ((init?.method ?? 'GET') !== 'GET') writes += 1;
+    return Response.json({ object: { sha: 'newer-base-sha' } });
+  };
+  try {
+    const plan = generateDevelopmentPlan('Add a feature');
+    plan.branchName = 'feature/badboy-stale-preview';
+    const result = await createGitHubPullRequest({
+      githubToken: 'write-token',
+      plan,
+      changes: [{ path: 'src/feature.ts', content: 'export {};' }],
+      approved: true,
+      expectedBaseSha: 'older-preview-sha',
+    });
+    assert.equal(result.success, false);
+    assert.match(result.error ?? '', /নতুন করে read-only preview/);
+    assert.equal(writes, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('createGitHubPullRequest - handles missing token gracefully', async () => {
@@ -292,6 +420,8 @@ test('createGitHubPullRequest - handles missing token gracefully', async () => {
     githubToken: '',
     plan,
     changes: [{ path: 'test.txt', content: 'hello' }],
+    approved: true,
+    expectedBaseSha: 'expected-sha',
   });
   assert.strictEqual(result.success, false);
   assert.ok(result.error?.includes('Personal Access Token'));
@@ -371,7 +501,7 @@ test('createGitHubPullRequest - completes a mocked safe branch, file commit and 
       return Response.json({ object: { sha: 'base-commit-sha' } });
     }
     if (url.endsWith('/git/refs') && method === 'POST') {
-      return new Response('branch already exists', { status: 422 });
+      return Response.json({ ref: 'refs/heads/feature/badboy-test-branch' }, { status: 201 });
     }
     if (url.includes('/contents/notes.md?ref=')) {
       return Response.json({ sha: 'existing-file-sha' });
@@ -392,6 +522,8 @@ test('createGitHubPullRequest - completes a mocked safe branch, file commit and 
       githubToken: '  test-github-token  ',
       plan,
       changes: [{ path: 'notes.md', content: 'Preserve existing project notes.' }],
+      approved: true,
+      expectedBaseSha: 'base-commit-sha',
     });
 
     assert.equal(result.success, true);
@@ -424,6 +556,8 @@ test('createGitHubPullRequest - handles invalid credentials and missing base SHA
         githubToken: 'invalid-token',
         plan,
         changes: [{ path: 'notes.md', content: 'note' }],
+        approved: true,
+        expectedBaseSha: 'expected-base-sha',
       });
       assert.equal(result.success, false);
       assert.match(result.error ?? '', /অকার্যকর/);
@@ -440,6 +574,8 @@ test('createGitHubPullRequest - handles invalid credentials and missing base SHA
         githubToken: 'valid-token',
         plan,
         changes: [{ path: 'notes.md', content: 'note' }],
+        approved: true,
+        expectedBaseSha: 'expected-base-sha',
       });
       assert.equal(result.success, false);
       assert.match(result.error ?? '', /SHA পাওয়া যায়নি/);
@@ -456,7 +592,7 @@ test('createGitHubPullRequest - reports commit failures and does not create a PR
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.endsWith('/git/ref/heads/main')) return Response.json({ object: { sha: 'base-sha' } });
-    if (url.endsWith('/git/refs')) return Response.json({});
+    if (url.endsWith('/git/refs')) return Response.json({ ref: 'refs/heads/feature/badboy-test' }, { status: 201 });
     if (url.includes('/contents/notes.md?ref=')) return new Response('not found', { status: 404 });
     if (url.endsWith('/contents/notes.md') && init?.method === 'PUT') {
       return new Response('write denied', { status: 403 });
@@ -471,6 +607,8 @@ test('createGitHubPullRequest - reports commit failures and does not create a PR
       githubToken: 'valid-token',
       plan,
       changes: [{ path: 'notes.md', content: 'note' }],
+      approved: true,
+      expectedBaseSha: 'base-sha',
     });
     assert.equal(result.success, false);
     assert.match(result.error ?? '', /ফাইল কমিট করতে ব্যর্থ/);

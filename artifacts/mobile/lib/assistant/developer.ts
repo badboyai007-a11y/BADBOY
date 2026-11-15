@@ -138,42 +138,36 @@ export interface PluginItem {
 // Token storage helpers using SecureStore prioritizing encrypted storage
 export async function saveGitHubToken(token: string): Promise<void> {
   const trimmed = token.trim();
-  try {
-    const SecureStore = await import('expo-secure-store').catch(() => null);
-    if (SecureStore && (await SecureStore.isAvailableAsync().catch(() => false))) {
-      await SecureStore.setItemAsync(GITHUB_TOKEN_KEY, trimmed);
-      return;
-    }
-  } catch {
-    // Fallback
+  if (!trimmed) throw new Error('GitHub token cannot be empty.');
+  const SecureStore = await import('expo-secure-store').catch(() => null);
+  if (!SecureStore || !(await SecureStore.isAvailableAsync().catch(() => false))) {
+    throw new Error('SecureStore is unavailable. GitHub tokens are not saved in unencrypted storage.');
   }
-  await AsyncStorage.setItem(GITHUB_TOKEN_KEY, trimmed);
+  await SecureStore.setItemAsync(GITHUB_TOKEN_KEY, trimmed);
+  // Remove any legacy plaintext fallback after a successful secure save.
+  await AsyncStorage.removeItem(GITHUB_TOKEN_KEY);
 }
 
 export async function getGitHubToken(): Promise<string | null> {
   try {
     const SecureStore = await import('expo-secure-store').catch(() => null);
-    if (SecureStore && (await SecureStore.isAvailableAsync().catch(() => false))) {
-      const val = await SecureStore.getItemAsync(GITHUB_TOKEN_KEY);
-      if (val) return val;
-    }
+    if (!SecureStore || !(await SecureStore.isAvailableAsync().catch(() => false))) return null;
+    return await SecureStore.getItemAsync(GITHUB_TOKEN_KEY);
   } catch {
-    // Fallback
+    return null;
   }
-  return await AsyncStorage.getItem(GITHUB_TOKEN_KEY);
 }
 
 export async function removeGitHubToken(): Promise<void> {
+  await AsyncStorage.removeItem(GITHUB_TOKEN_KEY).catch(() => undefined);
   try {
     const SecureStore = await import('expo-secure-store').catch(() => null);
     if (SecureStore && (await SecureStore.isAvailableAsync().catch(() => false))) {
       await SecureStore.deleteItemAsync(GITHUB_TOKEN_KEY);
-      return;
     }
   } catch {
-    // Fallback
+    // Best-effort cleanup; never copy the credential to weaker storage.
   }
-  await AsyncStorage.removeItem(GITHUB_TOKEN_KEY);
 }
 
 /**
@@ -462,6 +456,50 @@ export async function executeAgentTask(
       searchResults: searchRes,
       latencyMs: Date.now() - startTime,
     };
+  }
+
+  // Safe Android device controls: allowlisted apps and Settings screens only.
+  const openVerb = /\b(open|launch|start)\b|খোলো|খুলে দাও|চালু কর/i.test(clean);
+  if (openVerb) {
+    const settingsTargets: Array<{ id: string; pattern: RegExp; label: string }> = [
+      { id: 'wifi', pattern: /wi[- ]?fi|ওয়াই.?ফাই/i, label: 'Wi-Fi settings' },
+      { id: 'bluetooth', pattern: /bluetooth|ব্লুটুথ/i, label: 'Bluetooth settings' },
+      { id: 'sound', pattern: /sound settings|শব্দের সেটিংস/i, label: 'Sound settings' },
+      { id: 'app', pattern: /app settings|অ্যাপ সেটিংস/i, label: 'Badboy app settings' },
+    ];
+    const setting = settingsTargets.find((target) => target.pattern.test(clean));
+    const appTargets: Array<{ id: string; pattern: RegExp; label: string }> = [
+      { id: 'youtube', pattern: /youtube|ইউটিউব/i, label: 'YouTube' },
+      { id: 'chrome', pattern: /chrome|ক্রোম/i, label: 'Chrome' },
+      { id: 'gmail', pattern: /gmail|জিমেইল/i, label: 'Gmail' },
+      { id: 'maps', pattern: /google maps|maps|ম্যাপ/i, label: 'Google Maps' },
+      { id: 'whatsapp', pattern: /whatsapp|হোয়াটসঅ্যাপ/i, label: 'WhatsApp' },
+      { id: 'telegram', pattern: /telegram|টেলিগ্রাম/i, label: 'Telegram' },
+    ];
+    const app = appTargets.find((target) => target.pattern.test(clean));
+    const target = setting ?? app;
+    if (target) {
+      log(`নিরাপদ Android Control target: ${target.label}`);
+      if (!userConfirmed) {
+        return {
+          taskId, state: 'permission_pending', prompt: clean, detectedLanguage,
+          requiresInternet: false, requiresConfirmation: true,
+          confirmationMessage: `আপনি কি ${target.label} খুলতে অনুমতি দিচ্ছেন?`,
+          summary: `${target.label} খোলার আগে আপনার অনুমতি প্রয়োজন।`,
+          logs, latencyMs: Date.now() - startTime,
+        };
+      }
+      return {
+        taskId, state: 'completed', prompt: clean, detectedLanguage,
+        requiresInternet: false, requiresConfirmation: true,
+        summary: `${target.label} খোলার অনুমতি দেওয়া হয়েছে।`,
+        logs,
+        outputData: setting
+          ? { action: 'open_device_settings', settingId: setting.id }
+          : { action: 'open_allowed_app', appId: app!.id },
+        latencyMs: Date.now() - startTime,
+      };
+    }
   }
 
   // YouTube Commands - Distinctly opening search/deep links vs in-app playback
@@ -875,7 +913,7 @@ export interface GitHubRepoConfig {
 
 export const DEFAULT_REPO_CONFIG: GitHubRepoConfig = {
   owner: 'shomratofficial007-spec',
-  repo: 'Voice-Memory-Assistant-net',
+  repo: 'Badboy-VS-Versel-Ai',
   baseBranch: 'main',
 };
 
@@ -914,16 +952,78 @@ export function buildUpdatedFileContent(existingContent: string, plan: DevPlan, 
   return `${existingContent.trimEnd()}\n${commentSnippet}`;
 }
 
+/** Read-only repository preview. No branch, file, commit or PR is created. */
+export async function previewGitHubChanges(params: {
+  githubToken: string;
+  paths: string[];
+  repoConfig?: Partial<GitHubRepoConfig>;
+}): Promise<{ success: boolean; baseSha?: string; files: Array<{ path: string; exists: boolean; sha?: string; content?: string }>; error?: string }> {
+  const { githubToken, paths, repoConfig = {} } = params;
+  const owner = repoConfig.owner || DEFAULT_REPO_CONFIG.owner;
+  const repo = repoConfig.repo || DEFAULT_REPO_CONFIG.repo;
+  const baseBranch = repoConfig.baseBranch || DEFAULT_REPO_CONFIG.baseBranch;
+  const files: Array<{ path: string; exists: boolean; sha?: string; content?: string }> = [];
+  if (!githubToken.trim() || !Array.isArray(paths) || paths.length < 1 || paths.length > 20) {
+    return { success: false, files, error: 'একটি valid GitHub token এবং ১ থেকে ২০টি file path দিতে হবে।' };
+  }
+  const isSafePath = (rawPath: string) => {
+    const path = rawPath.trim();
+    return Boolean(path) && path.length <= 240 && !path.startsWith('/') && !path.includes('\\') &&
+      !path.split('/').some((part) => !part || part === '.' || part === '..') &&
+      !/(^|\/)(\.env|secrets?|credentials?)(\.|$)/i.test(path) &&
+      !/\.(pem|key|p12|pfx|keystore)$/i.test(path);
+  };
+  if (paths.some((path) => !isSafePath(path))) {
+    const unsafe = paths.find((path) => !isSafePath(path)) ?? '';
+    return { success: false, files: [], error: `এই path নিরাপদ read preview-এর জন্য অনুমোদিত নয়: ${unsafe.trim().slice(0, 120)}` };
+  }
+  const headers = {
+    Authorization: `Bearer ${githubToken.trim()}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'Badboy-Developer-Assistant',
+  };
+  try {
+    const refResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(baseBranch)}`, { headers });
+    if (!refResponse.ok) return { success: false, files, error: `GitHub repository/branch read failed (HTTP ${refResponse.status}).` };
+    const refData = await refResponse.json() as { object?: { sha?: string } };
+    const baseSha = refData.object?.sha;
+    if (!baseSha) return { success: false, files, error: 'Base branch SHA পাওয়া যায়নি।' };
+
+    for (const rawPath of paths) {
+      const path = rawPath.trim();
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(baseBranch)}`, { headers });
+      if (response.status === 404) {
+        files.push({ path, exists: false });
+        continue;
+      }
+      if (!response.ok) return { success: false, baseSha, files, error: `File read failed for ${path} (HTTP ${response.status}).` };
+      const file = await response.json() as { type?: string; sha?: string; content?: string; encoding?: string };
+      if (file.type !== 'file' || file.encoding !== 'base64' || typeof file.content !== 'string') {
+        return { success: false, baseSha, files, error: `Unsupported GitHub content type for ${path}.` };
+      }
+      const content = decodeBase64ToContent(file.content);
+      if (content.length > 256_000) return { success: false, baseSha, files, error: `File exceeds 256KB preview limit: ${path}.` };
+      files.push({ path, exists: true, sha: file.sha, content });
+    }
+    return { success: true, baseSha, files };
+  } catch {
+    return { success: false, files, error: 'GitHub read-only preview request failed.' };
+  }
+}
+
 /**
  * Creates a GitHub Pull Request for the requested feature using GitHub REST API.
  */
 export async function createGitHubPullRequest(params: {
   githubToken: string;
   plan: DevPlan;
-  changes?: FileChange[];
+  changes: FileChange[];
+  approved: boolean;
+  expectedBaseSha: string;
   repoConfig?: Partial<GitHubRepoConfig>;
 }): Promise<PRResult> {
-  const { githubToken, plan, changes: explicitChanges, repoConfig = {} } = params;
+  const { githubToken, plan, changes: explicitChanges, approved, expectedBaseSha, repoConfig = {} } = params;
   const logs: string[] = [];
   const log = (msg: string) => logs.push(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
 
@@ -932,6 +1032,38 @@ export async function createGitHubPullRequest(params: {
   const baseBranch = repoConfig.baseBranch || DEFAULT_REPO_CONFIG.baseBranch;
 
   log(`GitHub ইন্টিগ্রেশন শুরু করা হয়েছে: ${owner}/${repo}`);
+
+  // All GitHub writes are opt-in after the owner has reviewed a preview.
+  if (approved !== true) {
+    return { success: false, summary: 'মালিকের অনুমোদন প্রয়োজন।', logs,
+      error: 'GitHub-এ branch, file বা Pull Request লেখার আগে preview দেখে স্পষ্ট অনুমোদন দিতে হবে।' };
+  }
+  if (typeof expectedBaseSha !== 'string' || !expectedBaseSha.trim()) {
+    return { success: false, summary: 'Preview SHA অনুপস্থিত।', logs,
+      error: 'প্রথমে read-only preview তৈরি করে expectedBaseSha দিতে হবে।' };
+  }
+  if (!Array.isArray(explicitChanges) || explicitChanges.length < 1 || explicitChanges.length > 20) {
+    return { success: false, summary: 'পরিবর্তনের তালিকা অবৈধ।', logs,
+      error: 'অনুমোদিত write-এর জন্য ১ থেকে ২০টি স্পষ্ট file change দিতে হবে।' };
+  }
+  if (!/^feature\/[a-zA-Z0-9][a-zA-Z0-9._/-]{0,100}$/.test(plan.branchName) || plan.branchName.includes('..')) {
+    return { success: false, summary: 'Branch name অবৈধ।', logs,
+      error: 'শুধু feature/ দিয়ে শুরু নিরাপদ branch name ব্যবহার করা যাবে।' };
+  }
+  const seenPaths = new Set<string>();
+  for (const change of explicitChanges) {
+    const path = change.path.trim();
+    if (!path || path.length > 240 || path.startsWith('/') || path.includes('\\') ||
+        path.split('/').some((part) => !part || part === '.' || part === '..') ||
+        /(^|\/)(\.env|secrets?|credentials?)(\.|$)/i.test(path) ||
+        /\.(pem|key|p12|pfx|keystore)$/i.test(path) ||
+        typeof change.content !== 'string' || change.content.length > 256_000 ||
+        seenPaths.has(path)) {
+      return { success: false, summary: 'File change নিরাপত্তা যাচাইয়ে ব্যর্থ।', logs,
+        error: `নিরাপদ file path, unique path ও 256KB সীমা যাচাই করুন: ${path.slice(0, 120)}` };
+    }
+    seenPaths.add(path);
+  }
 
   if (!githubToken || !githubToken.trim()) {
     log('ত্রুটি: GitHub Personal Access Token অনুপস্থিত।');
@@ -979,6 +1111,10 @@ export async function createGitHubPullRequest(params: {
     if (!baseSha) {
       throw new Error(`Base branch ${baseBranch} এর SHA পাওয়া যায়নি।`);
     }
+    if (baseSha !== expectedBaseSha) {
+      return { success: false, summary: 'Preview পুরোনো হয়ে গেছে।', logs,
+        error: 'Base branch preview-এর পর পরিবর্তিত হয়েছে। নতুন করে read-only preview নিয়ে আবার অনুমোদন দিন।' };
+    }
     log(`Base SHA পাওয়া গেছে: ${baseSha.slice(0, 7)}`);
 
     // 2. Create new feature branch
@@ -993,35 +1129,19 @@ export async function createGitHubPullRequest(params: {
       }),
     });
 
-    if (!createBranchRes.ok && createBranchRes.status !== 422) {
+    if (!createBranchRes.ok) {
       const branchErr = await createBranchRes.text();
       log(`ব্রাঞ্চ তৈরিতে ব্যর্থ: ${branchErr.slice(0, 150)}`);
       throw new Error(`ফিচার ব্রাঞ্চ তৈরি করা সম্ভব হয়নি: ${createBranchRes.status}`);
     }
     log(`ব্রাঞ্চ ${branchName} প্রস্তুত।`);
 
-    // 3. Fetch current file contents and construct safe, non-destructive commits
-    const finalChanges: FileChange[] = [];
-
-    if (explicitChanges && explicitChanges.length > 0) {
-      finalChanges.push(...explicitChanges);
-    } else {
-      for (const path of plan.filesToModify) {
-        log(`ফাইল পূর্বরূপ ও কন্টেন্ট সংগ্রহ করা হচ্ছে: ${path}...`);
-        let currentContent = '';
-
-        const getFileRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${baseBranch}`, { headers });
-        if (getFileRes.ok) {
-          const fileData = (await getFileRes.json()) as { content?: string; sha?: string };
-          if (fileData.content) {
-            currentContent = decodeBase64ToContent(fileData.content);
-          }
-        }
-
-        const newContent = buildUpdatedFileContent(currentContent, plan, path);
-        finalChanges.push({ path, content: newContent });
-      }
-    }
+    // The owner-approved preview supplies exact file contents; never synthesize
+    // placeholder edits or silently read/write a different file set.
+    const finalChanges: FileChange[] = explicitChanges.map((change) => ({
+      path: change.path.trim(),
+      content: change.content,
+    }));
 
     // Commit changes to feature branch
     for (const change of finalChanges) {

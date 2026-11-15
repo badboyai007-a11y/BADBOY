@@ -49,31 +49,31 @@ test('GitHub token helpers prefer SecureStore and trim saved credentials', async
   assert.equal(secureValues.has('oi-assistant-github-token-v1'), false);
 });
 
-test('GitHub token helpers fall back to AsyncStorage when SecureStore is unavailable', async () => {
+test('GitHub token helpers fail closed when SecureStore is unavailable', async () => {
   const { saveGitHubToken, getGitHubToken, removeGitHubToken } = await loadDeveloper();
   secureAvailable = false;
   secureOperationError = false;
   secureValues.clear();
   asyncValues.clear();
 
-  await saveGitHubToken('  fallback-token  ');
-  assert.equal(asyncValues.get('oi-assistant-github-token-v1'), 'fallback-token');
-  assert.equal(await getGitHubToken(), 'fallback-token');
+  await assert.rejects(saveGitHubToken('  fallback-token  '), /not saved in unencrypted storage/);
+  assert.equal(asyncValues.has('oi-assistant-github-token-v1'), false);
+  assert.equal(await getGitHubToken(), null);
 
   await removeGitHubToken();
   assert.equal(await getGitHubToken(), null);
 });
 
-test('GitHub token helpers fall back when SecureStore operations throw', async () => {
+test('GitHub token helpers fail closed when SecureStore operations throw', async () => {
   const { saveGitHubToken, getGitHubToken, removeGitHubToken } = await loadDeveloper();
   secureAvailable = true;
   secureOperationError = true;
   secureValues.clear();
   asyncValues.clear();
 
-  await saveGitHubToken('fallback-after-error');
-  assert.equal(asyncValues.get('oi-assistant-github-token-v1'), 'fallback-after-error');
-  assert.equal(await getGitHubToken(), 'fallback-after-error');
+  await assert.rejects(saveGitHubToken('fallback-after-error'), /secure store unavailable/);
+  assert.equal(asyncValues.has('oi-assistant-github-token-v1'), false);
+  assert.equal(await getGitHubToken(), null);
 
   await removeGitHubToken();
   assert.equal(asyncValues.has('oi-assistant-github-token-v1'), false);
