@@ -49,6 +49,9 @@ let developerDataHandlers = {
 };
 let telegramHandlers = {
   hasTelegramBot: async () => false,
+  getTelegramOwnerChatId: async () => null,
+  bindTelegramOwnerChat: async (_chatId: number) => {},
+  parseTelegramOwnerCommand: (_text: string) => null,
   connectTelegramBot: async (_token: string) => ({ username: 'badboy_helper' }),
   disconnectTelegramBot: async () => {},
   checkTelegramMessages: async () => [] as any[],
@@ -175,6 +178,9 @@ mock.module('../lib/assistant/expertReview.ts', {
 });
 mock.module('../lib/assistant/telegram.ts', {
   namedExports: {
+    getTelegramOwnerChatId: (...args: unknown[]) => { telegramCalls.push({ method: 'getTelegramOwnerChatId', args }); return telegramHandlers.getTelegramOwnerChatId(); },
+    bindTelegramOwnerChat: (...args: [number]) => { telegramCalls.push({ method: 'bindTelegramOwnerChat', args }); return telegramHandlers.bindTelegramOwnerChat(...args); },
+    parseTelegramOwnerCommand: (text: string) => telegramHandlers.parseTelegramOwnerCommand(text),
     checkTelegramMessages: (...args: unknown[]) => { telegramCalls.push({ method: 'checkTelegramMessages', args }); return telegramHandlers.checkTelegramMessages(); },
     connectTelegramBot: (...args: [string]) => { telegramCalls.push({ method: 'connectTelegramBot', args }); return telegramHandlers.connectTelegramBot(...args); },
     disconnectTelegramBot: (...args: unknown[]) => { telegramCalls.push({ method: 'disconnectTelegramBot', args }); return telegramHandlers.disconnectTelegramBot(); },
@@ -517,6 +523,9 @@ function resetTelegramState() {
   alerts.length = 0;
   telegramHandlers = {
     hasTelegramBot: async () => false,
+    getTelegramOwnerChatId: async () => null,
+    bindTelegramOwnerChat: async (_chatId: number) => {},
+    parseTelegramOwnerCommand: (_text: string) => null,
     connectTelegramBot: async (_token: string) => ({ username: 'badboy_helper' }),
     disconnectTelegramBot: async () => {},
     checkTelegramMessages: async () => [] as any[],
