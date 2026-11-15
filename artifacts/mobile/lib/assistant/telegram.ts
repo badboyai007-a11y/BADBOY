@@ -3,6 +3,7 @@ import { fetch as expoFetch } from 'expo/fetch';
 
 const TOKEN_KEY = 'oi-assistant-telegram-token';
 const CHAT_ID_KEY = 'oi-assistant-telegram-chat-id';
+const OWNER_CHAT_ID_KEY = 'oi-assistant-telegram-owner-chat-id';
 const UPDATE_OFFSET_KEY = 'oi-assistant-telegram-offset';
 
 interface TelegramEnvelope<T> {
@@ -49,7 +50,7 @@ export async function hasTelegramBot() {
 }
 
 export async function getTelegramOwnerChatId(): Promise<number | null> {
-  const value = await SecureStore.getItemAsync(CHAT_ID_KEY);
+  const value = await SecureStore.getItemAsync(OWNER_CHAT_ID_KEY);
   if (!value || !/^\d+$/.test(value)) return null;
   const id = Number(value);
   return Number.isSafeInteger(id) ? id : null;
@@ -57,7 +58,10 @@ export async function getTelegramOwnerChatId(): Promise<number | null> {
 
 export async function bindTelegramOwnerChat(chatId: number): Promise<void> {
   if (!Number.isSafeInteger(chatId) || chatId <= 0) throw new Error('Telegram private chat ID invalid.');
-  await SecureStore.setItemAsync(CHAT_ID_KEY, String(chatId));
+  await Promise.all([
+    SecureStore.setItemAsync(OWNER_CHAT_ID_KEY, String(chatId)),
+    SecureStore.setItemAsync(CHAT_ID_KEY, String(chatId)),
+  ]);
 }
 
 export type TelegramOwnerCommand =
@@ -79,6 +83,7 @@ export async function disconnectTelegramBot() {
   await Promise.all([
     SecureStore.deleteItemAsync(TOKEN_KEY),
     SecureStore.deleteItemAsync(CHAT_ID_KEY),
+    SecureStore.deleteItemAsync(OWNER_CHAT_ID_KEY),
     SecureStore.deleteItemAsync(UPDATE_OFFSET_KEY),
   ]);
 }
@@ -116,9 +121,9 @@ export async function checkTelegramMessages() {
 export async function sendTelegramMessage(text: string) {
   const [token, chatId] = await Promise.all([
     SecureStore.getItemAsync(TOKEN_KEY),
-    SecureStore.getItemAsync(CHAT_ID_KEY),
+    SecureStore.getItemAsync(OWNER_CHAT_ID_KEY),
   ]);
   if (!token) throw new Error('Connect your bot first.');
-  if (!chatId) throw new Error('Open your bot in Telegram and send it /start first.');
+  if (!chatId) throw new Error('Bind your owner chat before sending Telegram messages.');
   await telegramCall(token, 'sendMessage', { chat_id: chatId, text });
 }
