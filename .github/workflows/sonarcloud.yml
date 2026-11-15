@@ -3,7 +3,7 @@ name: SonarCloud Coverage Analysis
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
-    branches: [main, feat/agentic-tool-calling-multi-agent]
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
