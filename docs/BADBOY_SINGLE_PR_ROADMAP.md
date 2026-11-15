@@ -12,7 +12,7 @@ This document tracks observable implementation and verification evidence. A chec
 | Phone control | Typed native Android device module, reminders, allowlisted actions | Physical device/API-level verification |
 | Memory | Private local memory and owner-scoped project memory search | Export/delete/retention UX and retrieval relevance evaluation |
 | Developer Agent | Native/Gemini/OpenRouter analysis and task persistence | GitHub App OAuth, exact-patch approval and isolated runner integration |
-| Custom plugins and skills | Typed plugin manifests, capability allowlist, disabled-by-default registry; custom skills can be created, persisted locally, activated and passed to the agent as bounded untrusted context | Plugin persistence/UI and adapter lifecycle remain in progress |
+| Custom plugins and skills | Typed plugin manifests, capability allowlist, disabled-by-default registry; built-in read-only plugins can be enabled/disabled in the app; custom skills can be created, persisted locally, activated and passed to the agent as bounded untrusted context | Adding new trusted adapter implementations still requires code and contract tests |
 | Messaging and calendar | Telegram mobile connect/read/send; read-only Slack and Discord history; Google Calendar event reads | Provider tokens/scopes and real accounts; writes remain disabled pending one-time approval |
 | Smart Home | Home Assistant read-only state adapter and agentic entity-state tool | HTTPS endpoint/token and owner-approved service calls |
 | Third-party APIs | Server-side provider adapter pattern; secrets never sent to mobile | Provider-specific OAuth/credential UX and contract tests |

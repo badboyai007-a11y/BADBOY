@@ -48,6 +48,7 @@ import type { ChatMessage } from '@/lib/assistant/types';
 import { useColors } from '@/hooks/useColors';
 import { getOfflineWakeWordStatus, startOfflineWakeWord, stopOfflineWakeWord, subscribeToWakeWord, subscribeToWakeWordStatus } from '@/lib/assistant/wakeWord';
 import { getActiveCustomSkillContext } from '@/lib/assistant/skillStorage';
+import { loadEnabledPluginIds } from '@/lib/assistant/pluginStorage';
 
 const VOICE_RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
@@ -343,6 +344,12 @@ export default function ChatScreen() {
       } catch {
         // An unavailable local skill store must not block ordinary assistant chat.
       }
+      let enabledPluginIds: Awaited<ReturnType<typeof loadEnabledPluginIds>> = [];
+      try {
+        enabledPluginIds = await loadEnabledPluginIds();
+      } catch {
+        // Corrupt or unavailable plugin settings fail closed: no integration tools are enabled.
+      }
       await streamAgenticReply(
         text,
         settings,
@@ -356,6 +363,7 @@ export default function ChatScreen() {
       },
       memoryContext,
       skillContext,
+      enabledPluginIds,
       );
     } catch (cause) {
       working = working.filter((message) => message.id !== answer.id);

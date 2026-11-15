@@ -103,10 +103,12 @@ test('streamAgenticReply sends owner-authenticated bounded history and consumes 
     (chunk) => chunks.push(chunk),
     'Project note: preserve all current features.',
     'Skill: Project Planner\\nInstructions: split work into tested steps.',
+    ['web-research', 'discord-history'],
   );
   assert.equal(url, 'https://worker.example/assistant/agent');
   assert.equal(sent.message, '6 * 7 কত?');
   assert.equal(sent.mode, 'multi');
+  assert.deepEqual(sent.enabledPlugins, ['web-research', 'discord-history']);
   assert.equal(sent.developerMode, true);
   assert.deepEqual(sent.history, [{ role: 'user', content: 'আগের প্রশ্ন' }]);
   assert.match(sent.personality, /bn-BD/);

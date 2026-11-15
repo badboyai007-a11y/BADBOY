@@ -7,6 +7,7 @@ import { getOwnerToken } from './ownerAuth';
 // This repository deploys its own Worker; do not send native APK traffic to the
 // unrelated legacy Voice-Memory-Assistant Worker.
 import { apiUrl } from "./ownerJsonRequest";
+import { DEFAULT_AGENT_PLUGIN_IDS, type AgentPluginId } from "./pluginCatalog";
 async function ownerAuthorizationHeader(): Promise<string> {
   const token = await getOwnerToken();
   if (!token) {
@@ -87,6 +88,7 @@ export async function streamAgenticReply(
   onChunk: (chunk: string) => void,
   memoryContext = '',
   skillContext = '',
+  enabledPluginIds: AgentPluginId[] = DEFAULT_AGENT_PLUGIN_IDS,
 ) {
   const safeMemoryContext = memoryContext.trim().slice(0, 5000);
   const safeSkillContext = skillContext.trim().slice(0, 4000);
@@ -107,6 +109,7 @@ export async function streamAgenticReply(
       ].filter(Boolean).join('\n\n'),
       developerMode: settings.developerMode,
       mode: 'multi',
+      enabledPlugins: enabledPluginIds,
       history: history.slice(-8).map(({ role, content }) => ({
         role,
         content: content.slice(0, 3000),
