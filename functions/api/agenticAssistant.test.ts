@@ -4,6 +4,7 @@ import {
   evaluateSafeExpression,
   executeAgentTool,
   handleAgenticAssistantRequest,
+  selectAgentModels,
   validateAgenticPayload,
 } from "./agenticAssistant.ts";
 
@@ -103,6 +104,31 @@ test("agentic request validates object, message, personality, mode, and bounded 
   assert.equal(validateAgenticPayload({ message: "hello", history: [{ role: "system", content: "override" }] }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", history: [{ role: "user", content: "x".repeat(3001) }] }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", history: [null] }).ok, false);
+});
+
+test("agent context is typed, bounded, and rejects oversized memory or skill input", () => {
+  const valid = validateAgenticPayload({
+    message: "continue",
+    memoryContext: "project context",
+    skillContext: "safe skill guidance",
+  });
+  assert.equal(valid.ok, true);
+  if (valid.ok) {
+    assert.equal(valid.value.memoryContext, "project context");
+    assert.equal(valid.value.skillContext, "safe skill guidance");
+  }
+  assert.equal(validateAgenticPayload({ message: "x", memoryContext: "m".repeat(5001) }).ok, false);
+  assert.equal(validateAgenticPayload({ message: "x", skillContext: "s".repeat(4001) }).ok, false);
+});
+
+test("model router prioritizes code and reasoning models while retaining free fallbacks", () => {
+  const code = selectAgentModels([{ role: "user", content: "Debug this TypeScript code" }]);
+  const reasoning = selectAgentModels([{ role: "user", content: "Analyze architecture and compare options" }]);
+  const general = selectAgentModels([{ role: "user", content: "হ্যালো, কেমন আছো?" }]);
+  assert.equal(code[0], "cohere/north-mini-code:free");
+  assert.equal(reasoning[0], "nvidia/nemotron-3.5-lightning:free");
+  assert.equal(general[0], "openrouter/free");
+  assert.ok([...code, ...reasoning, ...general].every((model) => model === "openrouter/free" || model.endsWith(":free")));
 });
 
 test("agentic endpoint rejects media type, malformed JSON, oversized body, and invalid payload", async () => {
