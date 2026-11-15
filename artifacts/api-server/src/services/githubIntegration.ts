@@ -88,7 +88,7 @@ function parseRepository(repository: GitHubRepository): { owner: string; name: s
 
   const [owner, name] = fullName.split("/");
   if (
-    !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37})$/u.test(owner) ||
+    !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/u.test(owner) ||
     !/^[A-Za-z0-9._-]{1,100}$/u.test(name) ||
     name === "." ||
     name === ".."
@@ -129,7 +129,7 @@ function assertSafeRef(ref: string): void {
     ref.includes("//") ||
     Array.from(ref).some((character) => {
       const code = character.charCodeAt(0);
-      return code <= 0x20 || code === 0x7f || "~^:?*[]\\\\".includes(character);
+      return code <= 0x20 || code === 0x7f || "~^:?*[]\\".includes(character);
     }) ||
     ref.split("/").some((part) =>
       part === "" || part.startsWith(".") || part.startsWith("-") || part.endsWith(".lock")
@@ -160,12 +160,12 @@ async function githubRequest<T>(
   init: RequestInit,
   options: GitHubRequestOptions = {},
 ): Promise<T> {
-  const token = options.token?.trim() || process.env.GITHUB_TOKEN?.trim();
+  const token = options.token?.trim();
   if (!token) {
     throw new GitHubIntegrationError(
-      "GitHub integration is not configured.",
+      "An authenticated GitHub owner session is required.",
       503,
-      "GITHUB_NOT_CONFIGURED",
+      "GITHUB_OWNER_SESSION_REQUIRED",
     );
   }
 
@@ -173,6 +173,7 @@ async function githubRequest<T>(
     `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}${path}`,
     {
       ...init,
+      signal: init.signal ?? AbortSignal.timeout(15_000),
       headers: {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${token}`,
@@ -184,7 +185,7 @@ async function githubRequest<T>(
   );
 
   if (!response.ok) {
-    const status = response.status === 404 ? 404 : response.status === 403 ? 403 : 502;
+    const status = response.status === 401 ? 401 : response.status === 403 ? 403 : response.status === 404 ? 404 : 502;
     throw new GitHubIntegrationError(
       "GitHub rejected the integration request.",
       status,
@@ -207,6 +208,7 @@ export async function readRepositoryFile(
   if (
     typeof path !== "string" ||
     !path ||
+    path.length > 1024 ||
     path.startsWith("/") ||
     path.includes("\\") ||
     path.includes("\u0000") ||
