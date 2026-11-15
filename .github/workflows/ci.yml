@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened, edited]
     branches: [main, feat/agentic-tool-calling-multi-agent]
   push:
-    branches: [main, "fix/**", feat/verified-agent-integrations]
+    branches: [main, "fix/**"]
 
 permissions:
   contents: read
