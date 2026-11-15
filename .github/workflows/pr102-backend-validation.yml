@@ -12,7 +12,7 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/pr102-backend-validation.yml"
   push:
-    branches: [feat/verified-agent-integrations]
+    branches: []
     paths:
       - "functions/**"
       - "migrations/**"
