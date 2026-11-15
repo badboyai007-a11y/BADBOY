@@ -48,7 +48,7 @@ import {
   PluginItem,
   ProjectBrain,
   QAResult,
-  createGitHubPullRequest,
+  previewGitHubChanges,
   executeAgentTask,
   generateDevelopmentPlan,
   getGitHubToken,
@@ -403,34 +403,46 @@ export default function SettingsScreen() {
     }
 
     Alert.alert(
-      'স্বয়ংক্রিয় ডেভেলপমেন্ট ওয়ার্কফ্লো শুরু করবেন?',
-      `ব্রাঞ্চ: ${currentPlan.branchName}\nলক্ষ্য: GitHub-এ Pull Request তৈরি করা।\n\nআপনি কি নিশ্চিত?`,
+      'GitHub read-only preview তৈরি করবেন?',
+      `Repository: shomratofficial007-spec/Badboy-VS-Versel-Ai\\nBase branch: main\\nFiles: ${currentPlan.filesToModify.length}\\n\\nএখন শুধু GET/read preview হবে। কোনো branch, file, commit বা Pull Request তৈরি হবে না।`,
       [
         { text: 'বাতিল', style: 'cancel' },
         {
-          text: 'হ্যাঁ, শুরু করুন',
+          text: 'Preview দেখুন',
           onPress: async () => {
             setDevBusy(true);
             setDevError(null);
-            setDevStatusLog((prev) => [...prev, `[${new Date().toISOString().slice(11, 19)}] সোর্স কোড ও ব্রাঞ্চ যাচাই চলছে...`]);
-
+            setPrResult(null);
+            setDevStatusLog((prev) => [...prev, `[${new Date().toISOString().slice(11, 19)}] GitHub read-only preview চলছে...`]);
             try {
-              const res = await createGitHubPullRequest({
+              const preview = await previewGitHubChanges({
                 githubToken,
-                plan: currentPlan,
+                paths: currentPlan.filesToModify,
               });
-
-              setPrResult(res);
-              if (res.logs && res.logs.length) {
-                setDevStatusLog((prev) => [...prev, ...res.logs]);
+              if (!preview.success || !preview.baseSha) {
+                throw new Error(preview.error || 'GitHub preview তৈরি করা যায়নি।');
               }
-              if (res.success) {
-                setDevHistory((prev) => [{ plan: currentPlan, prUrl: res.prUrl, date: new Date().toLocaleTimeString() }, ...prev]);
-              } else {
-                setDevError(res.error || 'Pull Request তৈরি করা ব্যর্থ হয়েছে।');
-              }
+              const summary = preview.files.map((file) =>
+                `${file.exists ? 'EXISTS' : 'NEW'}  ${file.path}${file.content ? ` (${file.content.length} chars)` : ''}`,
+              );
+              const previewLog = [
+                `Read-only preview SHA: ${preview.baseSha}`,
+                ...summary,
+                'No repository writes were performed.',
+              ];
+              setDevStatusLog((prev) => [...prev, ...previewLog]);
+              setPrResult({
+                success: false,
+                summary: 'Read-only preview সম্পন্ন; কোনো PR বা file write করা হয়নি।',
+                logs: previewLog,
+                error: 'পরবর্তী write ধাপে যেতে হলে exact code diff review, explicit owner approval এবং একই base SHA পুনরায় যাচাই আবশ্যক।',
+              });
+              Alert.alert(
+                'GitHub preview সম্পন্ন',
+                `Base SHA: ${preview.baseSha.slice(0, 12)}\\n\\n${summary.join('\\n')}\\n\\nকোনো branch, file বা PR তৈরি হয়নি।`,
+              );
             } catch (err) {
-              setDevError(err instanceof Error ? err.message : 'অপ্রত্যাশিত ত্রুটি ঘটেছে।');
+              setDevError(err instanceof Error ? err.message : 'GitHub preview ব্যর্থ হয়েছে।');
             } finally {
               setDevBusy(false);
             }
@@ -953,7 +965,7 @@ export default function SettingsScreen() {
                   style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 12 }]}
                 >
                   {devBusy ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Feather name="git-pull-request" size={15} color={colors.primaryForeground} />}
-                  <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>GitHub-এ PR তৈরি করুন</Text>
+                  <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>GitHub read-only preview দেখুন</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -1173,7 +1185,7 @@ export default function SettingsScreen() {
           </View>
         ) : (
           <Text style={[styles.smallNote, { color: colors.mutedForeground }]}>
-            এই মোড অন করলে আপনি ভয়েস বা টেক্সটে নির্দেশনা দিয়ে ফিচার যোগ ও Pull Request তৈরি করার সুবিধা পাবেন।
+            এই মোডে ফিচার পরিকল্পনা ও GitHub read-only preview দেখা যাবে। যাচাই করা code diff ও মালিকের অনুমোদন ছাড়া কোনো repository write বা Pull Request তৈরি হবে না।
           </Text>
         )}
       </View>
