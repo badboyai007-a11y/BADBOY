@@ -501,7 +501,7 @@ function resetTelegramState() {
   githubHandlers = {
     saveGitHubToken: async (_token) => {},
     removeGitHubToken: async () => {},
-    createGitHubPullRequest: async (_input) => ({ success: true, prUrl: 'https://github.com/example/repo/pull/88', prNumber: 88, summary: 'PR ready', logs: ['Branch checked', 'PR created'] }),
+    previewGitHubChanges: async (_input) => ({ success: true, baseSha: 'preview-base-sha', files: [{ path: 'settings.tsx', exists: true, sha: 'file-sha', content: 'export const ready = true;' }] }),
     generateDevelopmentPlan: (_prompt) => ({
       title: 'Settings test plan', category: 'web', featureDescription: 'Improve Settings',
       filesToModify: ['settings.tsx'], tasks: [{ id: 'task-1', title: 'Add tests' }],
