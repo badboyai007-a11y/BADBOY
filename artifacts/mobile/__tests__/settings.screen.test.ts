@@ -658,7 +658,7 @@ test('Settings Project Brain saves its real project summary into owner-scoped D1
   assert.deepEqual(saved?.args, [{
     projectKey: 'badboy-main',
     name: 'Badboy AI',
-    summary: 'Cloudflare Worker + Expo mobile app\\nReact Native\\nTypeScript\\n/api/assistant/chat\\nCopilot runtime remains disabled',
+    summary: ['Cloudflare Worker + Expo mobile app', 'React Native', 'TypeScript', '/api/assistant/chat', 'Copilot runtime remains disabled'].join('\\n'),
   }]);
   assert.equal(developerDataCalls.filter((item) => item.method === 'listDeveloperProjects').length, 1);
 });
@@ -919,8 +919,8 @@ test('Settings confirms a read-only GitHub preview and never creates a branch or
   await alerts.at(-1)?.buttons.find((button) => button.text === 'Preview দেখুন')?.onPress();
   await new Promise((resolve) => setTimeout(resolve, 0));
   let html = await successRender();
-  assert.match(html, /Read-only preview সম্পন্ন/);
-  assert.match(html, /কোনো PR বা file write করা হয়নি/);
+  assert.match(html, /Read-only preview SHA:/);
+  assert.match(html, /No repository writes were performed/);
   assert.match(html, /preview-base-sha/);
   assert.deepEqual(githubCalls.find((item) => item.method === 'previewGitHubChanges')?.args, [{
     githubToken: 'ghp_test-token', paths: samplePlan.filesToModify,
