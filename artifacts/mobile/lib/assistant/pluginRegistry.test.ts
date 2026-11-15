@@ -60,7 +60,7 @@ test('registry rejects oversized input and duplicate registration', async () => 
   const result = await registry.invoke('sample-reader', 'memory.read', { value: 'x'.repeat(9000) }, {
     ownerId: 'owner', approved: true, requestId: 'r1',
   });
-  assert.equal(result.code, 'INVALID_INPUT');
+  assert.equal('code' in result ? result.code : null, 'INVALID_INPUT');
 });
 
 test('registry converts adapter exceptions to safe errors and enforces output limits', async () => {
