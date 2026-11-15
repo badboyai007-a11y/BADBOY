@@ -32,6 +32,19 @@ jobs:
           WORKFLOW_NAME: Build and Test
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+  backend-validation:
+    name: Backend Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify the real PR 102 Backend Validation workflow
+        run: bash .github/scripts/wait-for-workflow-run.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_NAME: PR 102 Backend Validation
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
   mobile-tests:
     name: Mobile Tests
     runs-on: ubuntu-latest
