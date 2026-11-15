@@ -4,6 +4,7 @@ name: Android APK (automatic + manual)
 # Manual workflow_dispatch remains available for on-demand builds.
 on:
   push:
+    branches: [main]
     paths:
       - "artifacts/mobile/**"
       - "package.json"
