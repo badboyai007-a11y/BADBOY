@@ -50,7 +50,7 @@ export async function hasTelegramBot() {
 
 export async function getTelegramOwnerChatId(): Promise<number | null> {
   const value = await SecureStore.getItemAsync(CHAT_ID_KEY);
-  if (!value || !/^\\d+$/.test(value)) return null;
+  if (!value || !/^\d+$/.test(value)) return null;
   const id = Number(value);
   return Number.isSafeInteger(id) ? id : null;
 }
@@ -66,7 +66,7 @@ export type TelegramOwnerCommand =
 
 /** Only explicitly prefixed, low-risk commands can be approved from Telegram. */
 export function parseTelegramOwnerCommand(text: string): TelegramOwnerCommand | null {
-  const match = /^\\/badboy\\s+(ask|youtube)\\s+([\\s\\S]{1,1000})$/i.exec(text.trim());
+  const match = /^\/badboy\s+(ask|youtube)\s+([\s\S]{1,1000})$/i.exec(text.trim());
   if (!match) return null;
   const value = match[2].trim();
   if (!value) return null;
