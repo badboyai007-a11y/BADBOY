@@ -208,3 +208,24 @@ PR #102 may be marked ready for review only after all code-level CI checks pass.
 - **CI verified:** pending exact-head CI execution; do not mark PASS until the run completes.
 - **Device / provider verified:** not applicable to this server-side memory search route; Android client integration and real D1 environment verification remain separate work.
 - Existing mobile-local memory behavior and the existing D1 schema/migration are unchanged. No production migration was run.
+
+## Implementation progress (updated 2026-11-15)
+
+### Implemented in this branch (CI pending for the latest SHA)
+- Mobile chat now performs owner-authenticated project-memory search across up to 10 owner projects before agentic generation.
+- Search results are capped at 8 notes / 5,000 characters, and sensitive memory entries remain excluded by the server API.
+- Memory retrieval is best-effort: if D1 or the search endpoint is unavailable, normal chat continues without memory context.
+- The agentic system context explicitly labels retrieved notes as untrusted context, not instructions.
+- Added mobile API tests for owner authentication, bounded inputs, server errors, and memory-context propagation.
+
+### GitHub Developer Agent safety hardening
+- Added a read-only GitHub repository/file preview helper. It performs GET requests only and refuses secret/key/keystore paths and oversized files.
+- GitHub writes now require an explicit `approved: true`, the base SHA from the reviewed preview, and 1–20 explicit file changes.
+- The write path rechecks the base SHA before creating a branch, rejects unsafe paths / traversal / secret files / duplicate paths / oversized changes, and never merges or deploys.
+- Fixed the default repository target to this Badboy project.
+- Added tests for read-only preview, explicit approval, stale previews, unsafe paths, and the write flow.
+
+### Still not marked complete
+- GitHub workflow still needs a user-facing preview/approval screen and live GitHub integration tests with a least-privilege token.
+- Android phone-control actions, full wake-word background/device lifecycle verification, Telegram approval/background delivery, durable reminders/calendar, and a real on-device generative offline model remain incomplete or hardware/provider dependent.
+- No physical Android device acceptance test has been performed in this change set.
