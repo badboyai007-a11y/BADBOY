@@ -253,7 +253,9 @@ test("agentic executor can call bounded public web research and returns HTTPS so
   const providerCalls: string[] = [];
   globalThis.fetch = async (input, init) => {
     const url = String(input);
-    let providerHost = "";\n    try { providerHost = new URL(url).hostname; } catch { /* invalid test URL */ }\n    if (providerHost === "api.tavily.com") {
+    let providerHost = "";
+    try { providerHost = new URL(url).hostname; } catch { /* invalid test URL */ }
+    if (providerHost === "api.tavily.com") {
       providerCalls.push("tavily");
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
       assert.equal(body.api_key, "server-tavily-key");
@@ -277,7 +279,8 @@ test("agentic executor can call bounded public web research and returns HTTPS so
       }]);
     }
     const toolMessage = payload.messages.find((item) => item.role === "tool");
-    const researchResult = JSON.parse(String(toolMessage?.content)) as { results?: Array<{ url?: string }> };\n    assert.equal(new URL(researchResult.results?.[0]?.url ?? "https://invalid.example").hostname, "developers.cloudflare.com");
+    const researchResult = JSON.parse(String(toolMessage?.content)) as { results?: Array<{ url?: string }> };
+    assert.equal(new URL(researchResult.results?.[0]?.url ?? "https://invalid.example").hostname, "developers.cloudflare.com");
     return completion("গবেষণার সূত্র পাওয়া গেছে।");
   };
   try {
