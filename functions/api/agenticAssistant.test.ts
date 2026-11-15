@@ -206,7 +206,10 @@ test("agent retries an empty model response and reports a recoverable tool failu
   let calls = 0;
   globalThis.fetch = async (_input, init) => {
     const payload = JSON.parse(String(init?.body)) as { stream: boolean; messages: Array<{ role: string; content: unknown }> };
-    if (payload.stream) return finalStream();
+    if (payload.stream) {
+      assert.ok(payload.messages.some((item) => String(item.content).includes("Recovered answer")));
+      return finalStream();
+    }
     calls += 1;
     if (calls === 1) return completion("");
     if (calls === 2) {
@@ -221,7 +224,7 @@ test("agent retries an empty model response and reports a recoverable tool failu
     });
     const body = await response.text();
     assert.match(body, /empty_model_response/);
-    assert.match(body, /Recovered answer/);
+    assert.match(body, /synthesizer/);
     assert.equal(calls, 2);
   } finally {
     globalThis.fetch = originalFetch;
