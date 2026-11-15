@@ -55,6 +55,12 @@ jobs:
           command -v pnpm
           pnpm --version
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Install Android command-line tools
         run: |
           mkdir -p "$ANDROID_HOME/cmdline-tools"
