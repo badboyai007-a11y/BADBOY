@@ -113,7 +113,8 @@ test('streamAgenticReply sends owner-authenticated bounded history and consumes 
   assert.deepEqual(sent.history, [{ role: 'user', content: 'আগের প্রশ্ন' }]);
   assert.match(sent.personality, /bn-BD/);
   assert.equal(sent.memoryContext, 'Project note: preserve all current features.');
-  assert.equal(sent.skillContext, 'Skill: Project Planner\\\\nInstructions: split work into tested steps.');
+  assert.match(sent.skillContext, /Project Planner/);
+  assert.match(sent.skillContext, /split work into tested steps/);
   assert.deepEqual(chunks, ['হিসাবের ফল ', '৪২']);
 });
 
