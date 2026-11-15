@@ -337,3 +337,38 @@ test('getIntegrationStatus reports backend errors and malformed responses', asyn
   fetchHandler = async () => jsonResponse({ integrations: null });
   await assert.rejects(getIntegrationStatus(), /response is invalid/);
 });
+
+
+test('getDiscordMessages validates channel IDs and uses owner-authenticated server proxy', async () => {
+  const { getDiscordMessages } = await apiPromise;
+  await assert.rejects(getDiscordMessages('not-a-channel'), /valid Discord channel ID/);
+  let requestedUrl = '';
+  fetchHandler = async (input, init) => {
+    requestedUrl = String(input);
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    return jsonResponse({
+      messages: [{
+        id: '12345678901234567',
+        timestamp: '2026-11-15T10:00:00.000Z',
+        author: 'owner',
+        content: 'hello',
+      }],
+    });
+  };
+  const messages = await getDiscordMessages(' 12345678901234567 ');
+  assert.equal(requestedUrl, 'https://worker.example/integrations/discord/messages?channel=12345678901234567');
+  assert.deepEqual(messages, [{
+    id: '12345678901234567',
+    timestamp: '2026-11-15T10:00:00.000Z',
+    author: 'owner',
+    content: 'hello',
+  }]);
+});
+
+test('getDiscordMessages surfaces server errors and rejects malformed payloads', async () => {
+  const { getDiscordMessages } = await apiPromise;
+  fetchHandler = async () => jsonResponse({ error: 'Discord not configured' }, 503);
+  await assert.rejects(getDiscordMessages('12345678901234567'), /Discord not configured/);
+  fetchHandler = async () => jsonResponse({ messages: 'not-an-array' });
+  await assert.rejects(getDiscordMessages('12345678901234567'), /invalid message list/);
+});
