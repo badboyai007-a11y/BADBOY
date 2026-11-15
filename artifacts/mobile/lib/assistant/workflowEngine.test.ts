@@ -6,6 +6,7 @@ const adapters: WorkflowAdapters = {
   "assistant.ask": async (input) => ({ answer: input.prompt }),
   "research.search": async (input) => ({ sources: [input.query] }),
   "reminder.create": async (input) => ({ scheduled: input.title }),
+  "calendar.create": async (input) => ({ draftOpened: input.title }),
   "telegram.send": async (input) => ({ sent: input.text }),
 };
 
@@ -45,6 +46,22 @@ test("requires approval bound to each side-effecting step", async () => {
   assert.equal(blocked.status, "approval_required");
   assert.equal(sends, 0);
   const approved = await executePersonalWorkflow(workflow, adapters, { approvedStepIds: ["send"] });
+  assert.equal(approved.status, "completed");
+});
+
+test("requires explicit approval before opening a calendar event draft", async () => {
+  let opened = 0;
+  const workflow = {
+    ...definition,
+    steps: [{ id: "calendar", action: "calendar.create", input: { title: "Review", start: "2026-11-16T10:00:00.000Z", end: "2026-11-16T11:00:00.000Z" } }],
+  };
+  const blocked = await executePersonalWorkflow(workflow, {
+    ...adapters,
+    "calendar.create": async () => { opened += 1; return { draftOpened: true }; },
+  });
+  assert.equal(blocked.status, "approval_required");
+  assert.equal(opened, 0);
+  const approved = await executePersonalWorkflow(workflow, adapters, { approvedStepIds: ["calendar"] });
   assert.equal(approved.status, "completed");
 });
 

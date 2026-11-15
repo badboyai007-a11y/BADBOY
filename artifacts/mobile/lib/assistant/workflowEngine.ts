@@ -9,6 +9,7 @@ export interface WorkflowAdapters {
   "assistant.ask": (input: Record<string, string>, context: WorkflowStepContext) => Promise<unknown>;
   "research.search": (input: Record<string, string>, context: WorkflowStepContext) => Promise<unknown>;
   "reminder.create": (input: Record<string, string>, context: WorkflowStepContext) => Promise<unknown>;
+  "calendar.create": (input: Record<string, string>, context: WorkflowStepContext) => Promise<unknown>;
   "telegram.send": (input: Record<string, string>, context: WorkflowStepContext) => Promise<unknown>;
 }
 export interface WorkflowRunOptions {
@@ -89,7 +90,7 @@ export async function executePersonalWorkflow(
   ));
 
   for (const step of workflow.steps) {
-    if ((step.action === "reminder.create" || step.action === "telegram.send") && !approved.has(step.id)) {
+    if ((step.action === "reminder.create" || step.action === "calendar.create" || step.action === "telegram.send") && !approved.has(step.id)) {
       return {
         status: "approval_required",
         workflowId: workflow.id,

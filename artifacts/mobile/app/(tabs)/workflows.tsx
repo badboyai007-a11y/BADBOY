@@ -9,7 +9,7 @@ import { executePersonalWorkflow, type WorkflowAdapters } from "@/lib/assistant/
 import { workflowNeedsOwnerApproval, type PersonalWorkflow, type WorkflowAction, type WorkflowStep } from "@/lib/assistant/workflowBuilder";
 import { resolveOfflineCapability } from "@/lib/assistant/offlineCapability";
 import { deletePersonalWorkflow, loadPersonalWorkflows, savePersonalWorkflow } from "@/lib/assistant/workflowStorage";
-import { scheduleLocalReminder } from "@/lib/assistant/deviceControl";
+import { openCalendarDraft, scheduleLocalReminder } from "@/lib/assistant/deviceControl";
 import { sendTelegramMessage } from "@/lib/assistant/telegram";
 
 export default function WorkflowsScreen() {
@@ -23,6 +23,8 @@ export default function WorkflowsScreen() {
   const [stepAction, setStepAction] = useState<WorkflowAction>("research.search");
   const [stepInput, setStepInput] = useState("");
   const [reminderAt, setReminderAt] = useState("");
+  const [calendarStart, setCalendarStart] = useState("");
+  const [calendarEnd, setCalendarEnd] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,10 +125,20 @@ export default function WorkflowsScreen() {
         return;
       }
       input = { title: value, at: new Date(reminderAt).toISOString() };
+    } else if (stepAction === "calendar.create") {
+      const start = Date.parse(calendarStart);
+      const end = Date.parse(calendarEnd);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        setError("Calendar event-এর জন্য সঠিক start ও end date/time দিন।");
+        return;
+      }
+      input = { title: value, start: new Date(start).toISOString(), end: new Date(end).toISOString() };
     } else input = { text: value };
     setDraftSteps((current) => [...current, { id, action: stepAction, input }]);
     setStepInput("");
     setReminderAt("");
+    setCalendarStart("");
+    setCalendarEnd("");
     setError(null);
   };
 
@@ -169,6 +181,13 @@ export default function WorkflowsScreen() {
         if (!Number.isFinite(at.getTime())) throw new Error("Reminder date is invalid.");
         return scheduleLocalReminder({ title: input.title ?? "Badboy reminder", body: input.body, at });
       },
+      "calendar.create": async (input) => {
+        const start = new Date(input.start ?? "");
+        const end = new Date(input.end ?? "");
+        if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) throw new Error("Calendar event date is invalid.");
+        const opened = await openCalendarDraft({ title: input.title ?? "Badboy event", start, end });
+        return { calendarDraftOpened: opened, userMustSaveInCalendar: true };
+      },
       "telegram.send": async (input) => {
         await sendTelegramMessage(input.text ?? "");
         return { sent: true };
@@ -188,11 +207,11 @@ export default function WorkflowsScreen() {
   const confirmRun = (workflow: PersonalWorkflow) => {
     if (workflowNeedsOwnerApproval(workflow)) {
       const sideEffectIds = workflow.steps
-        .filter((step) => step.action === "reminder.create" || step.action === "telegram.send")
+        .filter((step) => step.action === "reminder.create" || step.action === "calendar.create" || step.action === "telegram.send")
         .map((step) => step.id);
       Alert.alert(
         "Owner approval required",
-        "এই workflow-তে reminder বা message পাঠানোর মতো side effect আছে। আপনি কি এই নির্দিষ্ট ধাপগুলো চালাতে অনুমতি দিচ্ছেন?",
+        "এই workflow-তে reminder, calendar draft বা message-এর মতো side effect আছে। আপনি কি এই নির্দিষ্ট ধাপগুলো চালাতে অনুমতি দিচ্ছেন?",
         [
           { text: "বাতিল", style: "cancel" },
           { text: "অনুমতি দিয়ে চালান", onPress: () => { void runWorkflow(workflow, sideEffectIds); } },
@@ -369,6 +388,7 @@ export default function WorkflowsScreen() {
             ["research.search", "Web research"],
             ["assistant.ask", "Ask AI"],
             ["reminder.create", "Reminder"],
+            ["calendar.create", "Calendar draft"],
             ["telegram.send", "Telegram send"],
           ] as Array<[WorkflowAction, string]>).map(([action, label]) => (
             <Pressable key={action} accessibilityRole="button" accessibilityState={{ selected: stepAction === action }} onPress={() => setStepAction(action)} style={[styles.actionChip, { borderColor: stepAction === action ? colors.primary : colors.border, backgroundColor: stepAction === action ? colors.secondary : colors.card }]}>
@@ -381,7 +401,7 @@ export default function WorkflowsScreen() {
           onChangeText={setStepInput}
           maxLength={stepAction === "research.search" ? 500 : 1000}
           multiline={stepAction === "assistant.ask" || stepAction === "telegram.send"}
-          placeholder={stepAction === "research.search" ? "কী বিষয়ে research করবে?" : stepAction === "assistant.ask" ? "AI-কে কী করতে বলবে?" : stepAction === "reminder.create" ? "Reminder title" : "Telegram message"}
+          placeholder={stepAction === "research.search" ? "কী বিষয়ে research করবে?" : stepAction === "assistant.ask" ? "AI-কে কী করতে বলবে?" : stepAction === "reminder.create" ? "Reminder title" : stepAction === "calendar.create" ? "Calendar event title" : "Telegram message"}
           placeholderTextColor={colors.mutedForeground}
           accessibilityLabel="Workflow step input"
           style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
@@ -389,7 +409,13 @@ export default function WorkflowsScreen() {
         {stepAction === "reminder.create" ? (
           <TextInput value={reminderAt} onChangeText={setReminderAt} placeholder="Reminder date/time (ISO or local date)" placeholderTextColor={colors.mutedForeground} accessibilityLabel="Reminder date and time" style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />
         ) : null}
-        <Pressable accessibilityRole="button" onPress={addDraftStep} disabled={!stepInput.trim() || draftSteps.length >= 8 || (stepAction === "reminder.create" && !reminderAt.trim())} style={[styles.secondaryButton, { borderColor: colors.border, opacity: !stepInput.trim() || draftSteps.length >= 8 || (stepAction === "reminder.create" && !reminderAt.trim()) ? 0.5 : 1 }]}>
+        {stepAction === "calendar.create" ? (
+          <>
+            <TextInput value={calendarStart} onChangeText={setCalendarStart} placeholder="Event start (ISO or local date/time)" placeholderTextColor={colors.mutedForeground} accessibilityLabel="Calendar event start" style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />
+            <TextInput value={calendarEnd} onChangeText={setCalendarEnd} placeholder="Event end (ISO or local date/time)" placeholderTextColor={colors.mutedForeground} accessibilityLabel="Calendar event end" style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />
+          </>
+        ) : null}
+        <Pressable accessibilityRole="button" onPress={addDraftStep} disabled={!stepInput.trim() || draftSteps.length >= 8 || (stepAction === "reminder.create" && !reminderAt.trim()) || (stepAction === "calendar.create" && (!calendarStart.trim() || !calendarEnd.trim()))} style={[styles.secondaryButton, { borderColor: colors.border, opacity: !stepInput.trim() || draftSteps.length >= 8 || (stepAction === "reminder.create" && !reminderAt.trim()) ? 0.5 : 1 }]}>
           <Feather name="plus-circle" size={16} color={colors.primary} />
           <Text style={{ color: colors.foreground, fontWeight: "700" }}>Add step ({draftSteps.length}/8)</Text>
         </Pressable>

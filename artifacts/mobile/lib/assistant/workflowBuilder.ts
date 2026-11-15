@@ -6,6 +6,7 @@ export const WORKFLOW_ACTIONS = [
   "assistant.ask",
   "research.search",
   "reminder.create",
+  "calendar.create",
   "telegram.send",
 ] as const;
 export type WorkflowAction = typeof WORKFLOW_ACTIONS[number];
@@ -63,5 +64,5 @@ export function validatePersonalWorkflow(value: unknown): PersonalWorkflow {
 }
 
 export function workflowNeedsOwnerApproval(workflow: PersonalWorkflow): boolean {
-  return workflow.steps.some((step) => step.action === "reminder.create" || step.action === "telegram.send");
+  return workflow.steps.some((step) => step.action === "reminder.create" || step.action === "calendar.create" || step.action === "telegram.send");
 }

@@ -27,6 +27,11 @@ test("requires owner approval for messaging and reminder side effects", () => {
     steps: [{ id: "send", action: "telegram.send", input: { text: "hello" } }],
   });
   assert.equal(workflowNeedsOwnerApproval(workflow), true);
+  const calendarWorkflow = validatePersonalWorkflow({
+    id: "calendar-event", name: "Calendar event", enabled: true, trigger: "manual",
+    steps: [{ id: "calendar", action: "calendar.create", input: { title: "Review", start: "2026-11-16T10:00:00.000Z", end: "2026-11-16T11:00:00.000Z" } }],
+  });
+  assert.equal(workflowNeedsOwnerApproval(calendarWorkflow), true);
 });
 
 test("rejects invalid schedules, duplicate steps, and oversized definitions", () => {
