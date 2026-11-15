@@ -26,7 +26,13 @@ app.use(
     },
   }),
 );
-app.use(cors());
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/github")) {
+    cors({ origin: process.env.APP_ORIGIN, credentials: true })(req, res, next);
+    return;
+  }
+  cors()(req, res, next);
+});
 app.use(cookieParser());
 
 // The Express API currently accepts only small JSON chat/speech requests.
