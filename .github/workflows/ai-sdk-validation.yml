@@ -2,6 +2,7 @@ name: AI SDK validation
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, feat/agentic-tool-calling-multi-agent]
   push:
     branches: [feat/vercel-ai-sdk-core, feat/verified-agent-integrations]
