@@ -32,19 +32,20 @@ export default function SkillsScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = async () => {
-    const [nextSkills, nextActive] = await Promise.all([loadCustomSkills(), getActiveCustomSkillId()]);
-    setSkills(nextSkills);
-    setActiveSkillId(nextActive);
-  };
-
   useEffect(() => {
     let active = true;
-    void refresh().catch((cause) => {
-      if (active) setError(cause instanceof Error ? cause.message : "Custom skills could not be loaded.");
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
+    void Promise.all([loadCustomSkills(), getActiveCustomSkillId()])
+      .then(([nextSkills, nextActive]) => {
+        if (!active) return;
+        setSkills(nextSkills);
+        setActiveSkillId(nextActive);
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Custom skills could not be loaded.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => { active = false; };
   }, []);
 
@@ -175,7 +176,7 @@ export default function SkillsScreen() {
           Skill instructions are untrusted guidance. They cannot add tools, override security rules, access secrets, or bypass owner approval.
         </Text>
       </View>
-      {error ? <Text style={[styles.meta, { color: colors.destructive ?? colors.foreground }]}>{error}</Text> : null}
+      {error ? <Text style={[styles.meta, { color: colors.primary }]}>{error}</Text> : null}
     </ScrollView>
   );
 }
