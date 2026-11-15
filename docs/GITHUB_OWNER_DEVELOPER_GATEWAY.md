@@ -27,13 +27,13 @@ The OAuth App requests `read:user repo` so the authenticated owner's accessible 
 - `GET /api/github/me`: return the authenticated owner identity (never the access token).
 - `GET /api/github/repositories/:owner/:repo/access`: check read and write permission using the owner's token.
 - `GET /api/github/repositories/:owner/:repo/contents?path=...&ref=...`: read a repository file.
-- `POST /api/github/approvals`: issue a 120-second, single-use approval bound to owner ID, action, resource and SHA-256 request hash.
+- `POST /api/github/approvals`: the owner-facing approval action accepts `{ action, request }`, derives the exact canonical request hash and resource on the server, then issues a 120-second, single-use approval bound to owner ID, action, resource and payload.
 - `POST /api/github/repositories/:owner/:repo/branches`: create a branch only after a matching approval.
 - `POST /api/github/repositories/:owner/:repo/pull-requests/draft`: create a Draft PR only after a matching approval.
 - `POST /api/github/repositories/:owner/:repo/workflows/dispatch`: dispatch only allowlisted workflows after a matching approval.
 - `POST /api/github/oauth/logout`: revoke the current server-side session.
 
-All state-changing endpoints require the exact configured `Origin` header and the HttpOnly owner session. Each approval is bound to one owner, action, resource and exact request hash; consumption is an atomic database update, so it cannot be replayed. Audit rows record approval issuance and consumption/rejection.
+All state-changing endpoints require the exact configured `Origin` header and the HttpOnly owner session. The owner UI must display the proposed request and call the approvals endpoint only after an explicit owner confirmation. Each approval is bound to one owner, action, resource and exact canonical request hash; consumption is an atomic database update, so it cannot be replayed. Audit rows record approval issuance and consumption/rejection.
 
 ## Hard boundaries
 
