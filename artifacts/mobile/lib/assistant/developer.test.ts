@@ -182,6 +182,24 @@ test('executeAgentTask - executes live web search when research prompt is detect
   }
 });
 
+test('executeAgentTask - Android app launch requires explicit owner confirmation', async () => {
+  const pending = await executeAgentTask('Open YouTube app', false, false);
+  assert.equal(pending.state, 'permission_pending');
+  assert.equal(pending.requiresConfirmation, true);
+  const approved = await executeAgentTask('Open YouTube app', false, true);
+  assert.equal(approved.state, 'completed');
+  assert.deepEqual(approved.outputData, { action: 'open_allowed_app', appId: 'youtube' });
+});
+
+test('executeAgentTask - Android Settings shortcuts require confirmation and use an allowlist', async () => {
+  const pending = await executeAgentTask('Open Wi-Fi settings', false, false);
+  assert.equal(pending.state, 'permission_pending');
+  const approved = await executeAgentTask('Open Wi-Fi settings', false, true);
+  assert.deepEqual(approved.outputData, { action: 'open_device_settings', settingId: 'wifi' });
+  const unsupported = await executeAgentTask('Open developer options settings', false, true);
+  assert.equal(unsupported.outputData, undefined);
+});
+
 test('executeAgentTask - YouTube command distinguishes search opening vs in-app playback', async () => {
   const result = await executeAgentTask('Play a song on YouTube', true);
   assert.strictEqual(result.state, 'completed');
