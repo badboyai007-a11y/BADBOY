@@ -173,7 +173,7 @@ test("Google Calendar reads bounded primary events using a server-side access to
   );
   const result = await response.json() as { events: Array<{ id: string; htmlLink: string | null }>; count: number };
   assert.equal(response.status, 200);
-  assert.match(requestedUrl, /calendarId|calendar\\/v3/);
+  assert.ok(requestedUrl.startsWith("https://www.googleapis.com/calendar/v3/calendars/primary/events?"));
   assert.equal(result.count, 2);
   assert.equal(result.events[0].htmlLink, "https://calendar.google.com/calendar/event?eid=abc");
   assert.equal(result.events[1].htmlLink, null);
