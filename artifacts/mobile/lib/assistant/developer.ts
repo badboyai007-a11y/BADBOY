@@ -138,42 +138,36 @@ export interface PluginItem {
 // Token storage helpers using SecureStore prioritizing encrypted storage
 export async function saveGitHubToken(token: string): Promise<void> {
   const trimmed = token.trim();
-  try {
-    const SecureStore = await import('expo-secure-store').catch(() => null);
-    if (SecureStore && (await SecureStore.isAvailableAsync().catch(() => false))) {
-      await SecureStore.setItemAsync(GITHUB_TOKEN_KEY, trimmed);
-      return;
-    }
-  } catch {
-    // Fallback
+  if (!trimmed) throw new Error('GitHub token cannot be empty.');
+  const SecureStore = await import('expo-secure-store').catch(() => null);
+  if (!SecureStore || !(await SecureStore.isAvailableAsync().catch(() => false))) {
+    throw new Error('SecureStore is unavailable. GitHub tokens are not saved in unencrypted storage.');
   }
-  await AsyncStorage.setItem(GITHUB_TOKEN_KEY, trimmed);
+  await SecureStore.setItemAsync(GITHUB_TOKEN_KEY, trimmed);
+  // Remove any legacy plaintext fallback after a successful secure save.
+  await AsyncStorage.removeItem(GITHUB_TOKEN_KEY);
 }
 
 export async function getGitHubToken(): Promise<string | null> {
   try {
     const SecureStore = await import('expo-secure-store').catch(() => null);
-    if (SecureStore && (await SecureStore.isAvailableAsync().catch(() => false))) {
-      const val = await SecureStore.getItemAsync(GITHUB_TOKEN_KEY);
-      if (val) return val;
-    }
+    if (!SecureStore || !(await SecureStore.isAvailableAsync().catch(() => false))) return null;
+    return await SecureStore.getItemAsync(GITHUB_TOKEN_KEY);
   } catch {
-    // Fallback
+    return null;
   }
-  return await AsyncStorage.getItem(GITHUB_TOKEN_KEY);
 }
 
 export async function removeGitHubToken(): Promise<void> {
+  await AsyncStorage.removeItem(GITHUB_TOKEN_KEY).catch(() => undefined);
   try {
     const SecureStore = await import('expo-secure-store').catch(() => null);
     if (SecureStore && (await SecureStore.isAvailableAsync().catch(() => false))) {
       await SecureStore.deleteItemAsync(GITHUB_TOKEN_KEY);
-      return;
     }
   } catch {
-    // Fallback
+    // Best-effort cleanup; never copy the credential to weaker storage.
   }
-  await AsyncStorage.removeItem(GITHUB_TOKEN_KEY);
 }
 
 /**
