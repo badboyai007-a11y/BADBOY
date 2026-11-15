@@ -90,7 +90,7 @@ export function validatePluginManifest(value: unknown): PluginManifest {
   const item = value as Record<string, unknown>;
   if (typeof item.id !== 'string' || !ID_PATTERN.test(item.id)) throw new Error('Plugin id is invalid.');
   if (typeof item.name !== 'string' || !item.name.trim() || item.name.length > 80) throw new Error('Plugin name is invalid.');
-  if (typeof item.version !== 'string' || !/^\\d+\\.\\d+\\.\\d+$/.test(item.version)) throw new Error('Plugin version must use semantic x.y.z format.');
+  if (typeof item.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(item.version)) throw new Error('Plugin version must use semantic x.y.z format.');
   if (typeof item.description !== 'string' || !item.description.trim() || item.description.length > 500) throw new Error('Plugin description is invalid.');
   if (!Array.isArray(item.capabilities) || item.capabilities.length < 1 || item.capabilities.length > 8) {
     throw new Error('Plugin must declare between one and eight capabilities.');
@@ -171,13 +171,13 @@ export class PluginRegistry {
       }
       let approved = false;
       try {
-        approved = await this.verifyOwnerApproval({
+        approved = (await this.verifyOwnerApproval({
           ownerId: context.ownerId,
           pluginId,
           capability,
           requestId: context.requestId,
           approvalToken: context.approvalToken,
-        });
+        })) === true;
       } catch {
         approved = false;
       }
