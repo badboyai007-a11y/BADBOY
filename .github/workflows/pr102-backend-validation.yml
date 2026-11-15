@@ -2,6 +2,7 @@ name: PR 102 Backend Validation
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [feat/agentic-tool-calling-multi-agent]
     paths:
       - "functions/**"
