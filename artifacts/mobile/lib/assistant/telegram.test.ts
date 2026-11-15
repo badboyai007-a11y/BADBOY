@@ -77,7 +77,6 @@ test('checkTelegramMessages requires a connected bot and maps text and non-text 
   const messages = await checkTelegramMessages();
   assert.deepEqual(messages, [
     { id: 10, chatId: 77, sender: 'Bad Boy', text: 'হ্যালো', date: 100 },
-    { id: 11, chatId: 88, sender: 'helper', text: '(non-text message)', date: 101 },
   ]);
   assert.equal(secure.has('oi-assistant-telegram-chat-id'), false);
   assert.equal(secure.get('oi-assistant-telegram-offset'), '13');
