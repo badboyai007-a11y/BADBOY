@@ -459,7 +459,7 @@ export async function executeAgentTask(
   }
 
   // Safe Android device controls: allowlisted apps and Settings screens only.
-  const openVerb = /\\b(open|launch|start)\\b|খোলো|খুলে দাও|চালু কর/i.test(clean);
+  const openVerb = /\b(open|launch|start)\b|খোলো|খুলে দাও|চালু কর/i.test(clean);
   if (openVerb) {
     const settingsTargets: Array<{ id: string; pattern: RegExp; label: string }> = [
       { id: 'wifi', pattern: /wi[- ]?fi|ওয়াই.?ফাই/i, label: 'Wi-Fi settings' },
@@ -966,6 +966,17 @@ export async function previewGitHubChanges(params: {
   if (!githubToken.trim() || !Array.isArray(paths) || paths.length < 1 || paths.length > 20) {
     return { success: false, files, error: 'একটি valid GitHub token এবং ১ থেকে ২০টি file path দিতে হবে।' };
   }
+  const isSafePath = (rawPath: string) => {
+    const path = rawPath.trim();
+    return Boolean(path) && path.length <= 240 && !path.startsWith('/') && !path.includes('\\') &&
+      !path.split('/').some((part) => !part || part === '.' || part === '..') &&
+      !/(^|\/)(\.env|secrets?|credentials?)(\.|$)/i.test(path) &&
+      !/\.(pem|key|p12|pfx|keystore)$/i.test(path);
+  };
+  if (paths.some((path) => !isSafePath(path))) {
+    const unsafe = paths.find((path) => !isSafePath(path)) ?? '';
+    return { success: false, files: [], error: `এই path নিরাপদ read preview-এর জন্য অনুমোদিত নয়: ${unsafe.trim().slice(0, 120)}` };
+  }
   const headers = {
     Authorization: `Bearer ${githubToken.trim()}`,
     Accept: 'application/vnd.github+json',
@@ -981,12 +992,6 @@ export async function previewGitHubChanges(params: {
 
     for (const rawPath of paths) {
       const path = rawPath.trim();
-      if (!path || path.length > 240 || path.startsWith('/') || path.includes('\\') ||
-          path.split('/').some((part) => !part || part === '.' || part === '..') ||
-          /(^|\/)(\.env|secrets?|credentials?)(\.|$)/i.test(path) ||
-          /\.(pem|key|p12|pfx|keystore)$/i.test(path)) {
-        return { success: false, baseSha, files: [], error: `এই path নিরাপদ read preview-এর জন্য অনুমোদিত নয়: ${path.slice(0, 120)}` };
-      }
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(baseBranch)}`, { headers });
       if (response.status === 404) {
         files.push({ path, exists: false });
