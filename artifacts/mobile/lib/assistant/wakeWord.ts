@@ -1,3 +1,4 @@
+import { PermissionsAndroid, Platform } from 'react-native';
 /**
  * Typed boundary for the optional Android-native offline Hey Badboy engine.
  * The native module owns microphone capture and must never upload audio.
@@ -106,7 +107,7 @@ export function createWakeWordBridge(dependencies: WakeWordBridgeDependencies) {
 function getPlatformOS(): string {
   try {
     // Lazy loading keeps this typed boundary importable in the Node test runner.
-    return require('react-native')?.Platform?.OS ?? 'node';
+    return Platform?.OS ?? 'node';
   } catch {
     return 'node';
   }
@@ -115,8 +116,7 @@ function getPlatformOS(): string {
 const bridge = createWakeWordBridge({
   platformOS: getPlatformOS,
   ensureMicrophonePermission: async () => {
-    const { PermissionsAndroid, Platform } = require('react-native');
-    if (Platform.OS !== 'android') return false;
+    // The bridge only invokes this permission gate after confirming Android support.
     const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO, {
       title: 'Hey Badboy Microphone Access',
       message: 'Offline wake-word detection চালাতে microphone permission প্রয়োজন। অডিও ফোনেই প্রক্রিয়া হয়।',
