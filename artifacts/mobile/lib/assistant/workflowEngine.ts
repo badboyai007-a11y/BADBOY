@@ -1,4 +1,4 @@
-import { validatePersonalWorkflow, type PersonalWorkflow, type WorkflowAction, type WorkflowStep } from "./workflowBuilder.ts";
+import { validatePersonalWorkflow, type PersonalWorkflow, type WorkflowAction, type WorkflowStep } from "./workflowBuilder";
 
 export interface WorkflowStepContext {
   workflowId: string;

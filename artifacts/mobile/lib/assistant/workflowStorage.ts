@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { validatePersonalWorkflow, type PersonalWorkflow } from "./workflowBuilder.ts";
+import { validatePersonalWorkflow, type PersonalWorkflow } from "./workflowBuilder";
 
 const WORKFLOWS_KEY = "badboy-personal-workflows-v1";
 
