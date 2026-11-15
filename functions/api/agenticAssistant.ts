@@ -44,7 +44,7 @@ type CompletionResponse = {
   error?: { message?: string };
 };
 
-type AgentToolName = "calculator" | "current_datetime" | "count_words" | "web_research" | "home_assistant_states" | "slack_history";
+type AgentToolName = "calculator" | "current_datetime" | "count_words" | "web_research" | "home_assistant_states" | "slack_history" | "discord_history" | "google_calendar_events";
 
 export type AgenticPayload = {
   message: string;
@@ -184,6 +184,31 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "discord_history",
+      description: "Read the latest messages from a configured Discord channel by channel ID. This tool cannot send messages.",
+      parameters: {
+        type: "object",
+        properties: { channel: { type: "string", minLength: 17, maxLength: 20, pattern: "^\\d{17,20}$" } },
+        required: ["channel"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "google_calendar_events",
+      description: "Read upcoming events from the configured primary Google Calendar. This tool cannot create or modify events.",
+      parameters: {
+        type: "object",
+        properties: { timeMin: { type: "string", maxLength: 40, pattern: "^\\d{4}-\\d{2}-\\d{2}T.*Z$" } },
+        additionalProperties: false,
+      },
+    },
+  },
 ] as const;
 
 function validateArguments(value: unknown): Record<string, unknown> {
@@ -248,6 +273,21 @@ async function executeReadOnlyIntegrationTool(
       }
       pathname = "/api/integrations/slack/history";
       request = new Request(`https://badboy.internal/api/integrations/slack/history?channel=${encodeURIComponent(args.channel)}`);
+    } else if (name === "discord_history") {
+      if (Object.keys(args).some((key) => key !== "channel") || typeof args.channel !== "string" || !/^\\d{17,20}$/.test(args.channel)) {
+        throw new Error("discord_history requires a valid channel ID.");
+      }
+      pathname = "/api/integrations/discord/messages";
+      request = new Request(`https://badboy.internal/api/integrations/discord/messages?channel=${encodeURIComponent(args.channel)}`);
+    } else if (name === "google_calendar_events") {
+      if (Object.keys(args).some((key) => key !== "timeMin")
+        || (args.timeMin !== undefined && (typeof args.timeMin !== "string" || args.timeMin.length > 40
+          || !Number.isFinite(Date.parse(args.timeMin)) || !args.timeMin.endsWith("Z")))) {
+        throw new Error("google_calendar_events accepts only an optional UTC ISO-8601 timeMin.");
+      }
+      pathname = "/api/integrations/google-calendar/events";
+      const query = typeof args.timeMin === "string" ? `?timeMin=${encodeURIComponent(args.timeMin)}` : "";
+      request = new Request(`https://badboy.internal/api/integrations/google-calendar/events${query}`);
     } else {
       return { ok: false, result: { error: "Integration tool is not allowlisted." } };
     }
@@ -397,7 +437,7 @@ async function runToolAgent(
         current.push({ role: "tool", tool_call_id: call.id, name: call.function.name, content: JSON.stringify({ error: "Tool call budget reached." }) });
         continue;
       }
-      const integrationTools = ["web_research", "home_assistant_states", "slack_history"] as const;
+      const integrationTools = ["web_research", "home_assistant_states", "slack_history", "discord_history", "google_calendar_events"] as const;
       const outcome = (integrationTools as readonly string[]).includes(call.function.name)
         ? await executeReadOnlyIntegrationTool(call.function.name, call.function.arguments, env)
         : executeAgentTool(call.function.name, call.function.arguments);

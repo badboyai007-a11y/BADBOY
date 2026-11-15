@@ -320,3 +320,66 @@ test("agentic integration tools fail closed when providers are not configured", 
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("agentic tools can read bounded Discord history and Google Calendar events", async () => {
+  const providerRequests: string[] = [];
+  let modelCalls = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.startsWith("https://discord.com/api/v10/")) {
+      providerRequests.push(url);
+      assert.equal(new Headers(init?.headers).get("authorization"), "Bot discord-secret");
+      return Response.json([{
+        id: "12345678901234567",
+        timestamp: "2026-11-16T10:00:00.000Z",
+        author: { username: "badboy-owner" },
+        content: "Deploy checklist",
+      }]);
+    }
+    if (url.startsWith("https://www.googleapis.com/calendar/v3/")) {
+      providerRequests.push(url);
+      assert.equal(new Headers(init?.headers).get("authorization"), "Bearer calendar-secret");
+      return Response.json({ items: [{
+        id: "event-1",
+        summary: "Release QA",
+        start: { dateTime: "2026-11-16T11:00:00Z" },
+        end: { dateTime: "2026-11-16T12:00:00Z" },
+        htmlLink: "https://calendar.google.com/calendar/event?eid=abc",
+      }] });
+    }
+    const payload = JSON.parse(String(init?.body)) as {
+      stream: boolean;
+      tools?: Array<{ function?: { name?: string } }>;
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    if (payload.stream) return finalStream();
+    modelCalls += 1;
+    if (modelCalls === 1) {
+      const names = payload.tools?.map((tool) => tool.function?.name) ?? [];
+      assert.ok(names.includes("discord_history"));
+      assert.ok(names.includes("google_calendar_events"));
+      return completion("", [
+        { id: "discord-1", function: { name: "discord_history", arguments: JSON.stringify({ channel: "12345678901234567" }) } },
+        { id: "calendar-1", function: { name: "google_calendar_events", arguments: JSON.stringify({ timeMin: "2026-11-16T00:00:00Z" }) } },
+      ]);
+    }
+    const toolMessages = payload.messages.filter((item) => item.role === "tool").map((item) => String(item.content));
+    assert.ok(toolMessages.some((item) => item.includes("Deploy checklist")));
+    assert.ok(toolMessages.some((item) => item.includes("Release QA")));
+    return completion("Discord ও Calendar-এর তথ্য পাওয়া গেছে।");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(
+      agentRequest({ message: "Discord update এবং calendar event দেখাও", mode: "single" }),
+      { OPENROUTER_API_KEY: "openrouter-secret", DISCORD_BOT_TOKEN: "discord-secret", GOOGLE_CALENDAR_ACCESS_TOKEN: "calendar-secret" },
+    );
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /চূড়ান্ত/);
+    assert.equal(providerRequests.length, 2);
+    assert.ok(providerRequests[0].startsWith("https://discord.com/api/v10/channels/"));
+    assert.ok(providerRequests[1].startsWith("https://www.googleapis.com/calendar/v3/calendars/primary/events?"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

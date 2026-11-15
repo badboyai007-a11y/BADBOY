@@ -402,3 +402,55 @@ test('getCalendarEvents rejects server errors and invalid event payloads', async
   fetchHandler = async () => jsonResponse({ events: null });
   await assert.rejects(getCalendarEvents('2026-11-15T00:00:00Z'), /invalid event list/);
 });
+
+
+test('getSlackMessages validates channel IDs and uses owner-authenticated bounded history', async () => {
+  const { getSlackMessages } = await apiPromise;
+  await assert.rejects(getSlackMessages('bad-channel'), /valid Slack channel ID/);
+  let requestedUrl = '';
+  fetchHandler = async (input, init) => {
+    requestedUrl = String(input);
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    return jsonResponse({ messages: [
+      { timestamp: '1730000000.000001', user: 'U123456', text: 'hello from Slack' },
+      { timestamp: 7, user: 'invalid', text: 'filtered' },
+    ] });
+  };
+  assert.deepEqual(await getSlackMessages(' C123456 '), [
+    { timestamp: '1730000000.000001', user: 'U123456', text: 'hello from Slack' },
+  ]);
+  assert.equal(requestedUrl, 'https://worker.example/integrations/slack/history?channel=C123456');
+});
+
+test('getSlackMessages reports provider errors and malformed message lists', async () => {
+  const { getSlackMessages } = await apiPromise;
+  fetchHandler = async () => jsonResponse({ error: 'Slack is not configured' }, 503);
+  await assert.rejects(getSlackMessages('C123456'), /Slack is not configured/);
+  fetchHandler = async () => jsonResponse({ messages: 'invalid' });
+  await assert.rejects(getSlackMessages('C123456'), /invalid message list/);
+});
+
+test('getHomeAssistantStates returns bounded owner-authenticated entity states', async () => {
+  const { getHomeAssistantStates } = await apiPromise;
+  let requestedUrl = '';
+  fetchHandler = async (input, init) => {
+    requestedUrl = String(input);
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    return jsonResponse({ states: [
+      { entityId: 'light.office', state: 'on', friendlyName: 'Office' },
+      { entityId: 42, state: 'invalid', friendlyName: null },
+    ] });
+  };
+  assert.deepEqual(await getHomeAssistantStates(), [
+    { entityId: 'light.office', state: 'on', friendlyName: 'Office' },
+  ]);
+  assert.equal(requestedUrl, 'https://worker.example/integrations/home-assistant/states');
+});
+
+test('getHomeAssistantStates surfaces backend errors and malformed state lists', async () => {
+  const { getHomeAssistantStates } = await apiPromise;
+  fetchHandler = async () => jsonResponse({ error: 'Home Assistant not configured' }, 503);
+  await assert.rejects(getHomeAssistantStates(), /Home Assistant not configured/);
+  fetchHandler = async () => jsonResponse({ states: null });
+  await assert.rejects(getHomeAssistantStates(), /invalid state list/);
+});

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAssistant } from "@/context/AssistantContext";
 import { useColors } from "@/hooks/useColors";
-import { getCalendarEvents, getDiscordMessages, getIntegrationStatus, searchWebResearch, streamReply, type AssistantIntegrationStatus, type CalendarEvent, type DiscordMessage } from "@/lib/assistant/api";
+import { getCalendarEvents, getDiscordMessages, getHomeAssistantStates, getIntegrationStatus, getSlackMessages, searchWebResearch, streamReply, type AssistantIntegrationStatus, type CalendarEvent, type DiscordMessage, type HomeAssistantState, type SlackMessage } from "@/lib/assistant/api";
 import { executePersonalWorkflow, type WorkflowAdapters } from "@/lib/assistant/workflowEngine";
 import { workflowNeedsOwnerApproval, type PersonalWorkflow } from "@/lib/assistant/workflowBuilder";
 import { resolveOfflineCapability } from "@/lib/assistant/offlineCapability";
@@ -27,6 +27,11 @@ export default function WorkflowsScreen() {
   const [integrationStatus, setIntegrationStatus] = useState<AssistantIntegrationStatus | null>(null);
   const [discordChannel, setDiscordChannel] = useState("");
   const [discordMessages, setDiscordMessages] = useState<DiscordMessage[]>([]);
+  const [slackChannel, setSlackChannel] = useState("");
+  const [slackMessages, setSlackMessages] = useState<SlackMessage[]>([]);
+  const [slackBusy, setSlackBusy] = useState(false);
+  const [homeAssistantStates, setHomeAssistantStates] = useState<HomeAssistantState[]>([]);
+  const [homeAssistantBusy, setHomeAssistantBusy] = useState(false);
   const [discordBusy, setDiscordBusy] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [calendarBusy, setCalendarBusy] = useState(false);
@@ -62,6 +67,30 @@ export default function WorkflowsScreen() {
       setError(cause instanceof Error ? cause.message : "Calendar events could not be loaded.");
     } finally {
       setCalendarBusy(false);
+    }
+  };
+
+  const loadHomeAssistantStates = async () => {
+    setHomeAssistantBusy(true);
+    setError(null);
+    try {
+      setHomeAssistantStates(await getHomeAssistantStates());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Home Assistant states could not be loaded.");
+    } finally {
+      setHomeAssistantBusy(false);
+    }
+  };
+
+  const loadSlackHistory = async () => {
+    setSlackBusy(true);
+    setError(null);
+    try {
+      setSlackMessages(await getSlackMessages(slackChannel));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Slack history could not be loaded.");
+    } finally {
+      setSlackBusy(false);
     }
   };
 
@@ -199,6 +228,60 @@ export default function WorkflowsScreen() {
         ) : (
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>Provider readiness is loading or the backend is unavailable.</Text>
         )}
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Home Assistant devices (read-only)</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => { void loadHomeAssistantStates(); }}
+          disabled={homeAssistantBusy || !integrationStatus?.homeAssistant.configured}
+          style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: homeAssistantBusy || !integrationStatus?.homeAssistant.configured ? 0.5 : 1 }]}
+        >
+          <Feather name="home" size={16} color={colors.primaryForeground} />
+          <Text style={{ color: colors.primaryForeground, fontWeight: "700" }}>{homeAssistantBusy ? "Loading…" : "Load device states"}</Text>
+        </Pressable>
+        {homeAssistantStates.map((entity) => (
+          <View key={entity.entityId} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <Text style={[styles.meta, { color: colors.primary }]}>{entity.friendlyName || entity.entityId}</Text>
+            <Text style={[styles.meta, { color: colors.foreground }]}>{entity.entityId} · {entity.state}</Text>
+          </View>
+        ))}
+        <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+          Read-only device state. Configure HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN as Worker secrets. Device control remains disabled until owner approval is implemented and tested.
+        </Text>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Slack channel history (read-only)</Text>
+        <TextInput
+          value={slackChannel}
+          onChangeText={setSlackChannel}
+          maxLength={32}
+          autoCapitalize="characters"
+          placeholder="Slack channel ID (e.g. C123456)"
+          placeholderTextColor={colors.mutedForeground}
+          accessibilityLabel="Slack channel ID"
+          style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+        />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => { void loadSlackHistory(); }}
+          disabled={!/^[A-Z0-9]{6,32}$/.test(slackChannel.trim()) || slackBusy || !integrationStatus?.slack.configured}
+          style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !/^[A-Z0-9]{6,32}$/.test(slackChannel.trim()) || slackBusy || !integrationStatus?.slack.configured ? 0.5 : 1 }]}
+        >
+          <Feather name="message-square" size={16} color={colors.primaryForeground} />
+          <Text style={{ color: colors.primaryForeground, fontWeight: "700" }}>{slackBusy ? "Loading…" : "Load Slack messages"}</Text>
+        </Pressable>
+        {slackMessages.map((message, index) => (
+          <View key={`${message.timestamp}-${message.user}-${index}`} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <Text style={[styles.meta, { color: colors.primary }]}>{message.user} · {message.timestamp}</Text>
+            <Text style={[styles.meta, { color: colors.foreground }]}>{message.text || "(empty message)"}</Text>
+          </View>
+        ))}
+        <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+          Read-only history. Configure SLACK_BOT_TOKEN as a Worker secret and grant the bot channels:history or groups:history. Sending is disabled.
+        </Text>
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>

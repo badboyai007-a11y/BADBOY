@@ -450,3 +450,56 @@ export async function getCalendarEvents(timeMin = new Date().toISOString()): Pro
     && (item.htmlLink === null || (typeof item.htmlLink === "string" && item.htmlLink.startsWith("https://calendar.google.com/")))
   );
 }
+
+
+export interface SlackMessage {
+  timestamp: string;
+  user: string;
+  text: string;
+}
+
+/** Read a bounded Slack channel history through the owner-authenticated Worker. */
+export async function getSlackMessages(channelId: string): Promise<SlackMessage[]> {
+  const cleanChannelId = channelId.trim();
+  if (!/^[A-Z0-9]{6,32}$/.test(cleanChannelId)) throw new Error("A valid Slack channel ID is required.");
+  const response = await expoFetch(
+    apiUrl(`/integrations/slack/history?channel=${encodeURIComponent(cleanChannelId)}`),
+    {
+      method: "GET",
+      headers: { Accept: "application/json", Authorization: await ownerAuthorizationHeader() },
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Slack history failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { messages?: SlackMessage[] };
+  if (!Array.isArray(body.messages)) throw new Error("Slack returned an invalid message list.");
+  return body.messages.slice(0, 20).filter((item) =>
+    typeof item?.timestamp === "string" && typeof item.user === "string" && typeof item.text === "string"
+  );
+}
+
+export interface HomeAssistantState {
+  entityId: string;
+  state: string;
+  friendlyName: string | null;
+}
+
+/** Read a bounded Home Assistant entity-state list through the authenticated Worker. */
+export async function getHomeAssistantStates(): Promise<HomeAssistantState[]> {
+  const response = await expoFetch(apiUrl("/integrations/home-assistant/states"), {
+    method: "GET",
+    headers: { Accept: "application/json", Authorization: await ownerAuthorizationHeader() },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Home Assistant request failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { states?: HomeAssistantState[] };
+  if (!Array.isArray(body.states)) throw new Error("Home Assistant returned an invalid state list.");
+  return body.states.slice(0, 100).filter((item) =>
+    typeof item?.entityId === "string" && typeof item.state === "string"
+    && (item.friendlyName === null || typeof item.friendlyName === "string")
+  );
+}
