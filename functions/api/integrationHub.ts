@@ -10,6 +10,7 @@ export interface IntegrationEnv {
   HOME_ASSISTANT_URL?: string;
   HOME_ASSISTANT_TOKEN?: string;
   SLACK_BOT_TOKEN?: string;
+  DISCORD_BOT_TOKEN?: string;
 }
 
 type Fetcher = typeof fetch;
@@ -72,6 +73,7 @@ export function getIntegrationStatus(env: IntegrationEnv) {
       mode: "read_only",
     },
     slack: { configured: Boolean(env.SLACK_BOT_TOKEN?.trim()), mode: "read_only" },
+    discord: { configured: Boolean(env.DISCORD_BOT_TOKEN?.trim()), mode: "read_only" },
     telegram: { configured: false, mode: "mobile_secure_store" },
     writesRequireOwnerApproval: true,
     providerSecretsStayServerSide: true,
@@ -190,6 +192,39 @@ export async function handleIntegrationRequest(
       return json({ channel, messages, count: messages.length });
     } catch {
       return json({ code: "SLACK_UNAVAILABLE", error: "Slack request timed out or could not connect." }, 502);
+    }
+  }
+
+
+  if (pathname === "/api/integrations/discord/messages" && request.method === "GET") {
+    const token = env.DISCORD_BOT_TOKEN?.trim();
+    const channel = new URL(request.url).searchParams.get("channel")?.trim() ?? "";
+    if (!token) return json({ code: "DISCORD_NOT_CONFIGURED", error: "Discord is not configured on the server." }, 503);
+    if (!/^\\d{17,20}$/.test(channel)) return json({ code: "INVALID_DISCORD_CHANNEL", error: "A valid Discord channel ID is required." }, 400);
+    try {
+      const url = new URL(`https://discord.com/api/v10/channels/${channel}/messages`);
+      url.searchParams.set("limit", "20");
+      const response = await fetchWithTimeout(fetcher, url, {
+        headers: { Authorization: `Bot ${token}`, Accept: "application/json" },
+      });
+      if (!response.ok) return json({ code: "DISCORD_PROVIDER_ERROR", error: "Discord message history request failed.", providerStatus: response.status }, 502);
+      const payload = await response.json() as unknown;
+      if (!Array.isArray(payload)) return json({ code: "DISCORD_INVALID_RESPONSE", error: "Discord returned an invalid message list." }, 502);
+      const messages = payload.slice(0, 20).flatMap((entry) => {
+        if (!entry || typeof entry !== "object") return [];
+        const item = entry as Record<string, unknown>;
+        const author = item.author && typeof item.author === "object" ? item.author as Record<string, unknown> : {};
+        if (typeof item.id !== "string" || typeof item.timestamp !== "string") return [];
+        return [{
+          id: item.id.slice(0, 24),
+          timestamp: item.timestamp.slice(0, 40),
+          author: typeof author.username === "string" ? author.username.slice(0, 80) : "Unknown",
+          content: typeof item.content === "string" ? item.content.slice(0, 2000) : "",
+        }];
+      });
+      return json({ channel, messages, count: messages.length, truncated: payload.length > messages.length });
+    } catch {
+      return json({ code: "DISCORD_UNAVAILABLE", error: "Discord request timed out or could not connect." }, 502);
     }
   }
 

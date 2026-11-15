@@ -352,6 +352,7 @@ export interface AssistantIntegrationStatus {
   research: IntegrationProviderStatus;
   homeAssistant: IntegrationProviderStatus;
   slack: IntegrationProviderStatus;
+  discord: IntegrationProviderStatus;
   telegram: IntegrationProviderStatus;
   writesRequireOwnerApproval: boolean;
   providerSecretsStayServerSide: boolean;
@@ -375,4 +376,38 @@ export async function getIntegrationStatus(): Promise<AssistantIntegrationStatus
     throw new Error('Integration status response is invalid.');
   }
   return body.integrations;
+}
+
+
+export interface DiscordMessage {
+  id: string;
+  timestamp: string;
+  author: string;
+  content: string;
+}
+
+/** Read a bounded Discord channel history through the server-side bot adapter. */
+export async function getDiscordMessages(channelId: string): Promise<DiscordMessage[]> {
+  const cleanChannelId = channelId.trim();
+  if (!/^\\d{17,20}$/.test(cleanChannelId)) throw new Error("A valid Discord channel ID is required.");
+  const response = await expoFetch(
+    apiUrl(`/integrations/discord/messages?channel=${encodeURIComponent(cleanChannelId)}`),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: await ownerAuthorizationHeader(),
+      },
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Discord history failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { messages?: DiscordMessage[] };
+  if (!Array.isArray(body.messages)) throw new Error("Discord returned an invalid message list.");
+  return body.messages.slice(0, 20).filter((item) =>
+    typeof item?.id === "string" && typeof item.timestamp === "string"
+    && typeof item.author === "string" && typeof item.content === "string"
+  );
 }

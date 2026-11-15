@@ -14,10 +14,12 @@ test("integration status exposes configuration but never provider secrets", () =
     HOME_ASSISTANT_URL: "https://ha.example",
     HOME_ASSISTANT_TOKEN: "secret-ha",
     SLACK_BOT_TOKEN: "secret-slack",
+    DISCORD_BOT_TOKEN: "secret-discord",
   });
   assert.equal(status.research.configured, true);
   assert.equal(status.homeAssistant.configured, true);
   assert.equal(status.slack.configured, true);
+  assert.equal(status.discord.configured, true);
   assert.equal(status.providerSecretsStayServerSide, true);
   assert.equal(JSON.stringify(status).includes("secret-"), false);
 });
@@ -97,4 +99,48 @@ test("side-effecting integration actions fail closed without one-time owner appr
   assert.equal(response.status, 403);
   const body = await response.json() as { sideEffectsAllowed: boolean };
   assert.equal(body.sideEffectsAllowed, false);
+});
+
+
+test("Discord history validates channel IDs, keeps the bot token server-side and bounds messages", async () => {
+  const invalid = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/discord/messages?channel=not-a-channel"),
+    "/api/integrations/discord/messages",
+    { DISCORD_BOT_TOKEN: "server-secret" },
+  );
+  assert.equal(invalid.status, 400);
+  let requestedUrl = "";
+  const fakeFetch: typeof fetch = async (input, init) => {
+    requestedUrl = String(input);
+    assert.equal(new Headers(init?.headers).get("authorization"), "Bot server-secret");
+    return new Response(JSON.stringify([
+      { id: "12345678901234567", timestamp: "2026-11-15T10:00:00.000Z", author: { username: "owner" }, content: "hello" },
+      { id: 12, timestamp: "invalid", content: "filtered" },
+    ]), { status: 200 });
+  };
+  const response = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/discord/messages?channel=12345678901234567"),
+    "/api/integrations/discord/messages",
+    { DISCORD_BOT_TOKEN: "server-secret" },
+    fakeFetch,
+  );
+  const result = await response.json() as { count: number; messages: Array<{ id: string; timestamp: string; author: string; content: string }> };
+  assert.equal(response.status, 200);
+  assert.equal(requestedUrl, "https://discord.com/api/v10/channels/12345678901234567/messages?limit=20");
+  assert.equal(result.count, 1);
+  assert.deepEqual(result.messages[0], {
+    id: "12345678901234567",
+    timestamp: "2026-11-15T10:00:00.000Z",
+    author: "owner",
+    content: "hello",
+  });
+});
+
+test("Discord history fails closed when no server token is configured", async () => {
+  const response = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/discord/messages?channel=12345678901234567"),
+    "/api/integrations/discord/messages",
+    {},
+  );
+  assert.equal(response.status, 503);
 });

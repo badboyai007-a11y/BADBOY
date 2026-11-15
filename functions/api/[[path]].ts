@@ -31,6 +31,7 @@ interface Env {
   HOME_ASSISTANT_URL?: string;
   HOME_ASSISTANT_TOKEN?: string;
   SLACK_BOT_TOKEN?: string;
+  DISCORD_BOT_TOKEN?: string;
 }
 
 const CORS_HEADERS = {

@@ -152,6 +152,7 @@ export default function WorkflowsScreen() {
               ["Web Research", integrationStatus.research.configured ? "Configured" : "Not configured", integrationStatus.research.configured],
               ["Home Assistant", integrationStatus.homeAssistant.configured ? "Configured" : "Not configured", integrationStatus.homeAssistant.configured],
               ["Slack", integrationStatus.slack.configured ? "Configured" : "Not configured", integrationStatus.slack.configured],
+              ["Discord", integrationStatus.discord.configured ? "Configured" : "Not configured", integrationStatus.discord.configured],
               ["Telegram (mobile)", "Managed on device", true],
               ["Offline AI", offlineCapability.mode === "cached_assistance" ? "Cached assistance only" : "Unavailable", false],
             ] as const).map(([label, status, ready]) => (
