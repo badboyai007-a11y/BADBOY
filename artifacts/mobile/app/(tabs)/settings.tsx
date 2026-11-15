@@ -1078,7 +1078,7 @@ export default function SettingsScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={[styles.planTitle, { color: colors.primary }]}>{currentPlan.title}</Text>
                   <View style={[styles.categoryPill, { backgroundColor: colors.secondary }]}>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.secondaryForeground }}>{currentPlan.category.toUpperCase()}</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.secondaryForeground }}>{(currentPlan.category || 'general').toUpperCase()}</Text>
                   </View>
                 </View>
 
