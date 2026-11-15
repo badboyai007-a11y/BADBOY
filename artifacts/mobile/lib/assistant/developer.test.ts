@@ -301,7 +301,7 @@ test('getPluginRegistryStatus - lists active and not_connected tool adapters', (
 
 test('DEFAULT_REPO_CONFIG has target repository details', () => {
   assert.strictEqual(DEFAULT_REPO_CONFIG.owner, 'shomratofficial007-spec');
-  assert.strictEqual(DEFAULT_REPO_CONFIG.repo, 'Voice-Memory-Assistant-net');
+  assert.strictEqual(DEFAULT_REPO_CONFIG.repo, 'Badboy-VS-Versel-Ai');
   assert.strictEqual(DEFAULT_REPO_CONFIG.baseBranch, 'main');
 });
 
