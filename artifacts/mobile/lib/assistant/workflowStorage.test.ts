@@ -9,9 +9,10 @@ mock.module("@react-native-async-storage/async-storage", {
   },
 });
 
-const storage = await import("./workflowStorage.ts");
+const storagePromise = import("./workflowStorage");
 
 test("stores and reloads validated owner-local workflows", async () => {
+  const storage = await storagePromise;
   stored = null;
   const workflow = {
     id: "research-one", name: "Research one", enabled: true, trigger: "manual",
@@ -23,6 +24,7 @@ test("stores and reloads validated owner-local workflows", async () => {
 });
 
 test("updates an existing workflow rather than duplicating it", async () => {
+  const storage = await storagePromise;
   stored = JSON.stringify([{
     id: "research-one", name: "Old", enabled: true, trigger: "manual",
     steps: [{ id: "search", action: "research.search", input: { query: "AI" } }],
@@ -36,6 +38,7 @@ test("updates an existing workflow rather than duplicating it", async () => {
 });
 
 test("deletes only the requested workflow and rejects corrupt persisted data", async () => {
+  const storage = await storagePromise;
   stored = JSON.stringify([
     { id: "research-one", name: "One", enabled: true, trigger: "manual", steps: [{ id: "search", action: "research.search", input: {} }] },
     { id: "research-two", name: "Two", enabled: true, trigger: "manual", steps: [{ id: "search", action: "research.search", input: {} }] },
