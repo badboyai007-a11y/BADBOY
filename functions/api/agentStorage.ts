@@ -217,6 +217,34 @@ export function createAgentStorage(db: D1Database) {
       return result.results ?? [];
     },
 
+    /**
+     * Search only the verified owner's active project memories.
+     * Sensitive memories are excluded unless the caller explicitly opts in.
+     */
+    async searchProjectMemory(
+      projectIdInput: string,
+      ownerIdInput: string,
+      queryInput: string,
+      options: { includeSensitive?: boolean; limit?: number } = {},
+    ): Promise<AgentProjectMemoryRecord[]> {
+      const ownerId = assertOwnerId(ownerIdInput);
+      const projectId = requiredText(projectIdInput, "Project ID", 128);
+      const query = requiredText(queryInput, "Memory search query", 200);
+      const limit = Math.max(1, Math.min(50, Math.floor(options.limit ?? 20)));
+      const privacyFilter = options.includeSensitive === true
+        ? ""
+        : " AND privacy_level != 'sensitive'";
+      const result = await db.prepare(
+        `SELECT memory_id, owner_id, project_id, category, content, source, privacy_level, created_at, updated_at
+         FROM agent_project_memory
+         WHERE project_id = ? AND owner_id = ? AND deleted_at IS NULL
+           AND instr(lower(content), lower(?)) > 0${privacyFilter}
+         ORDER BY updated_at DESC
+         LIMIT ?`,
+      ).bind(projectId, ownerId, query, limit).all<AgentProjectMemoryRecord>();
+      return result.results ?? [];
+    },
+
     async upsertProject(input: {
       projectId: string;
       ownerId: string;

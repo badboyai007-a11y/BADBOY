@@ -2,9 +2,10 @@ name: Mobile SBOM
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
-    branches: ["main"]
+    types: [opened, synchronize, reopened, edited]
+    branches: [main, feat/agentic-tool-calling-multi-agent]
   schedule:
     - cron: "26 13 * * 3"
 

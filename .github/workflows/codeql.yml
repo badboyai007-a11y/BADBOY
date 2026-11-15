@@ -7,9 +7,10 @@ concurrency:
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
-    branches: ["main"]
+    types: [opened, synchronize, reopened, edited]
+    branches: [main, feat/agentic-tool-calling-multi-agent]
   schedule:
     - cron: "43 13 * * 1"
 

@@ -8,7 +8,7 @@ set -euo pipefail
 
 api_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${PR_HEAD_SHA}&event=pull_request&per_page=100"
 
-for attempt in $(seq 1 36); do
+for attempt in $(seq 1 90); do
   response="$(curl --silent --show-error --fail \
     -H "Authorization: Bearer ${GH_TOKEN}" \
     -H "Accept: application/vnd.github+json" \
@@ -33,7 +33,7 @@ for attempt in $(seq 1 36); do
       exit 1
     fi
   else
-    echo "Waiting for upstream workflow '${WORKFLOW_NAME}' to start (attempt ${attempt}/36)."
+    echo "Waiting for upstream workflow '${WORKFLOW_NAME}' to start (attempt ${attempt}/90)."
   fi
 
   sleep 10

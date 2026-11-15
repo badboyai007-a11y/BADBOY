@@ -31,7 +31,14 @@ let stopOfflineWakeWord: typeof import('./wakeWord').stopOfflineWakeWord;
 let subscribeToWakeWord: typeof import('./wakeWord').subscribeToWakeWord;
 
 before(async () => {
-  mock.module('react-native', { namedExports: { Platform: mockPlatform } });
+  mock.module('react-native', { namedExports: {
+    Platform: mockPlatform,
+    PermissionsAndroid: {
+      PERMISSIONS: { RECORD_AUDIO: 'android.permission.RECORD_AUDIO' },
+      RESULTS: { GRANTED: 'granted' },
+      request: async () => 'granted',
+    },
+  } });
   mock.module('expo-modules-core', {
     namedExports: {
       requireNativeModule: (name: string) => {
@@ -54,7 +61,7 @@ after(() => {
   mock.reset();
 });
 
-function harness(platformOS = 'android', available = true) {
+function harness(platformOS = 'android', available = true, microphoneGranted = true) {
   const calls: Array<{ method: string; value?: unknown }> = [];
   const listeners = new Map<string, (value: never) => void>();
   let removed = false;
@@ -66,6 +73,10 @@ function harness(platformOS = 'android', available = true) {
   };
   const bridge = createWakeWordBridge({
     platformOS: () => platformOS,
+    ensureMicrophonePermission: async () => {
+      calls.push({ method: 'ensureMicrophonePermission' });
+      return microphoneGranted;
+    },
     loadNativeModule: () => {
       calls.push({ method: 'loadNativeModule' });
       if (!available) throw new Error('native module missing');
@@ -81,6 +92,18 @@ function harness(platformOS = 'android', available = true) {
   });
   return { bridge, calls, listeners, wasRemoved: () => removed };
 }
+
+test('wake-word start requests microphone permission before native capture', async () => {
+  const denied = harness('android', true, false);
+  await assert.rejects(denied.bridge.startOfflineWakeWord(), /microphone permission/);
+  assert.equal(denied.calls.some((call) => call.method === 'start'), false);
+  assert.ok(denied.calls.some((call) => call.method === 'ensureMicrophonePermission'));
+
+  const granted = harness('android', true, true);
+  const status = await granted.bridge.startOfflineWakeWord(0.7);
+  assert.equal(status.state, 'listening');
+  assert.deepEqual(granted.calls.find((call) => call.method === 'start')?.value, { threshold: 0.7 });
+});
 
 test('unsupported platform returns safe status and no-op subscription', async () => {
   const { bridge } = harness('ios');

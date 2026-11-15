@@ -303,3 +303,34 @@ test("returns false when project memory cannot be attached to an owner project",
   });
   assert.equal(inserted, false);
 });
+
+
+test("searches active project memories within owner scope and excludes sensitive entries by default", async () => {
+  const db = new RecordingD1();
+  db.rows = [{ memory_id: "memory-1", owner_id: "owner-a", privacy_level: "private" }];
+  const storage = createAgentStorage(db);
+  const rows = await storage.searchProjectMemory("project-a", "owner-a", "বাংলা memory", { limit: 500 });
+  assert.equal(rows.length, 1);
+  assert.match(db.calls[0].sql, /project_id = \? AND owner_id = \? AND deleted_at IS NULL/);
+  assert.match(db.calls[0].sql, /instr\(lower\(content\), lower\(\?\)\) > 0/);
+  assert.match(db.calls[0].sql, /privacy_level != 'sensitive'/);
+  assert.deepEqual(db.calls[0].values, ["project-a", "owner-a", "বাংলা memory", 50]);
+});
+
+test("sensitive memory retrieval requires explicit opt-in and remains owner scoped", async () => {
+  const db = new RecordingD1();
+  const storage = createAgentStorage(db);
+  await storage.searchProjectMemory("project-a", "owner-a", "private note", { includeSensitive: true, limit: 5 });
+  assert.doesNotMatch(db.calls[0].sql, /privacy_level != 'sensitive'/);
+  assert.match(db.calls[0].sql, /project_id = \? AND owner_id = \?/);
+  assert.deepEqual(db.calls[0].values, ["project-a", "owner-a", "private note", 5]);
+});
+
+test("rejects invalid memory search inputs before querying D1", async () => {
+  const db = new RecordingD1();
+  const storage = createAgentStorage(db);
+  await assert.rejects(() => storage.searchProjectMemory("project-a", " ", "query"), /Verified owner ID/);
+  await assert.rejects(() => storage.searchProjectMemory("project-a", "owner-a", " "), /Memory search query/);
+  await assert.rejects(() => storage.searchProjectMemory("project-a", "owner-a", "x".repeat(201)), /Memory search query/);
+  assert.equal(db.calls.length, 0);
+});

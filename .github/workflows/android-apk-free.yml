@@ -1,8 +1,18 @@
 name: Build Android APK (Free GitHub Runner)
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [feat/agentic-tool-calling-multi-agent]
+    paths:
+      - "artifacts/mobile/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/android-apk-free.yml"
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - "artifacts/mobile/**"
       - "package.json"
@@ -12,6 +22,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: android-apk-free-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-apk:

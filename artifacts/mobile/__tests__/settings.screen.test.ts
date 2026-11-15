@@ -26,7 +26,7 @@ let agentTaskHandler = async (_prompt: string, _online: boolean, _confirmed: boo
 let githubHandlers = {
   saveGitHubToken: async (_token: string) => {},
   removeGitHubToken: async () => {},
-  createGitHubPullRequest: async (_input: any) => ({ success: true, prUrl: 'https://github.com/example/repo/pull/88', prNumber: 88, summary: 'PR ready', logs: ['Branch checked', 'PR created'] }),
+  previewGitHubChanges: async (_input: any) => ({ success: true, baseSha: 'preview-base-sha', files: [{ path: 'settings.tsx', exists: true, sha: 'file-sha', content: 'export const ready = true;' }] }),
   generateDevelopmentPlan: (_prompt: string) => ({
     title: 'Settings test plan', category: 'web', featureDescription: 'Improve Settings',
     filesToModify: ['settings.tsx'], tasks: [{ id: 'task-1', title: 'Add tests' }],
@@ -49,6 +49,9 @@ let developerDataHandlers = {
 };
 let telegramHandlers = {
   hasTelegramBot: async () => false,
+  getTelegramOwnerChatId: async () => null,
+  bindTelegramOwnerChat: async (_chatId: number) => {},
+  parseTelegramOwnerCommand: (_text: string) => null,
   connectTelegramBot: async (_token: string) => ({ username: 'badboy_helper' }),
   disconnectTelegramBot: async () => {},
   checkTelegramMessages: async () => [] as any[],
@@ -175,6 +178,9 @@ mock.module('../lib/assistant/expertReview.ts', {
 });
 mock.module('../lib/assistant/telegram.ts', {
   namedExports: {
+    getTelegramOwnerChatId: (...args: unknown[]) => { telegramCalls.push({ method: 'getTelegramOwnerChatId', args }); return telegramHandlers.getTelegramOwnerChatId(); },
+    bindTelegramOwnerChat: (...args: [number]) => { telegramCalls.push({ method: 'bindTelegramOwnerChat', args }); return telegramHandlers.bindTelegramOwnerChat(...args); },
+    parseTelegramOwnerCommand: (text: string) => telegramHandlers.parseTelegramOwnerCommand(text),
     checkTelegramMessages: (...args: unknown[]) => { telegramCalls.push({ method: 'checkTelegramMessages', args }); return telegramHandlers.checkTelegramMessages(); },
     connectTelegramBot: (...args: [string]) => { telegramCalls.push({ method: 'connectTelegramBot', args }); return telegramHandlers.connectTelegramBot(...args); },
     disconnectTelegramBot: (...args: unknown[]) => { telegramCalls.push({ method: 'disconnectTelegramBot', args }); return telegramHandlers.disconnectTelegramBot(); },
@@ -184,7 +190,7 @@ mock.module('../lib/assistant/telegram.ts', {
 });
 mock.module('../lib/assistant/developer.ts', {
   namedExports: {
-    createGitHubPullRequest: (...args: [any]) => { githubCalls.push({ method: 'createGitHubPullRequest', args }); return githubHandlers.createGitHubPullRequest(...args); },
+    previewGitHubChanges: (...args: [any]) => { githubCalls.push({ method: 'previewGitHubChanges', args }); return githubHandlers.previewGitHubChanges(...args); },
     executeAgentTask: (...args: [string, boolean, boolean]) => { agentTaskCalls.push(args); return agentTaskHandler(...args); },
     generateDevelopmentPlan: (...args: [string]) => { githubCalls.push({ method: 'generateDevelopmentPlan', args }); return githubHandlers.generateDevelopmentPlan(...args); },
     getGitHubToken: async () => null,
@@ -436,6 +442,17 @@ function visit(node: any): string {
 }
 
 function createSettingsHookHarness(initialOverrides: Record<number, unknown> = {}, options: { runEffects?: boolean } = {}) {
+  // Keep the historical test fixture indices stable while the Settings screen
+  // adds new state for Telegram, voice search, reminders and device controls.
+  const legacyStateIndexMap: Record<number, number> = {
+    9: 10, 10: 11, 12: 18, 14: 20, 15: 21, 16: 22, 17: 23, 18: 24,
+    24: 30, 25: 31, 26: 32, 27: 33, 28: 34, 29: 35, 32: 38,
+    40: 46, 41: 47, 42: 48, 43: 49,
+  };
+  const mappedOverrides: Record<number, unknown> = {};
+  for (const [index, value] of Object.entries(initialOverrides)) {
+    mappedOverrides[legacyStateIndexMap[Number(index)] ?? Number(index)] = value;
+  }
   const slots: unknown[] = [];
   let cursor = 0;
   let effectsExecuted = false;
@@ -445,7 +462,7 @@ function createSettingsHookHarness(initialOverrides: Record<number, unknown> = {
   const dispatcher = {
     useState(initial: unknown) {
       const index = cursor++;
-      if (!(index in slots)) slots[index] = index in initialOverrides ? initialOverrides[index] : initial;
+      if (!(index in slots)) slots[index] = index in mappedOverrides ? mappedOverrides[index] : initial;
       return [
         slots[index],
         (next: unknown) => {
@@ -495,7 +512,7 @@ function resetTelegramState() {
   githubHandlers = {
     saveGitHubToken: async (_token) => {},
     removeGitHubToken: async () => {},
-    createGitHubPullRequest: async (_input) => ({ success: true, prUrl: 'https://github.com/example/repo/pull/88', prNumber: 88, summary: 'PR ready', logs: ['Branch checked', 'PR created'] }),
+    previewGitHubChanges: async (_input) => ({ success: true, baseSha: 'preview-base-sha', files: [{ path: 'settings.tsx', exists: true, sha: 'file-sha', content: 'export const ready = true;' }] }),
     generateDevelopmentPlan: (_prompt) => ({
       title: 'Settings test plan', category: 'web', featureDescription: 'Improve Settings',
       filesToModify: ['settings.tsx'], tasks: [{ id: 'task-1', title: 'Add tests' }],
@@ -517,6 +534,9 @@ function resetTelegramState() {
   alerts.length = 0;
   telegramHandlers = {
     hasTelegramBot: async () => false,
+    getTelegramOwnerChatId: async () => null,
+    bindTelegramOwnerChat: async (_chatId: number) => {},
+    parseTelegramOwnerCommand: (_text: string) => null,
     connectTelegramBot: async (_token: string) => ({ username: 'badboy_helper' }),
     disconnectTelegramBot: async () => {},
     checkTelegramMessages: async () => [] as any[],
@@ -638,7 +658,7 @@ test('Settings Project Brain saves its real project summary into owner-scoped D1
   assert.deepEqual(saved?.args, [{
     projectKey: 'badboy-main',
     name: 'Badboy AI',
-    summary: 'Cloudflare Worker + Expo mobile app\\nReact Native\\nTypeScript\\n/api/assistant/chat\\nCopilot runtime remains disabled',
+    summary: ['Cloudflare Worker + Expo mobile app', 'React Native', 'TypeScript', '/api/assistant/chat', 'Copilot runtime remains disabled'].join('\n'),
   }]);
   assert.equal(developerDataCalls.filter((item) => item.method === 'listDeveloperProjects').length, 1);
 });
@@ -871,7 +891,7 @@ test('Settings Agent renders permission and completed task states and opens only
   assert.doesNotMatch(html, /ONLINE/);
 });
 
-test('Settings creates a trimmed development plan and blocks PR creation without a GitHub token', async () => {
+test('Settings creates a trimmed development plan and blocks GitHub preview without a token', async () => {
   resetTelegramState();
   settings.developerMode = true;
   const planRender = createSettingsHookHarness({ 17: '  Improve Settings safely  ' });
@@ -883,50 +903,50 @@ test('Settings creates a trimmed development plan and blocks PR creation without
 
   const noTokenRender = createSettingsHookHarness({ 18: samplePlan });
   await noTokenRender();
-  pressables.find((item) => item.label.includes('GitHub-এ PR তৈরি করুন'))?.onPress();
+  pressables.find((item) => item.label.includes('GitHub read-only preview দেখুন'))?.onPress();
   html = await noTokenRender();
   assert.match(html, /GitHub Personal Access Token প্রয়োজন/);
-  assert.equal(githubCalls.filter((item) => item.method === 'createGitHubPullRequest').length, 0);
+  assert.equal(githubCalls.filter((item) => item.method === 'previewGitHubChanges').length, 0);
 });
 
-test('Settings confirms GitHub PR creation, renders success history, and surfaces API failures', async () => {
+test('Settings confirms a read-only GitHub preview and never creates a branch or PR', async () => {
   resetTelegramState();
   settings.developerMode = true;
   const successRender = createSettingsHookHarness({ 15: 'ghp_test-token', 18: samplePlan });
   await successRender();
-  pressables.find((item) => item.label.includes('GitHub-এ PR তৈরি করুন'))?.onPress();
-  assert.equal(alerts.at(-1)?.title, 'স্বয়ংক্রিয় ডেভেলপমেন্ট ওয়ার্কফ্লো শুরু করবেন?');
-  await alerts.at(-1)?.buttons.find((button) => button.text === 'হ্যাঁ, শুরু করুন')?.onPress();
+  pressables.find((item) => item.label.includes('GitHub read-only preview দেখুন'))?.onPress();
+  assert.equal(alerts.at(-1)?.title, 'GitHub read-only preview তৈরি করবেন?');
+  await alerts.at(-1)?.buttons.find((button) => button.text === 'Preview দেখুন')?.onPress();
   await new Promise((resolve) => setTimeout(resolve, 0));
   let html = await successRender();
-  assert.match(html, /PR ready/);
-  assert.match(html, /GitHub-এ PR দেখুন: #88/);
-  assert.match(html, /পূর্ববর্তী ডেভেলপমেন্ট হিস্ট্রি/);
-  assert.deepEqual(githubCalls.find((item) => item.method === 'createGitHubPullRequest')?.args, [{
-    githubToken: 'ghp_test-token', plan: samplePlan,
+  assert.match(html, /Read-only preview SHA:/);
+  assert.match(html, /No repository writes were performed/);
+  assert.match(html, /preview-base-sha/);
+  assert.deepEqual(githubCalls.find((item) => item.method === 'previewGitHubChanges')?.args, [{
+    githubToken: 'ghp_test-token', paths: samplePlan.filesToModify,
   }]);
+  assert.equal(githubCalls.some((item) => item.method === 'createGitHubPullRequest'), false);
 
   resetTelegramState();
   settings.developerMode = true;
-  githubHandlers.createGitHubPullRequest = async () => ({
-    success: false, error: 'GitHub permission denied', logs: ['Repository write permission missing'],
+  githubHandlers.previewGitHubChanges = async () => ({
+    success: false, error: 'GitHub permission denied', files: [],
   });
   const rejectedRender = createSettingsHookHarness({ 15: 'ghp_test-token', 18: samplePlan });
   await rejectedRender();
-  pressables.find((item) => item.label.includes('GitHub-এ PR তৈরি করুন'))?.onPress();
-  await alerts.at(-1)?.buttons.find((button) => button.text === 'হ্যাঁ, শুরু করুন')?.onPress();
+  pressables.find((item) => item.label.includes('GitHub read-only preview দেখুন'))?.onPress();
+  await alerts.at(-1)?.buttons.find((button) => button.text === 'Preview দেখুন')?.onPress();
   await new Promise((resolve) => setTimeout(resolve, 0));
   html = await rejectedRender();
   assert.match(html, /GitHub permission denied/);
-  assert.match(html, /Repository write permission missing/);
 
   resetTelegramState();
   settings.developerMode = true;
-  githubHandlers.createGitHubPullRequest = async () => { throw new Error('GitHub API unavailable'); };
+  githubHandlers.previewGitHubChanges = async () => { throw new Error('GitHub API unavailable'); };
   const thrownRender = createSettingsHookHarness({ 15: 'ghp_test-token', 18: samplePlan });
   await thrownRender();
-  pressables.find((item) => item.label.includes('GitHub-এ PR তৈরি করুন'))?.onPress();
-  await alerts.at(-1)?.buttons.find((button) => button.text === 'হ্যাঁ, শুরু করুন')?.onPress();
+  pressables.find((item) => item.label.includes('GitHub read-only preview দেখুন'))?.onPress();
+  await alerts.at(-1)?.buttons.find((button) => button.text === 'Preview দেখুন')?.onPress();
   await new Promise((resolve) => setTimeout(resolve, 0));
   html = await thrownRender();
   assert.match(html, /GitHub API unavailable/);

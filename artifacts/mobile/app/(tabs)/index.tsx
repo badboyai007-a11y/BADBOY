@@ -30,7 +30,8 @@ import {
 import { useAssistant } from '@/context/AssistantContext';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import { streamAgenticReply, streamReply, transcribeRecordedAudio } from '@/lib/assistant/api';
+import { searchAgentMemory, streamAgenticReply, streamReply, transcribeRecordedAudio } from '@/lib/assistant/api';
+import { listDeveloperProjects } from '@/lib/assistant/developerData';
 import {
   dictateOnce,
   getVoiceErrorMessage,
@@ -316,6 +317,25 @@ export default function ChatScreen() {
     }
 
     try {
+      // Pull only owner-scoped, non-sensitive project notes. Memory lookup is
+      // best-effort: an unavailable D1/API must never prevent ordinary chat.
+      let memoryContext = '';
+      try {
+        const projects = await listDeveloperProjects(20);
+        const matches = await Promise.all(projects.slice(0, 10).map(async (project) => {
+          try {
+            const memories = await searchAgentMemory(project.project_id, text, 3);
+            return memories.map((memory) => ({ project: project.name, ...memory }));
+          } catch {
+            return [];
+          }
+        }));
+        memoryContext = matches.flat().slice(0, 8).map((memory) =>
+          `[${memory.project} / ${memory.category}] ${memory.content.slice(0, 900)}`,
+        ).join('\n').slice(0, 5000);
+      } catch {
+        // Keep the existing chat path available when project memory is offline.
+      }
       await streamAgenticReply(
         text,
         settings,
@@ -326,7 +346,9 @@ export default function ChatScreen() {
           message.id === answer.id ? answer : message,
         );
         setMessages(working);
-      });
+      },
+      memoryContext,
+      );
     } catch (cause) {
       working = working.filter((message) => message.id !== answer.id);
       setMessages(working);

@@ -16,7 +16,7 @@ export interface TelegramUpdate {
     message_id: number;
     date: number;
     text?: string;
-    chat: { id: number; first_name?: string; username?: string };
+    chat: { id: number; type?: string; first_name?: string; username?: string };
   };
 }
 
@@ -48,6 +48,33 @@ export async function hasTelegramBot() {
   return Boolean(await SecureStore.getItemAsync(TOKEN_KEY));
 }
 
+export async function getTelegramOwnerChatId(): Promise<number | null> {
+  const value = await SecureStore.getItemAsync(CHAT_ID_KEY);
+  if (!value || !/^\d+$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+export async function bindTelegramOwnerChat(chatId: number): Promise<void> {
+  if (!Number.isSafeInteger(chatId) || chatId <= 0) throw new Error('Telegram private chat ID invalid.');
+  await SecureStore.setItemAsync(CHAT_ID_KEY, String(chatId));
+}
+
+export type TelegramOwnerCommand =
+  | { kind: 'ask'; prompt: string }
+  | { kind: 'youtube_search'; query: string };
+
+/** Only explicitly prefixed, low-risk commands can be approved from Telegram. */
+export function parseTelegramOwnerCommand(text: string): TelegramOwnerCommand | null {
+  const match = /^\/badboy\s+(ask|youtube)\s+([\s\S]{1,1000})$/i.exec(text.trim());
+  if (!match) return null;
+  const value = match[2].trim();
+  if (!value) return null;
+  return match[1].toLowerCase() === 'ask'
+    ? { kind: 'ask', prompt: value }
+    : { kind: 'youtube_search', query: value };
+}
+
 export async function disconnectTelegramBot() {
   await Promise.all([
     SecureStore.deleteItemAsync(TOKEN_KEY),
@@ -67,7 +94,8 @@ export async function checkTelegramMessages() {
   });
   const messages = updates.flatMap((update) => {
     const message = update.message;
-    if (!message) return [];
+    // Only private chats can become an owner-approved command channel.
+    if (!message || message.chat.type !== 'private') return [];
     return [{
       id: update.update_id,
       chatId: message.chat.id,
@@ -76,9 +104,7 @@ export async function checkTelegramMessages() {
       date: message.date,
     }];
   });
-  if (messages.length) {
-    const last = messages[messages.length - 1];
-    await SecureStore.setItemAsync(CHAT_ID_KEY, String(last.chatId));
+  if (updates.length) {
     await SecureStore.setItemAsync(
       UPDATE_OFFSET_KEY,
       String(updates[updates.length - 1].update_id + 1),

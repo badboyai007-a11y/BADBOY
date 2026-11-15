@@ -4,6 +4,7 @@ name: Android APK (automatic + manual)
 # Manual workflow_dispatch remains available for on-demand builds.
 on:
   push:
+    branches: [main]
     paths:
       - "artifacts/mobile/**"
       - "package.json"
@@ -11,6 +12,7 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/android-apk.yml"
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     paths:
       - "artifacts/mobile/**"
       - "package.json"
@@ -28,7 +30,7 @@ concurrency:
 
 jobs:
   android-debug-apk:
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/verified-agent-integrations'
     name: Validate and build Android debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -92,7 +94,7 @@ jobs:
 
       - name: Run Android native unit tests
         working-directory: artifacts/mobile/android
-        run: ./gradlew --no-daemon :badboy-wakeword:testDebugUnitTest
+        run: ./gradlew --no-daemon :badboy-wakeword:testDebugUnitTest :badboy-device:testDebugUnitTest
 
       - name: Build installable debug APK with embedded JavaScript
         working-directory: artifacts/mobile/android

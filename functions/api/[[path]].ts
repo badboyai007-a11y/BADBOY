@@ -4,6 +4,7 @@ import { handleDeveloperDataRequest } from "./developerData.ts";
 import { createAgentStorage, type D1Database } from "./agentStorage.ts";
 import { fetchGeminiChat, getGeminiModel } from "./geminiProvider.ts";
 import { handleAgenticAssistantRequest } from "./agenticAssistant.ts";
+import { handleAgentMemorySearchRequest } from "./agentMemory.ts";
 // Cloudflare Pages Function: Native Developer Agent controls optional AI provider adapters.
 // Ordinary /api/assistant/chat remains on its existing OpenRouter route.
 
@@ -1103,6 +1104,10 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
 
   if (request.method === "POST" && pathname === "/api/developer/analyze") {
     return handleDeveloperAnalysisRequest(request, env, verifiedOwnerId ?? "");
+  }
+
+  if (pathname === "/api/agent/memory/search") {
+    return handleAgentMemorySearchRequest(request, verifiedOwnerId ?? "", env.AGENT_DB);
   }
 
   if (request.method === "POST" && pathname === "/api/assistant/agent") {
