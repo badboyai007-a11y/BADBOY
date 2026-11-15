@@ -91,6 +91,22 @@ jobs:
         working-directory: artifacts/mobile
         run: pnpm exec expo prebuild --platform android --no-install --non-interactive
 
+      - name: Use preinstalled Java instead of resolving an extra Foojay toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETTINGS_FILE="$(find node_modules/.pnpm -path '*/@react-native/gradle-plugin/settings.gradle.kts' -print -quit)"
+          test -n "$SETTINGS_FILE"
+          if grep -q 'foojay-resolver-convention' "$SETTINGS_FILE"; then
+            # CI installs the required JDK explicitly; Foojay is only needed to download missing JDK toolchains.
+            sed -i '/foojay-resolver-convention/d' "$SETTINGS_FILE"
+          fi
+          if grep -q 'foojay-resolver-convention' "$SETTINGS_FILE"; then
+            echo "::error::Foojay resolver plugin was not removed from the generated CI-only settings file."
+            exit 1
+          fi
+          echo "Using the preinstalled JDK; no toolchain download resolver is needed."
+
       - name: Build installable release APK with embedded JavaScript bundle
         working-directory: artifacts/mobile/android
         shell: bash
