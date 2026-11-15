@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 
 const GITHUB_API = "https://api.github.com";
-const DEFAULT_BASE_BRANCH = "main";
 const ALLOWED_WORKFLOWS = new Set([
   "ci.yml",
   "mobile-checks.yml",
@@ -275,7 +274,13 @@ export async function createDraftPullRequest(
   options: GitHubRequestOptions = {},
 ): Promise<unknown> {
   const { owner, name } = await requireRepositoryAccess(repository, "write", accessVerifier);
-  const base = input.base ?? DEFAULT_BASE_BRANCH;
+  const repositoryMetadata = input.base
+    ? undefined
+    : await githubRequest<{ default_branch?: string }>(owner, name, "", { method: "GET" }, options);
+  const base = input.base ?? repositoryMetadata?.default_branch;
+  if (!base) {
+    throw new GitHubIntegrationError("The repository default branch could not be determined.", 502, "DEFAULT_BRANCH_UNAVAILABLE");
+  }
   assertSafeRef(input.head);
   assertSafeRef(base);
   if (
