@@ -44,6 +44,7 @@ type CompletionResponse = {
   error?: { message?: string };
 };
 
+type AgentPluginId = "web-research" | "home-assistant" | "slack-history" | "discord-history" | "google-calendar";
 type AgentToolName = "calculator" | "current_datetime" | "count_words" | "web_research" | "home_assistant_states" | "slack_history" | "discord_history" | "google_calendar_events";
 
 export type AgenticPayload = {
@@ -52,6 +53,7 @@ export type AgenticPayload = {
   developerMode: boolean;
   mode: "single" | "multi";
   history: Array<{ role: "user" | "assistant"; content: string }>;
+  enabledPlugins: AgentPluginId[];
 };
 
 export type AgenticValidation =
@@ -317,6 +319,14 @@ export function validateAgenticPayload(body: unknown): AgenticValidation {
   if (mode !== "single" && mode !== "multi") {
     return { ok: false, code: "INVALID_AGENTIC_MODE", error: "mode must be single or multi." };
   }
+  const allowedPlugins: AgentPluginId[] = ["web-research", "home-assistant", "slack-history", "discord-history", "google-calendar"];
+  const rawPlugins = value.enabledPlugins === undefined ? allowedPlugins : value.enabledPlugins;
+  if (!Array.isArray(rawPlugins) || rawPlugins.length > allowedPlugins.length
+    || rawPlugins.some((plugin) => typeof plugin !== "string" || !allowedPlugins.includes(plugin as AgentPluginId))
+    || new Set(rawPlugins).size !== rawPlugins.length) {
+    return { ok: false, code: "INVALID_AGENTIC_PLUGINS", error: "enabledPlugins must be a unique list of supported plugin IDs." };
+  }
+  const enabledPlugins = rawPlugins as AgentPluginId[];
   const rawHistory = value.history === undefined ? [] : value.history;
   if (!Array.isArray(rawHistory) || rawHistory.length > MAX_HISTORY_MESSAGES) {
     return { ok: false, code: "INVALID_AGENTIC_HISTORY", error: "History must contain at most eight messages." };
@@ -344,6 +354,7 @@ export function validateAgenticPayload(body: unknown): AgenticValidation {
       developerMode: value.developerMode === true,
       mode,
       history,
+      enabledPlugins,
     },
   };
 }
@@ -363,7 +374,7 @@ function modelErrorMessage(payload: CompletionResponse, status: number): string 
 async function requestCompletion(
   apiKey: string,
   messages: ChatMessage[],
-  options: { tools?: boolean; stream?: boolean; maxTokens?: number } = {},
+  options: { tools?: boolean; toolDefinitions?: readonly unknown[]; stream?: boolean; maxTokens?: number } = {},
 ): Promise<Response> {
   let lastStatus = 503;
   for (const model of FREE_MODELS) {
@@ -380,7 +391,7 @@ async function requestCompletion(
         model,
         messages,
         max_tokens: options.maxTokens ?? 1800,
-        ...(options.tools ? { tools: TOOL_DEFINITIONS, tool_choice: "auto", parallel_tool_calls: false } : {}),
+        ...(options.tools ? { tools: options.toolDefinitions ?? TOOL_DEFINITIONS, tool_choice: "auto", parallel_tool_calls: false } : {}),
         stream: options.stream === true,
       }),
     });
@@ -392,8 +403,8 @@ async function requestCompletion(
   return jsonResponse({ code: "AGENT_MODELS_UNAVAILABLE", error: `No configured free model is available (last HTTP ${lastStatus}).` }, lastStatus === 429 ? 429 : 502);
 }
 
-async function completeText(apiKey: string, messages: ChatMessage[], tools = false): Promise<{ content: string; messages: ChatMessage[] }> {
-  const response = await requestCompletion(apiKey, messages, { tools, maxTokens: 1800 });
+async function completeText(apiKey: string, messages: ChatMessage[], tools = false, toolDefinitions?: readonly unknown[]): Promise<{ content: string; messages: ChatMessage[] }> {
+  const response = await requestCompletion(apiKey, messages, { tools, toolDefinitions, maxTokens: 1800 });
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as CompletionResponse;
     throw new Error(modelErrorMessage(body, response.status));
@@ -422,11 +433,23 @@ async function runToolAgent(
   messages: ChatMessage[],
   emit: (event: Record<string, unknown>) => void,
   env: IntegrationEnv,
+  enabledPlugins: AgentPluginId[],
 ): Promise<string> {
+  const toolPluginMap: Record<string, AgentPluginId> = {
+    web_research: "web-research",
+    home_assistant_states: "home-assistant",
+    slack_history: "slack-history",
+    discord_history: "discord-history",
+    google_calendar_events: "google-calendar",
+  };
+  const enabledToolDefinitions = TOOL_DEFINITIONS.filter((definition) => {
+    const pluginId = toolPluginMap[definition.function.name];
+    return !pluginId || enabledPlugins.includes(pluginId);
+  });
   let current = [...messages];
   let totalCalls = 0;
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-    const result = await completeText(apiKey, current, true);
+    const result = await completeText(apiKey, current, true, enabledToolDefinitions);
     current = result.messages;
     const assistant = current[current.length - 1];
     const calls = assistant.tool_calls ?? [];
@@ -438,9 +461,12 @@ async function runToolAgent(
         continue;
       }
       const integrationTools = ["web_research", "home_assistant_states", "slack_history", "discord_history", "google_calendar_events"] as const;
-      const outcome = (integrationTools as readonly string[]).includes(call.function.name)
-        ? await executeReadOnlyIntegrationTool(call.function.name, call.function.arguments, env)
-        : executeAgentTool(call.function.name, call.function.arguments);
+      const pluginId = toolPluginMap[call.function.name];
+      const outcome = pluginId && !enabledPlugins.includes(pluginId)
+        ? { ok: false, result: { error: "This plugin is disabled by the owner." } }
+        : (integrationTools as readonly string[]).includes(call.function.name)
+          ? await executeReadOnlyIntegrationTool(call.function.name, call.function.arguments, env)
+          : executeAgentTool(call.function.name, call.function.arguments);
       const serialized = JSON.stringify(outcome.result).slice(0, MAX_TOOL_RESULT_CHARS);
       current.push({
         role: "tool",
@@ -569,7 +595,7 @@ export async function handleAgenticAssistantRequest(request: Request, env: Agent
   const apiKey = env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) return jsonResponse({ code: "AI_NOT_CONFIGURED", error: "OpenRouter is not configured on the server." }, 503);
 
-  const { message, personality, developerMode, mode, history } = validation.value;
+  const { message, personality, developerMode, mode, history, enabledPlugins } = validation.value;
   const system = systemPrompt(personality, developerMode);
   const baseMessages: ChatMessage[] = [
     { role: "system", content: system },
@@ -599,7 +625,7 @@ export async function handleAgenticAssistantRequest(request: Request, env: Agent
           ...baseMessages.slice(1),
           { role: "assistant", content: `পরিকল্পনা:\n${plan}` },
         ];
-        const execution = await runToolAgent(apiKey, executorMessages, send, env);
+        const execution = await runToolAgent(apiKey, executorMessages, send, env, enabledPlugins);
         send({ type: "agent", agent: "executor", status: "completed" });
         if (mode === "multi") {
           send({ type: "agent", agent: "reviewer", status: "started" });

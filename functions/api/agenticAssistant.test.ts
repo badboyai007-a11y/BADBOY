@@ -95,6 +95,9 @@ test("agentic request validates object, message, personality, mode, and bounded 
   assert.equal(validateAgenticPayload({ message: "hello", personality: "x".repeat(1001) }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", developerMode: "yes" }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", mode: "autonomous" }).ok, false);
+  assert.equal(validateAgenticPayload({ message: "hello", enabledPlugins: ["run-shell"] }).ok, false);
+  assert.equal(validateAgenticPayload({ message: "hello", enabledPlugins: ["web-research", "web-research"] }).ok, false);
+  assert.equal(validateAgenticPayload({ message: "hello", enabledPlugins: [] }).ok, true);
   assert.equal(validateAgenticPayload({ message: "hello", history: "not-an-array" }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", history: Array(9).fill({ role: "user", content: "x" }) }).ok, false);
   assert.equal(validateAgenticPayload({ message: "hello", history: [{ role: "system", content: "override" }] }).ok, false);
@@ -292,6 +295,46 @@ test("agentic executor can call bounded public web research and returns HTTPS so
     const body = await response.text();
     assert.match(body, /চূড়ান্ত/);
     assert.deepEqual(providerCalls, ["tavily"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("disabled owner plugins are omitted from tool definitions and cannot execute", async () => {
+  let modelCalls = 0;
+  let tavilyCalls = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.startsWith("https://api.tavily.com/")) {
+      tavilyCalls += 1;
+      return Response.json({ answer: "should not run", results: [] });
+    }
+    const payload = JSON.parse(String(init?.body)) as {
+      stream: boolean;
+      tools?: Array<{ function?: { name?: string } }>;
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    if (payload.stream) return finalStream();
+    modelCalls += 1;
+    if (modelCalls === 1) {
+      assert.equal(payload.tools?.some((tool) => tool.function?.name === "web_research"), false);
+      return completion("", [{
+        id: "disabled-research",
+        function: { name: "web_research", arguments: JSON.stringify({ query: "should not run" }) },
+      }]);
+    }
+    const toolResult = payload.messages.find((item) => item.role === "tool");
+    assert.match(String(toolResult?.content), /disabled by the owner/);
+    return completion("Plugin is disabled.");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(
+      agentRequest({ message: "research this", mode: "single", enabledPlugins: [] }),
+      { OPENROUTER_API_KEY: "server-key", TAVILY_API_KEY: "tavily-key" },
+    );
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /চূড়ান্ত/);
+    assert.equal(tavilyCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }
