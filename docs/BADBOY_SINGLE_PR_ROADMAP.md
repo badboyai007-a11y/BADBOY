@@ -19,7 +19,10 @@ This document tracks observable implementation and verification evidence. A chec
 | Advanced web research | Bounded Tavily search adapter, agentic `web_research` tool and mobile research API; HTTPS-only sources | TAVILY_API_KEY and real-provider verification |
 | Personality | Owner-editable personality prompt in settings | Presets/versioning and prompt injection evaluation |
 | Personal workflows | Multi-step mobile Workflow Builder (up to eight steps), local AsyncStorage persistence, assistant/research/reminder/Telegram steps, Android Calendar draft step, bounded adapter engine, manual run and per-step owner approval | Scheduled trigger runtime and background execution remain blocked pending a safe native scheduler; Calendar draft still requires the user to save in the Calendar app |
-| Offline AI | **Deferred by owner instruction; not part of this implementation scope.** Existing capability reporting is retained, but no local LLM runtime/model is being added. | Revisit only if the owner reopens this roadmap item |
+| Offline AI | Local model lifecycle manager added: HTTPS manifest validation, bounded download size, SHA-256 verification, install/load/generate/uninstall contract, and strict unavailable status without a registered native inference runtime. | Native GGUF/ONNX inference adapter, model artifact approval/licensing review, Android memory/performance testing, and physical-device offline inference remain unverified |
+| Autonomous Developer | Four-role sequential runtime (Architect → Developer → Tester → Security Reviewer), bounded calls/output, fail-closed gates, arbitrary valid branch names, and no writes from the orchestration layer | Connect adapters to production model providers and isolated runner; Owner-approved GitHub write adapter and end-to-end tests remain required |
+| Automatic Rollback | Rollback candidate planner binds repository, arbitrary valid branch, current head and known-good SHA; non-force-push revert Draft PR strategy; short-lived authenticated Owner approval binding | Deployment-failure event integration, atomic approval consumption and real revert-PR rehearsal remain unverified; no unattended production rollback |
+| Dependency Intelligence | Read-only npm exact-version inventory, bounded OSV batch vulnerability scan, severity/fix extraction, and conservative same-major vs major-update classification | pnpm lockfile graph, transitive dependency coverage, peer/engine compatibility resolution and real OSV network integration tests remain unverified |
 | Reliability | Health endpoints, provider fallback, request bounds and sanitized diagnostics | Recovery drills, alert delivery, backup restore and load tests |
 | Production release | CI Android APK workflows and release validation | Physical device QA, signing/release owner approval, production deployment |
 
@@ -30,6 +33,9 @@ This document tracks observable implementation and verification evidence. A chec
 - Third-party data is untrusted input, not instructions.
 - Provider reads are bounded by timeout and response size/count.
 - Side-effecting provider calls remain disabled until a one-time owner approval is implemented and tested.
+- Branch naming is not an authorization boundary: any valid Git branch name is eligible only within the authenticated Owner's repository/action scope.
+- Autonomous agent output is a proposal; Tester and Security Reviewer must pass before Owner review. The orchestration runtime itself cannot write to GitHub.
+- Rollback is a non-force-push revert proposal and requires a fresh exact, short-lived Owner approval; no automatic production rollback is permitted.
 - D1 migrations are additive; this PR does not run them against production.
 - No production deploy or PR merge is performed by the implementation agent.
 
@@ -63,3 +69,10 @@ The integration status endpoint returns configuration booleans only and never re
 - Reminder, Calendar draft, and Telegram workflow steps require explicit confirmation for the exact step IDs. Calendar drafts open the Android Calendar insert screen; the user must review and save the event there.
 - Scheduled workflows are validated as definitions but are not run in the background. The app explicitly reports this limitation.
 - Workflow execution is sequential, bounded to eight steps, uses per-step cancellation/timeouts, stops on first failure, and limits serialized output.
+
+## New autonomy components — implementation status
+
+- Multi-agent orchestration is implemented as a bounded, sequential adapter runtime. It is not yet connected to the production model provider or isolated GitHub Actions runner.
+- Rollback policy creates an exact commit/branch-bound revert proposal. A production deployment-failure trigger and end-to-end GitHub revert workflow are not yet wired.
+- Dependency Intelligence uses the OSV batch API for exact npm versions. Version ranges are skipped rather than guessed; full pnpm lockfile/transitive and peer-dependency compatibility analysis remains future work.
+- Local Model Manager provides verified model lifecycle and inference-adapter contracts. No native GGUF/ONNX inference adapter is currently registered, so the app must report offline LLM unavailable until a compatible native runtime is integrated and device-tested.

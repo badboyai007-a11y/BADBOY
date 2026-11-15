@@ -29,7 +29,7 @@ Audit records are append-only at the database trigger level for the configured a
 - Developer cannot grant or approve its own permissions.
 - No merge, auto-merge, production deployment, repository permission administration, or secret disclosure endpoint is introduced.
 - Emergency lockdown blocks the existing approval issuance and consumption path.
-- Offline AI remains excluded.
+- Offline AI is in scope. A local model lifecycle manager exists, but on-device inference remains unavailable until a native runtime is integrated and verified.
 
 ## Owner Control Center
 
@@ -37,4 +37,4 @@ A responsive first-party Owner Control Center is served at `/api/github/controls
 
 ## Remaining integration work
 
-Generic arbitrary-file commit/push orchestration, automatic rollback, a production multi-agent runtime, dependency intelligence/scanning, cost accounting and intelligent model routing are not implemented by this gateway. Do not represent them as complete until implemented and tested.
+Generic arbitrary-file commit/push orchestration, production provider/runner wiring for the multi-agent runtime, deployment-failure-triggered rollback execution, full lockfile/transitive dependency intelligence, native offline inference, cost accounting and intelligent model routing are not fully implemented by this gateway. Current bounded orchestration, rollback planning, OSV manifest scanning and local model lifecycle contracts are partial foundations; do not represent the end-to-end capabilities as complete until integrated and tested.
