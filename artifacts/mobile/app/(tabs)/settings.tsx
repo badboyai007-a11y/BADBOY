@@ -549,7 +549,7 @@ export default function SettingsScreen() {
     if (telegramBusy || telegramOwnerChatId !== null) return;
     Alert.alert(
       'এই Telegram chat-কে Owner হিসেবে bind করবেন?',
-      `Chat ID: ${item.chatId}\\nSender: ${item.sender}\\n\\nশুধু এই private chat থেকে আসা অনুমোদিত command-ই Badboy গ্রহণ করবে।`,
+      `Chat ID: ${item.chatId}\nSender: ${item.sender}\n\nশুধু এই private chat থেকে আসা অনুমোদিত command-ই Badboy গ্রহণ করবে।`,
       [
         { text: 'বাতিল', style: 'cancel' },
         {
@@ -574,8 +574,8 @@ export default function SettingsScreen() {
       return;
     }
     const description = command.kind === 'ask'
-      ? `AI উত্তর তৈরি করে আপনার bound Telegram chat-এ পাঠাবে:\\n${command.prompt}`
-      : `YouTube search খুলবে:\\n${command.query}`;
+      ? `AI উত্তর তৈরি করে আপনার bound Telegram chat-এ পাঠাবে:\n${command.prompt}`
+      : `YouTube search খুলবে:\n${command.query}`;
     Alert.alert('Telegram request অনুমোদন করবেন?', description, [
       { text: 'বাতিল', style: 'cancel' },
       {
