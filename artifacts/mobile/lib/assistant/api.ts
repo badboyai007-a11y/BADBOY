@@ -240,7 +240,7 @@ export async function searchAgentMemory(
       typeof memory.category !== 'string' ||
       typeof memory.content !== 'string' ||
       typeof memory.source !== 'string' ||
-      typeof memory.privacyLevel !== 'string' || memory.privacyLevel.toLowerCase() === 'sensitive' ||
+      typeof memory.privacyLevel !== 'string' || memory.privacyLevel.trim().toLowerCase() === 'sensitive' ||
       typeof memory.updatedAt !== 'string'
     ) return [];
     return [{
