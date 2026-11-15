@@ -101,6 +101,7 @@ test('streamAgenticReply sends owner-authenticated bounded history and consumes 
     { personality: 'বন্ধুসুলভ', voiceLanguage: 'bn-BD', developerMode: true } as any,
     [{ role: 'user', content: 'আগের প্রশ্ন' }],
     (chunk) => chunks.push(chunk),
+    'Project note: preserve all current features.',
   );
   assert.equal(url, 'https://worker.example/assistant/agent');
   assert.equal(sent.message, '6 * 7 কত?');
@@ -108,6 +109,8 @@ test('streamAgenticReply sends owner-authenticated bounded history and consumes 
   assert.equal(sent.developerMode, true);
   assert.deepEqual(sent.history, [{ role: 'user', content: 'আগের প্রশ্ন' }]);
   assert.match(sent.personality, /bn-BD/);
+  assert.match(sent.personality, /Project note: preserve all current features/);
+  assert.match(sent.personality, /sensitive entries excluded/);
   assert.deepEqual(chunks, ['হিসাবের ফল ', '৪২']);
 });
 
