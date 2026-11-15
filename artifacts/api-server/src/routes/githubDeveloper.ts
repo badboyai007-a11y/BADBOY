@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { createHash } from "node:crypto";
 import {
   createDraftPullRequest,
   createRepositoryBranch,
@@ -327,28 +328,69 @@ router.post("/approvals", requireSameOrigin, requireOwner, async (req, res) => {
     res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
     return;
   }
-  const { action, resource, requestHash } = req.body ?? {};
-  const allowedActions = new Set(["create-branch", "create-draft-pr", "dispatch-workflow"]);
-  if (
-    typeof action !== "string" ||
-    !allowedActions.has(action) ||
-    typeof resource !== "string" ||
-    !resource.trim() ||
-    resource.length > 512 ||
-    typeof requestHash !== "string" ||
-    !/^[a-f0-9]{64}$/iu.test(requestHash)
-  ) {
-    res.status(400).json({ code: "INVALID_APPROVAL_REQUEST", error: "A valid action, resource and SHA-256 request hash are required." });
+  const { action, request } = req.body ?? {};
+  if (!request || typeof request !== "object" || Array.isArray(request)) {
+    res.status(400).json({ code: "INVALID_APPROVAL_REQUEST", error: "The exact proposed write request is required." });
     return;
   }
+
+  const repository = (request as { repository?: unknown }).repository;
+  if (
+    typeof repository !== "string" ||
+    !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37})\/[A-Za-z0-9._-]{1,100}$/u.test(repository)
+  ) {
+    res.status(400).json({ code: "INVALID_APPROVAL_REPOSITORY", error: "A valid owner/name repository is required." });
+    return;
+  }
+
+  let resource = "";
+  let canonicalRequest: Record<string, unknown>;
+  if (action === "create-branch") {
+    const { branch, baseSha } = request as { branch?: unknown; baseSha?: unknown };
+    if (typeof branch !== "string" || typeof baseSha !== "string" || !/^[a-f0-9]{40}$/iu.test(baseSha)) {
+      res.status(400).json({ code: "INVALID_APPROVAL_REQUEST", error: "A branch name and full base commit SHA are required." });
+      return;
+    }
+    resource = `${repository}:${branch}`;
+    canonicalRequest = { repository, branch, baseSha };
+  } else if (action === "create-draft-pr") {
+    const { head, base, title, body } = request as { head?: unknown; base?: unknown; title?: unknown; body?: unknown };
+    if ([head, base, title, body].some((value) => typeof value !== "string") || !(title as string).trim()) {
+      res.status(400).json({ code: "INVALID_APPROVAL_REQUEST", error: "Head, base, title and body are required for a Draft PR." });
+      return;
+    }
+    resource = `${repository}:${head}->${base}`;
+    canonicalRequest = { repository, head, base, title: (title as string).trim(), body, draft: true };
+  } else if (action === "dispatch-workflow") {
+    const { workflowId, ref, inputs } = request as { workflowId?: unknown; ref?: unknown; inputs?: unknown };
+    if (typeof workflowId !== "string" || typeof ref !== "string" || (inputs !== undefined && (!inputs || typeof inputs !== "object" || Array.isArray(inputs)))) {
+      res.status(400).json({ code: "INVALID_APPROVAL_REQUEST", error: "Workflow ID, ref and optional object inputs are required." });
+      return;
+    }
+    const safeInputs = (inputs ?? {}) as Record<string, string>;
+    resource = `${repository}:${workflowId}@${ref}`;
+    canonicalRequest = { repository, workflowId, ref, inputs: safeInputs };
+  } else {
+    res.status(400).json({ code: "INVALID_APPROVAL_ACTION", error: "This write action cannot be approved." });
+    return;
+  }
+
+  const requestHash = createHash("sha256").update(JSON.stringify(canonicalRequest)).digest("hex");
   try {
     const approvalId = await issueGitHubWriteApproval({
       ownerId: owner.identity.id,
-      action: action as "create-branch" | "create-draft-pr" | "dispatch-workflow",
+      action,
       resource,
       requestHash,
     });
-    res.status(201).json({ approvalId, expiresInSeconds: 120, singleUse: true });
+    res.status(201).json({
+      approvalId,
+      action,
+      resource,
+      requestHash,
+      expiresInSeconds: 120,
+      singleUse: true,
+    });
   } catch {
     res.status(503).json({ code: "APPROVAL_STORE_UNAVAILABLE", error: "Owner approval could not be stored." });
   }
