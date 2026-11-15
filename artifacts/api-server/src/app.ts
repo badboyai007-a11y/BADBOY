@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -26,6 +27,7 @@ app.use(
   }),
 );
 app.use(cors());
+app.use(cookieParser());
 
 // The Express API currently accepts only small JSON chat/speech requests.
 // Keep its limits aligned with the Cloudflare Worker instead of allowing
