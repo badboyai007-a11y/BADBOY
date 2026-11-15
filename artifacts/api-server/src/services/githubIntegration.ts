@@ -160,12 +160,12 @@ async function githubRequest<T>(
   init: RequestInit,
   options: GitHubRequestOptions = {},
 ): Promise<T> {
-  const token = options.token?.trim() || process.env.GITHUB_TOKEN?.trim();
+  const token = options.token?.trim();
   if (!token) {
     throw new GitHubIntegrationError(
-      "GitHub integration is not configured.",
+      "An authenticated GitHub owner session is required.",
       503,
-      "GITHUB_NOT_CONFIGURED",
+      "GITHUB_OWNER_SESSION_REQUIRED",
     );
   }
 
