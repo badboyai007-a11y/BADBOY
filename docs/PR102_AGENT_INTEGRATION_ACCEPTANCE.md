@@ -229,3 +229,39 @@ PR #102 may be marked ready for review only after all code-level CI checks pass.
 - GitHub workflow still needs a user-facing preview/approval screen and live GitHub integration tests with a least-privilege token.
 - Android phone-control actions, full wake-word background/device lifecycle verification, Telegram approval/background delivery, durable reminders/calendar, and a real on-device generative offline model remain incomplete or hardware/provider dependent.
 - No physical Android device acceptance test has been performed in this change set.
+
+## Implementation progress (2026-11-15, continued)
+
+### Android Control
+- Added a local Expo native module, `BadboyDevice`, with a strict allowlist for launching YouTube, Chrome, Gmail, Maps, WhatsApp, and Telegram.
+- Added allowlisted Wi-Fi, Bluetooth, Sound, app-details, and notification settings shortcuts. No arbitrary package names or arbitrary Android intents are accepted.
+- The Developer Task Engine now asks for explicit owner confirmation before app-launch or Settings actions and only returns allowlisted action IDs.
+- Added unit tests for app/settings allowlists and approval-gated task planning.
+
+### Local reminders and Calendar
+- Added a native Android one-shot reminder scheduler using `AlarmManager.setAndAllowWhileIdle`, local SharedPreferences, a notification receiver, and reboot/package-replacement restoration.
+- Reminder notification delivery is intentionally marked **inexact**; Android battery/doze policies may delay it. Exact-alarm privileges are not requested.
+- Added notification permission checks and safe handling when permission is revoked.
+- Calendar integration opens the system Calendar's event-insert draft; the user must review and tap Save. The app does not silently write to a calendar.
+- Added reminder validation tests and Android native policy tests.
+
+### Voice / Wake Word
+- Wake-word startup now requests Android microphone permission and the native module independently enforces that permission before starting AudioRecord.
+- Existing foreground microphone service and on-device TFLite wake-word model are preserved.
+- Background/lock-screen reliability, OEM battery restrictions, process-death recovery, and microphone hand-off still require physical-device acceptance testing; not marked Device Verified.
+
+### Telegram approval workflow
+- Inbox polling now filters to private chats and no longer silently binds the last sender as the destination.
+- The owner must explicitly bind one private chat in Settings before outbound messages can be sent.
+- Only `/badboy ask ...` and `/badboy youtube ...` are recognized as remote requests; each requires an in-app owner approval tap. Other commands are ignored.
+- This is still foreground/manual polling. No background Telegram worker or guaranteed delivery has been implemented.
+
+### Offline AI status
+- **Not implemented / blocked:** the repository contains an offline wake-word classifier, not a generative language model. No local LLM model weights or validated Android inference runtime are present. Do not describe wake-word inference as offline chat.
+- A real offline chat implementation requires a compatible quantized LLM artifact, licensing review, model-size/RAM/performance benchmarks for target devices, a supported Android inference runtime, and fallback tests. No placeholder or network-backed fake is accepted.
+
+### Verification still required
+- Exact-head backend/mobile CI and Android APK build must pass after these changes.
+- Android native module compilation/unit tests must pass in CI.
+- Physical Android tests must verify app launching, Settings intents, notification permission, reminder firing after Doze/reboot, Calendar save flow, microphone permission, wake-word detection, app background/foreground, and OEM battery restrictions.
+- Telegram must be tested with an owner-controlled bot and private chat; no production bot token is stored in this repository.
