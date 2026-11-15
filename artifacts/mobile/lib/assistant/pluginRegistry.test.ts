@@ -29,9 +29,11 @@ test('plugin manifest rejects malformed ids, unknown capabilities, duplicate cap
 test('registry disables plugins by default and denies undeclared capabilities', async () => {
   const registry = new PluginRegistry();
   registry.register(readManifest, { execute: async () => ({ value: 'safe' }) });
-  assert.equal((await registry.invoke('sample-reader', 'memory.read', {}, { ownerId: 'owner', approved: true, requestId: 'r1' })).code, 'DISABLED');
+  const disabled = await registry.invoke('sample-reader', 'memory.read', {}, { ownerId: 'owner', approved: true, requestId: 'r1' });
+  assert.equal('code' in disabled ? disabled.code : null, 'DISABLED');
   registry.setEnabled('sample-reader', true);
-  assert.equal((await registry.invoke('sample-reader', 'web.read', {}, { ownerId: 'owner', approved: true, requestId: 'r2' })).code, 'CAPABILITY_DENIED');
+  const denied = await registry.invoke('sample-reader', 'web.read', {}, { ownerId: 'owner', approved: true, requestId: 'r2' });
+  assert.equal('code' in denied ? denied.code : null, 'CAPABILITY_DENIED');
   assert.deepEqual(await registry.invoke('sample-reader', 'memory.read', {}, { ownerId: 'owner', approved: false, requestId: 'r3' }), {
     ok: true, pluginId: 'sample-reader', output: { value: 'safe' },
   });
@@ -41,9 +43,10 @@ test('side-effect plugins require per-invocation owner approval', async () => {
   const registry = new PluginRegistry();
   registry.register(writeManifest, { execute: async (input) => ({ created: input.title }) });
   registry.setEnabled('sample-calendar', true);
-  assert.equal((await registry.invoke('sample-calendar', 'calendar.write', { title: 'Test' }, {
+  const denied = await registry.invoke('sample-calendar', 'calendar.write', { title: 'Test' }, {
     ownerId: 'owner', approved: false, requestId: 'r1',
-  })).code, 'OWNER_APPROVAL_REQUIRED');
+  });
+  assert.equal('code' in denied ? denied.code : null, 'OWNER_APPROVAL_REQUIRED');
   assert.deepEqual(await registry.invoke('sample-calendar', 'calendar.write', { title: 'Test' }, {
     ownerId: 'owner', approved: true, requestId: 'r2',
   }), { ok: true, pluginId: 'sample-calendar', output: { created: 'Test' } });
