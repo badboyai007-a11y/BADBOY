@@ -442,6 +442,17 @@ function visit(node: any): string {
 }
 
 function createSettingsHookHarness(initialOverrides: Record<number, unknown> = {}, options: { runEffects?: boolean } = {}) {
+  // Keep the historical test fixture indices stable while the Settings screen
+  // adds new state for Telegram, voice search, reminders and device controls.
+  const legacyStateIndexMap: Record<number, number> = {
+    9: 10, 10: 11, 12: 18, 14: 20, 15: 21, 16: 22, 17: 23, 18: 24,
+    24: 29, 25: 30, 26: 31, 27: 32, 28: 33, 29: 34, 32: 37,
+    40: 45, 41: 46, 42: 47, 43: 48,
+  };
+  const mappedOverrides: Record<number, unknown> = {};
+  for (const [index, value] of Object.entries(initialOverrides)) {
+    mappedOverrides[legacyStateIndexMap[Number(index)] ?? Number(index)] = value;
+  }
   const slots: unknown[] = [];
   let cursor = 0;
   let effectsExecuted = false;
@@ -451,7 +462,7 @@ function createSettingsHookHarness(initialOverrides: Record<number, unknown> = {
   const dispatcher = {
     useState(initial: unknown) {
       const index = cursor++;
-      if (!(index in slots)) slots[index] = index in initialOverrides ? initialOverrides[index] : initial;
+      if (!(index in slots)) slots[index] = index in mappedOverrides ? mappedOverrides[index] : initial;
       return [
         slots[index],
         (next: unknown) => {
