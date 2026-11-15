@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches: [main, feat/agentic-tool-calling-multi-agent]
+  workflow_dispatch:
+
 permissions:
   contents: read
 
