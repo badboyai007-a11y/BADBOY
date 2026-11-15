@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAssistant } from "@/context/AssistantContext";
 import { useColors } from "@/hooks/useColors";
-import { getDiscordMessages, getIntegrationStatus, searchWebResearch, streamReply, type AssistantIntegrationStatus, type DiscordMessage } from "@/lib/assistant/api";
+import { getCalendarEvents, getDiscordMessages, getIntegrationStatus, searchWebResearch, streamReply, type AssistantIntegrationStatus, type CalendarEvent, type DiscordMessage } from "@/lib/assistant/api";
 import { executePersonalWorkflow, type WorkflowAdapters } from "@/lib/assistant/workflowEngine";
 import { workflowNeedsOwnerApproval, type PersonalWorkflow } from "@/lib/assistant/workflowBuilder";
 import { resolveOfflineCapability } from "@/lib/assistant/offlineCapability";
@@ -28,6 +28,8 @@ export default function WorkflowsScreen() {
   const [discordChannel, setDiscordChannel] = useState("");
   const [discordMessages, setDiscordMessages] = useState<DiscordMessage[]>([]);
   const [discordBusy, setDiscordBusy] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarBusy, setCalendarBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +52,18 @@ export default function WorkflowsScreen() {
     });
     return () => { active = false; };
   }, []);
+
+  const loadCalendarEvents = async () => {
+    setCalendarBusy(true);
+    setError(null);
+    try {
+      setCalendarEvents(await getCalendarEvents());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Calendar events could not be loaded.");
+    } finally {
+      setCalendarBusy(false);
+    }
+  };
 
   const loadDiscordHistory = async () => {
     setDiscordBusy(true);
@@ -169,6 +183,7 @@ export default function WorkflowsScreen() {
               ["Home Assistant", integrationStatus.homeAssistant.configured ? "Configured" : "Not configured", integrationStatus.homeAssistant.configured],
               ["Slack", integrationStatus.slack.configured ? "Configured" : "Not configured", integrationStatus.slack.configured],
               ["Discord", integrationStatus.discord.configured ? "Configured" : "Not configured", integrationStatus.discord.configured],
+              ["Google Calendar", integrationStatus.googleCalendar.configured ? "Configured" : "Not configured", integrationStatus.googleCalendar.configured],
               ["Telegram (mobile)", "Managed on device", true],
               ["Offline AI", offlineCapability.mode === "cached_assistance" ? "Cached assistance only" : "Unavailable", false],
             ] as const).map(([label, status, ready]) => (
@@ -184,6 +199,28 @@ export default function WorkflowsScreen() {
         ) : (
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>Provider readiness is loading or the backend is unavailable.</Text>
         )}
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Google Calendar (read-only)</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => { void loadCalendarEvents(); }}
+          disabled={calendarBusy || !integrationStatus?.googleCalendar.configured}
+          style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: calendarBusy || !integrationStatus?.googleCalendar.configured ? 0.5 : 1 }]}
+        >
+          <Feather name="calendar" size={16} color={colors.primaryForeground} />
+          <Text style={{ color: colors.primaryForeground, fontWeight: "700" }}>{calendarBusy ? "Loading…" : "Load upcoming events"}</Text>
+        </Pressable>
+        {calendarEvents.map((event) => (
+          <View key={event.id} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <Text style={[styles.meta, { color: colors.primary }]}>{event.summary}</Text>
+            <Text style={[styles.meta, { color: colors.foreground }]}>{event.start || "Date unavailable"}{event.location ? ` · ${event.location}` : ""}</Text>
+          </View>
+        ))}
+        <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+          Configure GOOGLE_CALENDAR_ACCESS_TOKEN as a Worker secret with read-only calendar scope. Event creation and modification remain disabled.
+        </Text>
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>

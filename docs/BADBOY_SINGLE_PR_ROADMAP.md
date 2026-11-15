@@ -13,7 +13,7 @@ This document tracks observable implementation and verification evidence. A chec
 | Memory | Private local memory and owner-scoped project memory search | Export/delete/retention UX and retrieval relevance evaluation |
 | Developer Agent | Native/Gemini/OpenRouter analysis and task persistence | GitHub App OAuth, exact-patch approval and isolated runner integration |
 | Custom plugins and skills | Typed manifests, capability allowlist, disabled-by-default registry, declarative skills | Persistence, UI builder, adapter lifecycle and integration tests |
-| Messaging | Telegram mobile connect/read/send; read-only Slack and Discord channel history adapters | Provider bot tokens and channel permissions; message sending remains disabled pending one-time approval |
+| Messaging and calendar | Telegram mobile connect/read/send; read-only Slack and Discord history; Google Calendar event reads | Provider tokens/scopes and real accounts; writes remain disabled pending one-time approval |
 | Smart Home | Home Assistant read-only state adapter and agentic entity-state tool | HTTPS endpoint/token and owner-approved service calls |
 | Third-party APIs | Server-side provider adapter pattern; secrets never sent to mobile | Provider-specific OAuth/credential UX and contract tests |
 | Advanced web research | Bounded Tavily search adapter, agentic `web_research` tool and mobile research API; HTTPS-only sources | TAVILY_API_KEY and real-provider verification |
@@ -52,8 +52,9 @@ Add these as Cloudflare Worker secrets/bindings for the deployed environment. Do
 | `HOME_ASSISTANT_TOKEN` | Home Assistant bearer token | Smart-home read tool reports not configured |
 | `SLACK_BOT_TOKEN` | Slack bot token with channel-history read scope | Slack history tool reports not configured |
 | `DISCORD_BOT_TOKEN` | Discord bot token with channel-history read scope | Discord history endpoint reports not configured |
+| `GOOGLE_CALENDAR_ACCESS_TOKEN` | Google Calendar read-only access token for the primary calendar | Calendar event endpoint reports not configured |
 
-The integration status endpoint returns configuration booleans only and never returns credential values. Home Assistant, Slack, and Discord adapters are read-only. Slack/Discord message sending and Home Assistant service calls return `OWNER_APPROVAL_FLOW_REQUIRED` until an exact-action, one-time approval flow is implemented and tested.
+The integration status endpoint returns configuration booleans only and never returns credential values. Home Assistant, Slack, Discord, and Google Calendar adapters are read-only. Slack/Discord message sending and Home Assistant service calls return `OWNER_APPROVAL_FLOW_REQUIRED` until an exact-action, one-time approval flow is implemented and tested.
 
 ## Current app workflow behavior
 

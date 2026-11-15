@@ -372,3 +372,33 @@ test('getDiscordMessages surfaces server errors and rejects malformed payloads',
   fetchHandler = async () => jsonResponse({ messages: 'not-an-array' });
   await assert.rejects(getDiscordMessages('12345678901234567'), /invalid message list/);
 });
+
+
+test('getCalendarEvents validates UTC time and returns bounded owner-authenticated events', async () => {
+  const { getCalendarEvents } = await apiPromise;
+  await assert.rejects(getCalendarEvents('tomorrow'), /UTC ISO-8601/);
+  let requestedUrl = '';
+  fetchHandler = async (input, init) => {
+    requestedUrl = String(input);
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    return jsonResponse({ events: [{
+      id: 'event-1',
+      summary: 'Planning',
+      start: '2026-11-16T10:00:00Z',
+      end: '2026-11-16T11:00:00Z',
+      location: null,
+      htmlLink: 'https://calendar.google.com/calendar/event?eid=abc',
+    }] });
+  };
+  const events = await getCalendarEvents('2026-11-15T00:00:00Z');
+  assert.equal(requestedUrl, 'https://worker.example/integrations/google-calendar/events?timeMin=2026-11-15T00%3A00%3A00Z');
+  assert.equal(events[0].summary, 'Planning');
+});
+
+test('getCalendarEvents rejects server errors and invalid event payloads', async () => {
+  const { getCalendarEvents } = await apiPromise;
+  fetchHandler = async () => jsonResponse({ error: 'Calendar not configured' }, 503);
+  await assert.rejects(getCalendarEvents('2026-11-15T00:00:00Z'), /Calendar not configured/);
+  fetchHandler = async () => jsonResponse({ events: null });
+  await assert.rejects(getCalendarEvents('2026-11-15T00:00:00Z'), /invalid event list/);
+});

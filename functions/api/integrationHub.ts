@@ -11,6 +11,7 @@ export interface IntegrationEnv {
   HOME_ASSISTANT_TOKEN?: string;
   SLACK_BOT_TOKEN?: string;
   DISCORD_BOT_TOKEN?: string;
+  GOOGLE_CALENDAR_ACCESS_TOKEN?: string;
 }
 
 type Fetcher = typeof fetch;
@@ -74,6 +75,7 @@ export function getIntegrationStatus(env: IntegrationEnv) {
     },
     slack: { configured: Boolean(env.SLACK_BOT_TOKEN?.trim()), mode: "read_only" },
     discord: { configured: Boolean(env.DISCORD_BOT_TOKEN?.trim()), mode: "read_only" },
+    googleCalendar: { configured: Boolean(env.GOOGLE_CALENDAR_ACCESS_TOKEN?.trim()), mode: "read_only" },
     telegram: { configured: false, mode: "mobile_secure_store" },
     writesRequireOwnerApproval: true,
     providerSecretsStayServerSide: true,
@@ -195,6 +197,56 @@ export async function handleIntegrationRequest(
     }
   }
 
+
+
+  if (pathname === "/api/integrations/google-calendar/events" && request.method === "GET") {
+    const token = env.GOOGLE_CALENDAR_ACCESS_TOKEN?.trim();
+    if (!token) return json({ code: "CALENDAR_NOT_CONFIGURED", error: "Google Calendar is not configured on the server." }, 503);
+    const timeMin = new URL(request.url).searchParams.get("timeMin")?.trim() ?? "";
+    if (timeMin && (!Number.isFinite(Date.parse(timeMin)) || !timeMin.endsWith("Z"))) {
+      return json({ code: "INVALID_CALENDAR_TIME", error: "timeMin must be a UTC ISO-8601 timestamp." }, 400);
+    }
+    try {
+      const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
+      url.searchParams.set("maxResults", "20");
+      url.searchParams.set("singleEvents", "true");
+      url.searchParams.set("orderBy", "startTime");
+      if (timeMin) url.searchParams.set("timeMin", timeMin);
+      const response = await fetchWithTimeout(fetcher, url, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (!response.ok) return json({ code: "CALENDAR_PROVIDER_ERROR", error: "Google Calendar event request failed.", providerStatus: response.status }, 502);
+      const payload = await response.json() as { items?: unknown };
+      if (!Array.isArray(payload.items)) return json({ code: "CALENDAR_INVALID_RESPONSE", error: "Google Calendar returned an invalid event list." }, 502);
+      const events = payload.items.slice(0, 20).flatMap((entry) => {
+        if (!entry || typeof entry !== "object") return [];
+        const item = entry as Record<string, unknown>;
+        const start = item.start && typeof item.start === "object" ? item.start as Record<string, unknown> : {};
+        const end = item.end && typeof item.end === "object" ? item.end as Record<string, unknown> : {};
+        if (typeof item.id !== "string") return [];
+        const startAt = typeof start.dateTime === "string" ? start.dateTime : typeof start.date === "string" ? start.date : "";
+        const endAt = typeof end.dateTime === "string" ? end.dateTime : typeof end.date === "string" ? end.date : "";
+        let htmlLink: string | null = null;
+        if (typeof item.htmlLink === "string") {
+          try {
+            const parsed = new URL(item.htmlLink);
+            if (parsed.protocol === "https:" && parsed.hostname === "calendar.google.com") htmlLink = parsed.toString();
+          } catch { /* Ignore malformed event links. */ }
+        }
+        return [{
+          id: item.id.slice(0, 200),
+          summary: typeof item.summary === "string" ? item.summary.slice(0, 240) : "(untitled event)",
+          start: startAt.slice(0, 40),
+          end: endAt.slice(0, 40),
+          location: typeof item.location === "string" ? item.location.slice(0, 240) : null,
+          htmlLink,
+        }];
+      });
+      return json({ events, count: events.length, truncated: payload.items.length > events.length });
+    } catch {
+      return json({ code: "CALENDAR_UNAVAILABLE", error: "Google Calendar request timed out or could not connect." }, 502);
+    }
+  }
 
   if (pathname === "/api/integrations/discord/messages" && request.method === "GET") {
     const token = env.DISCORD_BOT_TOKEN?.trim();

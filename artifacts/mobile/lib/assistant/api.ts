@@ -353,6 +353,7 @@ export interface AssistantIntegrationStatus {
   homeAssistant: IntegrationProviderStatus;
   slack: IntegrationProviderStatus;
   discord: IntegrationProviderStatus;
+  googleCalendar: IntegrationProviderStatus;
   telegram: IntegrationProviderStatus;
   writesRequireOwnerApproval: boolean;
   providerSecretsStayServerSide: boolean;
@@ -409,5 +410,43 @@ export async function getDiscordMessages(channelId: string): Promise<DiscordMess
   return body.messages.slice(0, 20).filter((item) =>
     typeof item?.id === "string" && typeof item.timestamp === "string"
     && typeof item.author === "string" && typeof item.content === "string"
+  );
+}
+
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  start: string;
+  end: string;
+  location: string | null;
+  htmlLink: string | null;
+}
+
+/** Read a bounded list of upcoming primary-calendar events via the authenticated Worker. */
+export async function getCalendarEvents(timeMin = new Date().toISOString()): Promise<CalendarEvent[]> {
+  const parsed = Date.parse(timeMin);
+  if (!Number.isFinite(parsed) || !timeMin.endsWith("Z")) throw new Error("Calendar time must be a UTC ISO-8601 timestamp.");
+  const response = await expoFetch(
+    apiUrl(`/integrations/google-calendar/events?timeMin=${encodeURIComponent(timeMin)}`),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: await ownerAuthorizationHeader(),
+      },
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Calendar request failed (HTTP ${response.status}).`);
+  }
+  const body = await response.json() as { events?: CalendarEvent[] };
+  if (!Array.isArray(body.events)) throw new Error("Google Calendar returned an invalid event list.");
+  return body.events.slice(0, 20).filter((item) =>
+    typeof item?.id === "string" && typeof item.summary === "string"
+    && typeof item.start === "string" && typeof item.end === "string"
+    && (item.location === null || typeof item.location === "string")
+    && (item.htmlLink === null || (typeof item.htmlLink === "string" && item.htmlLink.startsWith("https://calendar.google.com/")))
   );
 }

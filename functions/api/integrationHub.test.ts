@@ -15,11 +15,13 @@ test("integration status exposes configuration but never provider secrets", () =
     HOME_ASSISTANT_TOKEN: "secret-ha",
     SLACK_BOT_TOKEN: "secret-slack",
     DISCORD_BOT_TOKEN: "secret-discord",
+    GOOGLE_CALENDAR_ACCESS_TOKEN: "secret-calendar",
   });
   assert.equal(status.research.configured, true);
   assert.equal(status.homeAssistant.configured, true);
   assert.equal(status.slack.configured, true);
   assert.equal(status.discord.configured, true);
+  assert.equal(status.googleCalendar.configured, true);
   assert.equal(status.providerSecretsStayServerSide, true);
   assert.equal(JSON.stringify(status).includes("secret-"), false);
 });
@@ -140,6 +142,47 @@ test("Discord history fails closed when no server token is configured", async ()
   const response = await handleIntegrationRequest(
     new Request("https://badboy.test/api/integrations/discord/messages?channel=12345678901234567"),
     "/api/integrations/discord/messages",
+    {},
+  );
+  assert.equal(response.status, 503);
+});
+
+
+test("Google Calendar reads bounded primary events using a server-side access token", async () => {
+  const invalid = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/google-calendar/events?timeMin=not-a-date"),
+    "/api/integrations/google-calendar/events",
+    { GOOGLE_CALENDAR_ACCESS_TOKEN: "calendar-secret" },
+  );
+  assert.equal(invalid.status, 400);
+  let requestedUrl = "";
+  const fakeFetch: typeof fetch = async (input, init) => {
+    requestedUrl = String(input);
+    assert.equal(new Headers(init?.headers).get("authorization"), "Bearer calendar-secret");
+    return new Response(JSON.stringify({ items: [
+      { id: "event-1", summary: "Planning", start: { dateTime: "2026-11-16T10:00:00Z" }, end: { dateTime: "2026-11-16T11:00:00Z" }, htmlLink: "https://calendar.google.com/calendar/event?eid=abc" },
+      { id: 2, summary: "filtered" },
+      { id: "event-2", htmlLink: "https://evil.example/event" },
+    ] }), { status: 200 });
+  };
+  const response = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/google-calendar/events?timeMin=2026-11-15T00:00:00Z"),
+    "/api/integrations/google-calendar/events",
+    { GOOGLE_CALENDAR_ACCESS_TOKEN: "calendar-secret" },
+    fakeFetch,
+  );
+  const result = await response.json() as { events: Array<{ id: string; htmlLink: string | null }>; count: number };
+  assert.equal(response.status, 200);
+  assert.match(requestedUrl, /calendarId|calendar\\/v3/);
+  assert.equal(result.count, 2);
+  assert.equal(result.events[0].htmlLink, "https://calendar.google.com/calendar/event?eid=abc");
+  assert.equal(result.events[1].htmlLink, null);
+});
+
+test("Google Calendar fails closed without a configured server token", async () => {
+  const response = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/google-calendar/events"),
+    "/api/integrations/google-calendar/events",
     {},
   );
   assert.equal(response.status, 503);
