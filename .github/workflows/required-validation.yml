@@ -4,6 +4,7 @@ name: Required Validation
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, feat/agentic-tool-calling-multi-agent]
 
 permissions:
