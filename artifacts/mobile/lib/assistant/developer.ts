@@ -943,10 +943,10 @@ export async function previewGitHubChanges(params: {
 
     for (const rawPath of paths) {
       const path = rawPath.trim();
-      if (!path || path.length > 240 || path.startsWith('/') || path.includes('\\\\') ||
+      if (!path || path.length > 240 || path.startsWith('/') || path.includes('\\') ||
           path.split('/').some((part) => !part || part === '.' || part === '..') ||
-          /(^|\\/)(\\.env|secrets?|credentials?)(\\.|$)/i.test(path) ||
-          /\\.(pem|key|p12|pfx|keystore)$/i.test(path)) {
+          /(^|\/)(\.env|secrets?|credentials?)(\.|$)/i.test(path) ||
+          /\.(pem|key|p12|pfx|keystore)$/i.test(path)) {
         return { success: false, baseSha, files: [], error: `এই path নিরাপদ read preview-এর জন্য অনুমোদিত নয়: ${path.slice(0, 120)}` };
       }
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(baseBranch)}`, { headers });
@@ -1003,17 +1003,17 @@ export async function createGitHubPullRequest(params: {
     return { success: false, summary: 'পরিবর্তনের তালিকা অবৈধ।', logs,
       error: 'অনুমোদিত write-এর জন্য ১ থেকে ২০টি স্পষ্ট file change দিতে হবে।' };
   }
-  if (!/^feature\\/[a-zA-Z0-9][a-zA-Z0-9._/-]{0,100}$/.test(plan.branchName) || plan.branchName.includes('..')) {
+  if (!/^feature\/[a-zA-Z0-9][a-zA-Z0-9._/-]{0,100}$/.test(plan.branchName) || plan.branchName.includes('..')) {
     return { success: false, summary: 'Branch name অবৈধ।', logs,
       error: 'শুধু feature/ দিয়ে শুরু নিরাপদ branch name ব্যবহার করা যাবে।' };
   }
   const seenPaths = new Set<string>();
   for (const change of explicitChanges) {
     const path = change.path.trim();
-    if (!path || path.length > 240 || path.startsWith('/') || path.includes('\\\\') ||
+    if (!path || path.length > 240 || path.startsWith('/') || path.includes('\\') ||
         path.split('/').some((part) => !part || part === '.' || part === '..') ||
-        /(^|\\/)(\\.env|secrets?|credentials?)(\\.|$)/i.test(path) ||
-        /\\.(pem|key|p12|pfx|keystore)$/i.test(path) ||
+        /(^|\/)(\.env|secrets?|credentials?)(\.|$)/i.test(path) ||
+        /\.(pem|key|p12|pfx|keystore)$/i.test(path) ||
         typeof change.content !== 'string' || change.content.length > 256_000 ||
         seenPaths.has(path)) {
       return { success: false, summary: 'File change নিরাপত্তা যাচাইয়ে ব্যর্থ।', logs,
