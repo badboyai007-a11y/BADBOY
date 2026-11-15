@@ -178,6 +178,46 @@ export async function streamDeveloperAnalysis(
   return { taskId, engine };
 }
 
+export interface AgentMemorySearchResult {
+  id: string;
+  projectId: string;
+  category: string;
+  content: string;
+  source: string;
+  privacyLevel: string;
+  updatedAt: string;
+}
+
+/** Search owner-scoped project memory; the server always excludes sensitive entries. */
+export async function searchAgentMemory(
+  projectId: string,
+  query: string,
+  limit = 5,
+): Promise<AgentMemorySearchResult[]> {
+  const cleanProjectId = projectId.trim();
+  const cleanQuery = query.trim().slice(0, 1000);
+  if (!cleanProjectId || !cleanQuery) return [];
+  const response = await expoFetch(apiUrl('/agent/memory/search'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: await ownerAuthorizationHeader(),
+    },
+    body: JSON.stringify({
+      projectId: cleanProjectId,
+      query: cleanQuery,
+      limit: Math.max(1, Math.min(10, Math.floor(limit))),
+    }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Project memory search failed (HTTP ${response.status}).`);
+  }
+  const body = (await response.json()) as { memories?: AgentMemorySearchResult[] };
+  return Array.isArray(body.memories) ? body.memories : [];
+}
+
 export async function transcribeAudio(
   audioBase64: string,
   format: string,
