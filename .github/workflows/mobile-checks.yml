@@ -16,7 +16,7 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/mobile-checks.yml"
   push:
-    branches: [main]
+    branches: [main, feat/verified-agent-integrations]
     paths:
       - "artifacts/mobile/**"
       - "functions/**"
