@@ -3,9 +3,9 @@ name: OWASP ZAP Baseline
 
 on:
   push:
-    branches: ["main"]
+    branches: [main, feat/verified-agent-integrations]
   pull_request:
-    branches: ["main"]
+    branches: [main, feat/agentic-tool-calling-multi-agent]
   schedule:
     - cron: "26 22 * * 4"
   workflow_dispatch:
