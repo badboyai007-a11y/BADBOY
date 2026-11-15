@@ -71,6 +71,6 @@ export class SkillRegistry {
       `Allowed tool hints: ${skill.tools.join(', ') || 'none'}`,
       'Instructions:',
       skill.instructions,
-    ].join('\\n');
+    ].join('\n');
   }
 }
