@@ -274,7 +274,7 @@ async function executeReadOnlyIntegrationTool(
       pathname = "/api/integrations/slack/history";
       request = new Request(`https://badboy.internal/api/integrations/slack/history?channel=${encodeURIComponent(args.channel)}`);
     } else if (name === "discord_history") {
-      if (Object.keys(args).some((key) => key !== "channel") || typeof args.channel !== "string" || !/^\\d{17,20}$/.test(args.channel)) {
+      if (Object.keys(args).some((key) => key !== "channel") || typeof args.channel !== "string" || !/^\d{17,20}$/.test(args.channel)) {
         throw new Error("discord_history requires a valid channel ID.");
       }
       pathname = "/api/integrations/discord/messages";
