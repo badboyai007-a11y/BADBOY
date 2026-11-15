@@ -6,7 +6,7 @@ import { useAssistant } from "@/context/AssistantContext";
 import { useColors } from "@/hooks/useColors";
 import { getCalendarEvents, getDiscordMessages, getHomeAssistantStates, getIntegrationStatus, getSlackMessages, searchWebResearch, streamReply, type AssistantIntegrationStatus, type CalendarEvent, type DiscordMessage, type HomeAssistantState, type SlackMessage } from "@/lib/assistant/api";
 import { executePersonalWorkflow, type WorkflowAdapters } from "@/lib/assistant/workflowEngine";
-import { workflowNeedsOwnerApproval, type PersonalWorkflow } from "@/lib/assistant/workflowBuilder";
+import { workflowNeedsOwnerApproval, type PersonalWorkflow, type WorkflowAction, type WorkflowStep } from "@/lib/assistant/workflowBuilder";
 import { resolveOfflineCapability } from "@/lib/assistant/offlineCapability";
 import { deletePersonalWorkflow, loadPersonalWorkflows, savePersonalWorkflow } from "@/lib/assistant/workflowStorage";
 import { scheduleLocalReminder } from "@/lib/assistant/deviceControl";
@@ -19,7 +19,10 @@ export default function WorkflowsScreen() {
   const offlineCapability = resolveOfflineCapability({ platform: Platform.OS, modelInstalled: false, runtimeReady: false });
   const [workflows, setWorkflows] = useState<PersonalWorkflow[]>([]);
   const [name, setName] = useState("");
-  const [query, setQuery] = useState("");
+  const [draftSteps, setDraftSteps] = useState<WorkflowStep[]>([]);
+  const [stepAction, setStepAction] = useState<WorkflowAction>("research.search");
+  const [stepInput, setStepInput] = useState("");
+  const [reminderAt, setReminderAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,23 +110,42 @@ export default function WorkflowsScreen() {
     }
   };
 
-  const createResearchWorkflow = async () => {
+  const addDraftStep = () => {
+    const value = stepInput.trim();
+    if (!value || draftSteps.length >= 8) return;
+    const id = `step-${Date.now().toString(36)}-${draftSteps.length}`;
+    let input: Record<string, string>;
+    if (stepAction === "assistant.ask") input = { prompt: value };
+    else if (stepAction === "research.search") input = { query: value };
+    else if (stepAction === "reminder.create") {
+      if (!Number.isFinite(Date.parse(reminderAt))) {
+        setError("Reminder-এর জন্য সঠিক date/time দিন।");
+        return;
+      }
+      input = { title: value, at: new Date(reminderAt).toISOString() };
+    } else input = { text: value };
+    setDraftSteps((current) => [...current, { id, action: stepAction, input }]);
+    setStepInput("");
+    setReminderAt("");
+    setError(null);
+  };
+
+  const createPersonalWorkflow = async () => {
     const cleanName = name.trim();
-    const cleanQuery = query.trim();
-    if (!cleanName || !cleanQuery || loading) return;
+    if (!cleanName || draftSteps.length < 1 || loading) return;
     setLoading(true);
     setError(null);
     try {
       const next = await savePersonalWorkflow({
-        id: `research-${Date.now().toString(36)}`,
+        id: `workflow-${Date.now().toString(36)}`,
         name: cleanName,
         enabled: true,
         trigger: "manual",
-        steps: [{ id: "research", action: "research.search", input: { query: cleanQuery } }],
+        steps: draftSteps,
       });
       setWorkflows(next);
       setName("");
-      setQuery("");
+      setDraftSteps([]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Workflow could not be saved.");
     } finally {
@@ -339,12 +361,52 @@ export default function WorkflowsScreen() {
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>নতুন Web Research workflow</Text>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Personal Workflow Builder</Text>
         <TextInput value={name} onChangeText={setName} maxLength={80} placeholder="Workflow-এর নাম" placeholderTextColor={colors.mutedForeground} accessibilityLabel="Workflow name" style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />
-        <TextInput value={query} onChangeText={setQuery} maxLength={500} placeholder="কী বিষয়ে research করবে?" placeholderTextColor={colors.mutedForeground} accessibilityLabel="Research query" style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />
-        <Pressable accessibilityRole="button" onPress={() => { void createResearchWorkflow(); }} disabled={!name.trim() || !query.trim() || loading} style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !name.trim() || !query.trim() || loading ? 0.5 : 1 }]}>
-          <Feather name="plus" size={16} color={colors.primaryForeground} />
-          <Text style={{ color: colors.primaryForeground, fontWeight: "700" }}>Workflow সংরক্ষণ</Text>
+        <Text style={[styles.meta, { color: colors.mutedForeground }]}>একটি workflow-তে সর্বোচ্চ ৮টি step যোগ করুন। এখন manual run সমর্থিত।</Text>
+        <View style={styles.actionWrap}>
+          {([
+            ["research.search", "Web research"],
+            ["assistant.ask", "Ask AI"],
+            ["reminder.create", "Reminder"],
+            ["telegram.send", "Telegram send"],
+          ] as Array<[WorkflowAction, string]>).map(([action, label]) => (
+            <Pressable key={action} accessibilityRole="button" accessibilityState={{ selected: stepAction === action }} onPress={() => setStepAction(action)} style={[styles.actionChip, { borderColor: stepAction === action ? colors.primary : colors.border, backgroundColor: stepAction === action ? colors.secondary : colors.card }]}>
+              <Text style={[styles.meta, { color: stepAction === action ? colors.primary : colors.foreground }]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <TextInput
+          value={stepInput}
+          onChangeText={setStepInput}
+          maxLength={stepAction === "research.search" ? 500 : 1000}
+          multiline={stepAction === "assistant.ask" || stepAction === "telegram.send"}
+          placeholder={stepAction === "research.search" ? "কী বিষয়ে research করবে?" : stepAction === "assistant.ask" ? "AI-কে কী করতে বলবে?" : stepAction === "reminder.create" ? "Reminder title" : "Telegram message"}
+          placeholderTextColor={colors.mutedForeground}
+          accessibilityLabel="Workflow step input"
+          style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+        />
+        {stepAction === "reminder.create" ? (
+          <TextInput value={reminderAt} onChangeText={setReminderAt} placeholder="Reminder date/time (ISO or local date)" placeholderTextColor={colors.mutedForeground} accessibilityLabel="Reminder date and time" style={[styles.input, { color: colors.foreground, borderColor: colors.border }]} />
+        ) : null}
+        <Pressable accessibilityRole="button" onPress={addDraftStep} disabled={!stepInput.trim() || draftSteps.length >= 8 || (stepAction === "reminder.create" && !reminderAt.trim())} style={[styles.secondaryButton, { borderColor: colors.border, opacity: !stepInput.trim() || draftSteps.length >= 8 || (stepAction === "reminder.create" && !reminderAt.trim()) ? 0.5 : 1 }]}>
+          <Feather name="plus-circle" size={16} color={colors.primary} />
+          <Text style={{ color: colors.foreground, fontWeight: "700" }}>Add step ({draftSteps.length}/8)</Text>
+        </Pressable>
+        {draftSteps.map((step, index) => (
+          <View key={step.id} style={[styles.draftStep, { borderTopColor: colors.border }]}>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={[styles.meta, { color: colors.primary }]}>Step {index + 1} · {step.action}</Text>
+              <Text style={[styles.meta, { color: colors.foreground }]}>{Object.values(step.input).join(" · ")}</Text>
+            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Remove step ${index + 1}`} onPress={() => setDraftSteps((current) => current.filter((item) => item.id !== step.id))}>
+              <Feather name="x-circle" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        ))}
+        <Pressable accessibilityRole="button" onPress={() => { void createPersonalWorkflow(); }} disabled={!name.trim() || draftSteps.length < 1 || loading} style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !name.trim() || draftSteps.length < 1 || loading ? 0.5 : 1 }]}>
+          <Feather name="save" size={16} color={colors.primaryForeground} />
+          <Text style={{ color: colors.primaryForeground, fontWeight: "700" }}>Save workflow ({draftSteps.length} steps)</Text>
         </Pressable>
       </View>
       {loading ? <ActivityIndicator color={colors.primary} /> : null}
@@ -389,6 +451,10 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14 },
   primaryButton: { minHeight: 42, borderRadius: 11, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  actionWrap: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  actionChip: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 10, paddingVertical: 8 },
+  secondaryButton: { minHeight: 40, borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  draftStep: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 9, borderTopWidth: 1 },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   workflowName: { fontSize: 15, fontWeight: "700" },
   meta: { fontSize: 12, lineHeight: 18 },

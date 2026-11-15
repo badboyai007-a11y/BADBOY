@@ -18,7 +18,7 @@ This document tracks observable implementation and verification evidence. A chec
 | Third-party APIs | Server-side provider adapter pattern; secrets never sent to mobile | Provider-specific OAuth/credential UX and contract tests |
 | Advanced web research | Bounded Tavily search adapter, agentic `web_research` tool and mobile research API; HTTPS-only sources | TAVILY_API_KEY and real-provider verification |
 | Personality | Owner-editable personality prompt in settings | Presets/versioning and prompt injection evaluation |
-| Personal workflows | Mobile Workflow Builder, local AsyncStorage persistence, bounded adapter engine, manual run and per-step owner approval | Scheduled trigger runtime, richer multi-action builder and background execution |
+| Personal workflows | Multi-step mobile Workflow Builder (up to eight steps), local AsyncStorage persistence, assistant/research/reminder/Telegram steps, bounded adapter engine, manual run and per-step owner approval | Scheduled trigger runtime and background execution remain blocked pending a safe native scheduler |
 | Offline AI | **Deferred by owner instruction; not part of this implementation scope.** Existing capability reporting is retained, but no local LLM runtime/model is being added. | Revisit only if the owner reopens this roadmap item |
 | Reliability | Health endpoints, provider fallback, request bounds and sanitized diagnostics | Recovery drills, alert delivery, backup restore and load tests |
 | Production release | CI Android APK workflows and release validation | Physical device QA, signing/release owner approval, production deployment |

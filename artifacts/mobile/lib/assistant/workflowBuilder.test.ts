@@ -42,3 +42,20 @@ test("rejects invalid schedules, duplicate steps, and oversized definitions", ()
     ],
   }), /duplicated/);
 });
+
+
+test("supports bounded multi-step workflows and requires approval when any step has a side effect", () => {
+  const workflow = validatePersonalWorkflow({
+    id: "daily-assistant",
+    name: "Daily assistant",
+    enabled: true,
+    trigger: "manual",
+    steps: [
+      { id: "research", action: "research.search", input: { query: "AI updates" } },
+      { id: "summarize", action: "assistant.ask", input: { prompt: "Summarize the research." } },
+      { id: "remind", action: "reminder.create", input: { title: "Review summary", at: "2026-11-16T10:00:00.000Z" } },
+    ],
+  });
+  assert.equal(workflow.steps.length, 3);
+  assert.equal(workflowNeedsOwnerApproval(workflow), true);
+});
