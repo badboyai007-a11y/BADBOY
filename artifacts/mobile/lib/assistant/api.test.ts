@@ -216,6 +216,19 @@ test('searchAgentMemory uses owner auth and bounds the project search request', 
   assert.equal(memories[0].content, 'Keep existing features');
 });
 
+test('searchAgentMemory filters sensitive, cross-project and malformed server rows before Agent context', async () => {
+  const { searchAgentMemory } = await apiPromise;
+  fetchHandler = async () => jsonResponse({ memories: [
+    { id: 'private-1', projectId: 'project-1', category: 'note', content: 'safe context', source: 'owner', privacyLevel: 'private', updatedAt: '2026-11-15T00:00:00.000Z' },
+    { id: 'secret-1', projectId: 'project-1', category: 'secret', content: 'do not expose', source: 'owner', privacyLevel: 'sensitive', updatedAt: '2026-11-15T00:00:00.000Z' },
+    { id: 'other-1', projectId: 'another-project', category: 'note', content: 'cross-project', source: 'owner', privacyLevel: 'private', updatedAt: '2026-11-15T00:00:00.000Z' },
+    { id: 'bad-1', projectId: 'project-1', category: 'note', content: 42, source: 'owner', privacyLevel: 'private', updatedAt: '2026-11-15T00:00:00.000Z' },
+  ] });
+  const memories = await searchAgentMemory('project-1', 'context');
+  assert.equal(memories.length, 1);
+  assert.equal(memories[0].content, 'safe context');
+});
+
 test('searchAgentMemory skips empty input and reports server errors', async () => {
   const { searchAgentMemory } = await apiPromise;
   fetchHandler = async () => { throw new Error('should not fetch'); };
