@@ -3,7 +3,7 @@ name: OWASP ZAP Baseline
 
 on:
   push:
-    branches: [main, feat/verified-agent-integrations]
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches: [main, feat/agentic-tool-calling-multi-agent]
