@@ -18,9 +18,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+
+  upstream-workflows:
+    name: Upstream Workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify every upstream workflow on the exact PR head SHA
+        run: bash .github/scripts/wait-for-workflows.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_NAMES: Build and Test;PR 102 Backend Validation;Mobile checks;SonarCloud Coverage Analysis;Semgrep Security Scan;Detekt Kotlin Analysis;OWASP ZAP Baseline;Mobile SBOM;AI SDK validation;CodeQL Advanced;Android APK (automatic + manual);Build Android APK (Free GitHub Runner)
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
   # Lockfile is now committed; downstream installs are frozen and fail on drift.
-  build-and-test:
-    name: Build and Test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -32,8 +43,6 @@ jobs:
           WORKFLOW_NAME: Build and Test
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  backend-validation:
-    name: Backend Validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -45,8 +54,6 @@ jobs:
           WORKFLOW_NAME: PR 102 Backend Validation
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  mobile-tests:
-    name: Mobile Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -77,8 +84,6 @@ jobs:
         if: steps.mobile-scope.outputs.required != 'true'
         run: echo "No mobile-scoped files changed; the Mobile checks workflow is not required for this PR."
 
-  sonarcloud-analysis:
-    name: SonarCloud Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -90,8 +95,6 @@ jobs:
           WORKFLOW_NAME: SonarCloud Coverage Analysis
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  semgrep-security-scan:
-    name: Semgrep Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -103,8 +106,6 @@ jobs:
           WORKFLOW_NAME: Semgrep Security Scan
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  detekt-kotlin-analysis:
-    name: Detekt Kotlin Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -116,8 +117,6 @@ jobs:
           WORKFLOW_NAME: Detekt Kotlin Analysis
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  owasp-zap-baseline:
-    name: OWASP ZAP Baseline
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -129,8 +128,6 @@ jobs:
           WORKFLOW_NAME: OWASP ZAP Baseline
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  sbom:
-    name: SBOM
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -142,8 +139,6 @@ jobs:
           WORKFLOW_NAME: Mobile SBOM
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  ai-sdk-validation:
-    name: AI SDK Validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -362,16 +357,11 @@ jobs:
 
   coverage-validation:
     name: Coverage Validation
+    needs: upstream-workflows
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v7
-      - name: Wait for the real SonarCloud analysis
-        run: bash .github/scripts/wait-for-workflow-run.sh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          WORKFLOW_NAME: SonarCloud Coverage Analysis
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       - name: Verify SonarCloud New Code coverage and Quality Gate
         env:
           GH_TOKEN: ${{ github.token }}
