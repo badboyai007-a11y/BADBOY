@@ -129,7 +129,7 @@ function assertSafeRef(ref: string): void {
     ref.includes("//") ||
     Array.from(ref).some((character) => {
       const code = character.charCodeAt(0);
-      return code <= 0x20 || code === 0x7f || "~^:?*[]\\\\".includes(character);
+      return code <= 0x20 || code === 0x7f || "~^:?*[]\\".includes(character);
     }) ||
     ref.split("/").some((part) =>
       part === "" || part.startsWith(".") || part.startsWith("-") || part.endsWith(".lock")
