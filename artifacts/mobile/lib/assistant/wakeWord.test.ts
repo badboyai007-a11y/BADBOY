@@ -31,7 +31,7 @@ let stopOfflineWakeWord: typeof import('./wakeWord').stopOfflineWakeWord;
 let subscribeToWakeWord: typeof import('./wakeWord').subscribeToWakeWord;
 
 before(async () => {
-  mock.module('react-native', { namedExports: { Platform: mockPlatform } });
+  mock.module('react-native', { namedExports: {\n    Platform: mockPlatform,\n    PermissionsAndroid: {\n      PERMISSIONS: { RECORD_AUDIO: 'android.permission.RECORD_AUDIO' },\n      RESULTS: { GRANTED: 'granted' },\n      request: async () => 'granted',\n    },\n  } });
   mock.module('expo-modules-core', {
     namedExports: {
       requireNativeModule: (name: string) => {
