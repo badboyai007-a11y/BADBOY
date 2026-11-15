@@ -3,7 +3,7 @@ name: Build Android APK (Free GitHub Runner)
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
-    branches: [feat/agentic-tool-calling-multi-agent]
+    branches: [main]
     paths:
       - "artifacts/mobile/**"
       - "package.json"

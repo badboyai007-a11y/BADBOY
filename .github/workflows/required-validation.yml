@@ -1,11 +1,10 @@
-# The lockfile refresher commits resolved security pins; frozen installs below validate the committed result.
 # Required check aliases wait for the real upstream workflows; security jobs run their own validation.
 name: Required Validation
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
-    branches: [main, feat/agentic-tool-calling-multi-agent]
+    branches: [main]
 
 permissions:
   actions: read
@@ -18,7 +17,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   upstream-workflows:
     name: Upstream Workflows
     runs-on: ubuntu-latest
@@ -31,7 +29,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           WORKFLOW_NAMES: Build and Test;PR 102 Backend Validation;Mobile checks;SonarCloud Coverage Analysis;Semgrep Security Scan;Detekt Kotlin Analysis;OWASP ZAP Baseline;Mobile SBOM;AI SDK validation;CodeQL Advanced;Android APK (automatic + manual);Build Android APK (Free GitHub Runner)
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-  # Lockfile is now committed; downstream installs are frozen and fail on drift.
+
+  build-and-test:
+    name: Build and Test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -43,6 +43,8 @@ jobs:
           WORKFLOW_NAME: Build and Test
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+  backend-validation:
+    name: PR 102 Backend Validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -54,6 +56,8 @@ jobs:
           WORKFLOW_NAME: PR 102 Backend Validation
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+  mobile-tests:
+    name: Mobile checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -68,7 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           changed_files="$(gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
-          if grep -Eq '^(artifacts/mobile/|\.github/workflows/android-apk\.yml$|artifacts/mobile/eas\.json$|artifacts/mobile/app\.json$|functions/|wrangler\.json$|artifacts/mobile/wrangler\.json$|lib/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.github/workflows/mobile-checks\.yml$)' <<< "${changed_files}"; then
+          if grep -Eq '^(artifacts/mobile/|\\.github/workflows/android-apk\\.yml$|artifacts/mobile/eas\\.json$|artifacts/mobile/app\\.json$|functions/|wrangler\\.json$|artifacts/mobile/wrangler\\.json$|lib/|package\\.json$|pnpm-lock\\.yaml$|pnpm-workspace\\.yaml$|\\.github/workflows/mobile-checks\\.yml$)' <<< "${changed_files}"; then
             echo "required=true" >> "${GITHUB_OUTPUT}"
           else
             echo "required=false" >> "${GITHUB_OUTPUT}"
@@ -84,6 +88,8 @@ jobs:
         if: steps.mobile-scope.outputs.required != 'true'
         run: echo "No mobile-scoped files changed; the Mobile checks workflow is not required for this PR."
 
+  sonarcloud-analysis:
+    name: SonarCloud Coverage Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -95,6 +101,8 @@ jobs:
           WORKFLOW_NAME: SonarCloud Coverage Analysis
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+  semgrep-security-scan:
+    name: Semgrep Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -106,6 +114,8 @@ jobs:
           WORKFLOW_NAME: Semgrep Security Scan
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+  detekt-kotlin-analysis:
+    name: Detekt Kotlin Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -117,6 +127,8 @@ jobs:
           WORKFLOW_NAME: Detekt Kotlin Analysis
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+  owasp-zap-baseline:
+    name: OWASP ZAP Baseline
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -128,6 +140,8 @@ jobs:
           WORKFLOW_NAME: OWASP ZAP Baseline
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+  sbom:
+    name: Mobile SBOM
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -139,6 +153,8 @@ jobs:
           WORKFLOW_NAME: Mobile SBOM
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
+  ai-sdk-validation:
+    name: AI SDK validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
