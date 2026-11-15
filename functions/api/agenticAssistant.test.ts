@@ -247,3 +247,73 @@ test("final stream ignores malformed provider events and reports interrupted str
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("agentic executor can call bounded public web research and returns HTTPS source evidence", async () => {
+  const providerCalls: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("api.tavily.com")) {
+      providerCalls.push("tavily");
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      assert.equal(body.api_key, "server-tavily-key");
+      assert.equal(body.query, "latest Cloudflare Workers changes");
+      return Response.json({
+        answer: "A concise sourced answer.",
+        results: [{ title: "Workers release", url: "https://developers.cloudflare.com/changelog/", content: "New platform features", score: 0.95 }],
+      });
+    }
+    const payload = JSON.parse(String(init?.body)) as {
+      stream: boolean;
+      messages: Array<{ role: string; content: unknown }>;
+      tools?: Array<{ function?: { name?: string } }>;
+    };
+    if (payload.stream) return finalStream();
+    if (providerCalls.length === 0) {
+      assert.ok(payload.tools?.some((tool) => tool.function?.name === "web_research"));
+      return completion("", [{
+        id: "research-1",
+        function: { name: "web_research", arguments: JSON.stringify({ query: "latest Cloudflare Workers changes" }) },
+      }]);
+    }
+    const toolMessage = payload.messages.find((item) => item.role === "tool");
+    assert.ok(String(toolMessage?.content).includes("https://developers.cloudflare.com/changelog/"));
+    return completion("গবেষণার সূত্র পাওয়া গেছে।");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(agentRequest({ message: "Cloudflare-এর সর্বশেষ পরিবর্তন খুঁজে দাও", mode: "single" }), {
+      OPENROUTER_API_KEY: "server-openrouter-key",
+      TAVILY_API_KEY: "server-tavily-key",
+    });
+    assert.equal(response.status, 200);
+    const body = await response.text();
+    assert.match(body, /চূড়ান্ত/);
+    assert.deepEqual(providerCalls, ["tavily"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("agentic integration tools fail closed when providers are not configured", async () => {
+  let completionCalls = 0;
+  globalThis.fetch = async (_input, init) => {
+    const payload = JSON.parse(String(init?.body)) as { stream: boolean };
+    if (payload.stream) return finalStream();
+    completionCalls += 1;
+    if (completionCalls === 1) return completion("", [{
+      id: "research-missing",
+      function: { name: "web_research", arguments: JSON.stringify({ query: "test" }) },
+    }]);
+    return completion("Provider configuration is missing.");
+  };
+  try {
+    const response = await handleAgenticAssistantRequest(agentRequest({ message: "research this", mode: "single" }), {
+      OPENROUTER_API_KEY: "server-openrouter-key",
+    });
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /চূড়ান্ত/);
+    assert.equal(completionCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
