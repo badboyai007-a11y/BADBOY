@@ -1,4 +1,5 @@
 import { Platform, PermissionsAndroid } from 'react-native';
+import { assertValidCalendarDraftInput, assertValidReminderInput } from './deviceControlPolicy';
 
 export type AllowedAppId = 'youtube' | 'chrome' | 'gmail' | 'maps' | 'whatsapp' | 'telegram';
 export type DeviceSettingsId = 'wifi' | 'bluetooth' | 'sound' | 'app' | 'notifications';
@@ -32,17 +33,11 @@ async function requestNotificationPermission(): Promise<void> {
   }
 }
 
-function validateReminder(title: string, body: string, atMillis: number, now: number): void {
-  if (!title.trim() || title.trim().length > 80) throw new Error('Reminder title ১–৮০ অক্ষরের হতে হবে।');
-  if (body.length > 240) throw new Error('Reminder description সর্বোচ্চ ২৪০ অক্ষর হতে পারবে।');
-  if (!Number.isFinite(atMillis) || atMillis <= now + 5_000) throw new Error('Reminder-এর সময় ভবিষ্যতের অন্তত ৫ সেকেন্ড পরে হতে হবে।');
-}
-
 export async function scheduleLocalReminder(input: { title: string; body?: string; at: Date }): Promise<{ id: string; scheduledAt: number; delivery: 'inexact' }> {
   const title = input.title.trim();
   const body = input.body?.trim() ?? '';
   const atMillis = input.at.getTime();
-  validateReminder(title, body, atMillis, Date.now());
+  assertValidReminderInput(title, body, atMillis, Date.now());
   await requestNotificationPermission();
   const id = `reminder_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   return getNativeDevice().scheduleReminder(id, title, body, atMillis);
@@ -57,9 +52,7 @@ export async function openCalendarDraft(input: { title: string; start: Date; end
   const title = input.title.trim();
   const start = input.start.getTime();
   const end = input.end.getTime();
-  if (!title || title.length > 120 || start <= Date.now() || end <= start || end - start > 86_400_000) {
-    throw new Error('Calendar event-এর নাম ও সময় যাচাই করুন (সময় ভবিষ্যতে এবং সর্বোচ্চ ২৪ ঘণ্টা)।');
-  }
+  assertValidCalendarDraftInput(title, start, end, Date.now());
   return getNativeDevice().openCalendarDraft(title, start, end);
 }
 
