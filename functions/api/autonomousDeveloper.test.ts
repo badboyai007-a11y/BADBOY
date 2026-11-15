@@ -9,11 +9,17 @@ const context = {
 };
 
 function adapters(verdict: "pass" | "fail" | "blocked" = "pass"): Record<AutonomousAgentRole, AgentAdapter> {
-  return Object.fromEntries(roles.map((role) => [role, {
+  const adapter: AgentAdapter = {
     async run({ role: currentRole }) {
       return { summary: currentRole, verdict, findings: [], testEvidence: ["unit-test"] };
     },
-  }])) as Record<AutonomousAgentRole, AgentAdapter>;
+  };
+  return {
+    architect: adapter,
+    developer: adapter,
+    tester: adapter,
+    security_reviewer: adapter,
+  };
 }
 
 test("accepts any valid branch without requiring a badboy prefix", () => {
