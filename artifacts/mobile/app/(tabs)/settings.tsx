@@ -1411,7 +1411,7 @@ export default function SettingsScreen() {
         <View style={[styles.wakeCard, { backgroundColor: colors.accent }]}>
           <Feather name="shield" size={16} color={colors.accentForeground} />
           <Text style={[styles.wakeText, { color: colors.accentForeground }]}>
-            Wake Word চালু করতে Voice Consent, microphone permission এবং সমর্থিত Android build দরকার। Settings-এর সুইচ বন্ধ করলে listener আর শুরু হবে না।
+            Offline wake model বর্তমানে “Hey Badboy” phrase শনাক্ত করে; “Oi/ওহে” background wake phrase হিসেবে এখনো model-এ নেই। চালাতে Voice Consent, microphone permission এবং Android 14+ native build দরকার। Android battery policy বা process kill হলে listener থেমে যেতে পারে; বাস্তব ফোনে পরীক্ষা প্রয়োজন।
           </Text>
         </View>
       </View>
