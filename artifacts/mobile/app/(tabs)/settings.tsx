@@ -60,6 +60,7 @@ import {
 } from '@/lib/assistant/developer';
 import { resolveDeveloperEngine } from '@/lib/assistant/developerEngine';
 import type { DeveloperEngineMode } from '@/lib/assistant/types';
+import { openAllowedApp, openCalendarDraft, openDeviceSettings, scheduleLocalReminder } from '@/lib/assistant/deviceControl';
 
 interface LocalTelegramMessage {
   id: number;
@@ -85,6 +86,11 @@ export default function SettingsScreen() {
   const [languageSearch, setLanguageSearch] = useState('');
   const [availableVoices, setAvailableVoices] = useState<AvailableSpeechVoice[]>([]);
   const [voiceListLoading, setVoiceListLoading] = useState(false);
+  const [reminderTitle, setReminderTitle] = useState('');
+  const [reminderBody, setReminderBody] = useState('');
+  const [reminderAt, setReminderAt] = useState('');
+  const [deviceActionBusy, setDeviceActionBusy] = useState(false);
+  const [deviceActionError, setDeviceActionError] = useState<string | null>(null);
 
   // Agent Execution System States
   const [agentPrompt, setAgentPrompt] = useState('');
@@ -535,6 +541,60 @@ export default function SettingsScreen() {
         },
       ],
     );
+  };
+
+  const handleScheduleReminder = async () => {
+    if (!reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy) return;
+    const at = new Date(reminderAt);
+    if (!Number.isFinite(at.getTime())) {
+      setDeviceActionError('তারিখ ও সময় YYYY-MM-DDTHH:mm ফরম্যাটে দিন।');
+      return;
+    }
+    setDeviceActionBusy(true);
+    setDeviceActionError(null);
+    try {
+      const result = await scheduleLocalReminder({ title: reminderTitle, body: reminderBody, at });
+      setReminderTitle('');
+      setReminderBody('');
+      setReminderAt('');
+      Alert.alert('Reminder সংরক্ষিত', `ফোনে reminder সেট হয়েছে। Android battery saver-এর কারণে notification কিছুটা দেরিতে আসতে পারে।\n\n${new Date(result.scheduledAt).toLocaleString()}`);
+    } catch (cause) {
+      setDeviceActionError(cause instanceof Error ? cause.message : 'Reminder সেট করা যায়নি।');
+    } finally {
+      setDeviceActionBusy(false);
+    }
+  };
+
+  const handleCalendarDraft = async () => {
+    if (!reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy) return;
+    const start = new Date(reminderAt);
+    if (!Number.isFinite(start.getTime())) {
+      setDeviceActionError('Calendar-এর তারিখ ও সময় YYYY-MM-DDTHH:mm ফরম্যাটে দিন।');
+      return;
+    }
+    setDeviceActionBusy(true);
+    setDeviceActionError(null);
+    try {
+      await openCalendarDraft({ title: reminderTitle, start, end: new Date(start.getTime() + 60 * 60 * 1000) });
+    } catch (cause) {
+      setDeviceActionError(cause instanceof Error ? cause.message : 'Calendar খোলা যায়নি।');
+    } finally {
+      setDeviceActionBusy(false);
+    }
+  };
+
+  const runDeviceAction = async (action: () => Promise<boolean>, successMessage: string) => {
+    if (deviceActionBusy) return;
+    setDeviceActionBusy(true);
+    setDeviceActionError(null);
+    try {
+      await action();
+      Alert.alert('সম্পন্ন', successMessage);
+    } catch (cause) {
+      setDeviceActionError(cause instanceof Error ? cause.message : 'Device action সম্পন্ন করা যায়নি।');
+    } finally {
+      setDeviceActionBusy(false);
+    }
   };
 
   const sectionCard = { backgroundColor: colors.card, borderColor: colors.border };
@@ -1271,6 +1331,52 @@ export default function SettingsScreen() {
             Wake Word চালু করতে Voice Consent, microphone permission এবং সমর্থিত Android build দরকার। Settings-এর সুইচ বন্ধ করলে listener আর শুরু হবে না।
           </Text>
         </View>
+      </View>
+
+      <View style={[styles.section, sectionCard]}>
+        <View style={styles.sectionTitleRow}>
+          <Feather name="smartphone" size={17} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Android Control & Reminders</Text>
+        </View>
+        <Text style={[styles.body, { color: colors.mutedForeground }]}>
+          অনুমোদিত অ্যাপ খোলা, Wi-Fi/Bluetooth settings-এ যাওয়া, ফোনে local reminder এবং Calendar event draft তৈরি করা যাবে। কোনো system toggle গোপনে পরিবর্তন করা হবে না।
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+          {([
+            ['youtube', 'YouTube'], ['chrome', 'Chrome'], ['gmail', 'Gmail'],
+            ['maps', 'Maps'], ['whatsapp', 'WhatsApp'], ['telegram', 'Telegram'],
+          ] as const).map(([id, label]) => (
+            <Pressable key={id} onPress={() => void runDeviceAction(() => openAllowedApp(id), `${label} খোলার অনুরোধ পাঠানো হয়েছে।`)} style={[styles.secondaryButton, { backgroundColor: colors.secondary, paddingHorizontal: 12 }]}>
+              <Text style={{ color: colors.secondaryForeground, fontWeight: '700', fontSize: 12 }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+          {([
+            ['wifi', 'Wi-Fi settings'], ['bluetooth', 'Bluetooth'], ['sound', 'Sound'], ['app', 'App settings'],
+          ] as const).map(([id, label]) => (
+            <Pressable key={id} onPress={() => void runDeviceAction(() => openDeviceSettings(id), `${label} খোলা হয়েছে।`)} style={[styles.secondaryButton, { backgroundColor: colors.secondary, paddingHorizontal: 12 }]}>
+              <Text style={{ color: colors.secondaryForeground, fontWeight: '700', fontSize: 12 }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={[styles.rule, { backgroundColor: colors.border, marginVertical: 12 }]} />
+        <Text style={[styles.label, { color: colors.foreground }]}>Reminder / Calendar event</Text>
+        <TextInput value={reminderTitle} onChangeText={setReminderTitle} maxLength={80} placeholder="কাজের নাম / Title" placeholderTextColor={colors.mutedForeground} style={[styles.telegramInput, { color: colors.foreground, borderColor: colors.input }]} />
+        <TextInput value={reminderBody} onChangeText={setReminderBody} maxLength={240} placeholder="বিস্তারিত (ঐচ্ছিক)" placeholderTextColor={colors.mutedForeground} style={[styles.telegramInput, { color: colors.foreground, borderColor: colors.input }]} />
+        <TextInput value={reminderAt} onChangeText={setReminderAt} autoCapitalize="none" placeholder="YYYY-MM-DDTHH:mm (ফোনের local time)" placeholderTextColor={colors.mutedForeground} style={[styles.telegramInput, { color: colors.foreground, borderColor: colors.input }]} />
+        <Pressable onPress={() => void handleScheduleReminder()} disabled={!reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy} style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy ? 0.5 : 1 }]}>
+          {deviceActionBusy ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Feather name="bell" size={15} color={colors.primaryForeground} />}
+          <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>ফোনে Reminder সেট করুন</Text>
+        </Pressable>
+        <Pressable onPress={() => void handleCalendarDraft()} disabled={!reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy} style={[styles.secondaryButton, { backgroundColor: colors.secondary, opacity: !reminderTitle.trim() || !reminderAt.trim() || deviceActionBusy ? 0.5 : 1 }]}>
+          <Feather name="calendar" size={15} color={colors.secondaryForeground} />
+          <Text style={{ color: colors.secondaryForeground, fontWeight: '700' }}>Calendar-এ event draft খুলুন</Text>
+        </Pressable>
+        <Text style={[styles.smallNote, { color: colors.mutedForeground }]}>
+          Android-এর battery saver reminder notification দেরি করাতে পারে। Calendar draft ফোনের Calendar app-এ খুলবে; সংরক্ষণ করতে সেখানে Save চাপতে হবে।
+        </Text>
+        {deviceActionError ? <Text style={[styles.errorText, { color: colors.destructive }]}>{deviceActionError}</Text> : null}
       </View>
 
       <View style={[styles.section, sectionCard]}>
