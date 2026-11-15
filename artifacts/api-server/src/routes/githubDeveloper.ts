@@ -97,8 +97,9 @@ router.get("/oauth/callback", async (req, res) => {
       signal: AbortSignal.timeout(10_000),
     });
     if (!tokenResponse.ok) throw new Error("OAuth token exchange failed.");
-    const tokenPayload = await tokenResponse.json() as { access_token?: string; token_type?: string; error?: string };
-    if (tokenPayload.error || tokenPayload.token_type?.toLowerCase() !== "bearer" || !tokenPayload.access_token) {
+    const tokenPayload = await tokenResponse.json() as { access_token?: string; token_type?: string; scope?: string; error?: string };
+    const grantedScopes = (tokenPayload.scope ?? "").split(/[ ,]/u).filter(Boolean);
+    if (tokenPayload.error || tokenPayload.token_type?.toLowerCase() !== "bearer" || !tokenPayload.access_token || !grantedScopes.includes("repo") || !grantedScopes.includes("read:user")) {
       res.status(401).json({ code: "GITHUB_OAUTH_EXCHANGE_FAILED", error: "GitHub authorization could not be completed." });
       return;
     }
