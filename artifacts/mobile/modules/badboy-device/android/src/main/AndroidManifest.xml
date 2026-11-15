@@ -1,5 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <queries>
+    <package android:name="com.google.android.youtube" />
+    <package android:name="com.android.chrome" />
+    <package android:name="com.google.android.gm" />
+    <package android:name="com.google.android.apps.maps" />
+    <package android:name="com.whatsapp" />
+    <package android:name="org.telegram.messenger" />
+  </queries>
   <application>
     <receiver
       android:name="expo.modules.badboydevice.ReminderReceiver"
