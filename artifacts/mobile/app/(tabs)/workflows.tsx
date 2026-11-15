@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAssistant } from "@/context/AssistantContext";
 import { useColors } from "@/hooks/useColors";
-import { getIntegrationStatus, searchWebResearch, streamReply, type AssistantIntegrationStatus } from "@/lib/assistant/api";
+import { getDiscordMessages, getIntegrationStatus, searchWebResearch, streamReply, type AssistantIntegrationStatus, type DiscordMessage } from "@/lib/assistant/api";
 import { executePersonalWorkflow, type WorkflowAdapters } from "@/lib/assistant/workflowEngine";
 import { workflowNeedsOwnerApproval, type PersonalWorkflow } from "@/lib/assistant/workflowBuilder";
 import { resolveOfflineCapability } from "@/lib/assistant/offlineCapability";
@@ -25,6 +25,9 @@ export default function WorkflowsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string>("");
   const [integrationStatus, setIntegrationStatus] = useState<AssistantIntegrationStatus | null>(null);
+  const [discordChannel, setDiscordChannel] = useState("");
+  const [discordMessages, setDiscordMessages] = useState<DiscordMessage[]>([]);
+  const [discordBusy, setDiscordBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -47,6 +50,19 @@ export default function WorkflowsScreen() {
     });
     return () => { active = false; };
   }, []);
+
+  const loadDiscordHistory = async () => {
+    setDiscordBusy(true);
+    setError(null);
+    try {
+      const messages = await getDiscordMessages(discordChannel);
+      setDiscordMessages(messages);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Discord history could not be loaded.");
+    } finally {
+      setDiscordBusy(false);
+    }
+  };
 
   const createResearchWorkflow = async () => {
     const cleanName = name.trim();
@@ -168,6 +184,38 @@ export default function WorkflowsScreen() {
         ) : (
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>Provider readiness is loading or the backend is unavailable.</Text>
         )}
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Discord channel history (read-only)</Text>
+        <TextInput
+          value={discordChannel}
+          onChangeText={setDiscordChannel}
+          maxLength={20}
+          keyboardType="number-pad"
+          placeholder="Discord channel ID"
+          placeholderTextColor={colors.mutedForeground}
+          accessibilityLabel="Discord channel ID"
+          style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+        />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => { void loadDiscordHistory(); }}
+          disabled={!/^\\d{17,20}$/.test(discordChannel.trim()) || discordBusy}
+          style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !/^\\d{17,20}$/.test(discordChannel.trim()) || discordBusy ? 0.5 : 1 }]}
+        >
+          <Feather name="message-circle" size={16} color={colors.primaryForeground} />
+          <Text style={{ color: colors.primaryForeground, fontWeight: "700" }}>{discordBusy ? "Loading…" : "Load Discord messages"}</Text>
+        </Pressable>
+        {discordMessages.map((message) => (
+          <View key={message.id} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <Text style={[styles.meta, { color: colors.primary }]}>{message.author} · {new Date(message.timestamp).toLocaleString()}</Text>
+            <Text style={[styles.meta, { color: colors.foreground }]}>{message.content || "(empty message)"}</Text>
+          </View>
+        ))}
+        <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+          Read-only access. Configure DISCORD_BOT_TOKEN as a Worker secret and grant the bot View Channel and Read Message History permissions. Sending is disabled.
+        </Text>
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
