@@ -226,8 +226,33 @@ export async function searchAgentMemory(
     const body = (await response.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Project memory search failed (HTTP ${response.status}).`);
   }
-  const body = (await response.json()) as { memories?: AgentMemorySearchResult[] };
-  return Array.isArray(body.memories) ? body.memories : [];
+  const body = (await response.json()) as { memories?: unknown };
+  if (!Array.isArray(body.memories)) return [];
+
+  // Defense in depth: the Worker excludes sensitive rows, but never trust a
+  // provider/cache/proxy response to preserve that invariant for the Agent.
+  return body.memories.flatMap((value): AgentMemorySearchResult[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const memory = value as Record<string, unknown>;
+    if (
+      typeof memory.id !== 'string' ||
+      typeof memory.projectId !== 'string' || memory.projectId !== cleanProjectId ||
+      typeof memory.category !== 'string' ||
+      typeof memory.content !== 'string' ||
+      typeof memory.source !== 'string' ||
+      typeof memory.privacyLevel !== 'string' || memory.privacyLevel.toLowerCase() === 'sensitive' ||
+      typeof memory.updatedAt !== 'string'
+    ) return [];
+    return [{
+      id: memory.id.slice(0, 160),
+      projectId: memory.projectId,
+      category: memory.category.slice(0, 80),
+      content: memory.content.slice(0, 2000),
+      source: memory.source.slice(0, 80),
+      privacyLevel: memory.privacyLevel.slice(0, 40),
+      updatedAt: memory.updatedAt.slice(0, 40),
+    }];
+  }).slice(0, 10);
 }
 
 export async function transcribeAudio(
