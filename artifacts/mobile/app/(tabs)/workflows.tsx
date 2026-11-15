@@ -201,8 +201,8 @@ export default function WorkflowsScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() => { void loadDiscordHistory(); }}
-          disabled={!/^\\d{17,20}$/.test(discordChannel.trim()) || discordBusy}
-          style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !/^\\d{17,20}$/.test(discordChannel.trim()) || discordBusy ? 0.5 : 1 }]}
+          disabled={!/^\d{17,20}$/.test(discordChannel.trim()) || discordBusy}
+          style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: !/^\d{17,20}$/.test(discordChannel.trim()) || discordBusy ? 0.5 : 1 }]}
         >
           <Feather name="message-circle" size={16} color={colors.primaryForeground} />
           <Text style={{ color: colors.primaryForeground, fontWeight: "700" }}>{discordBusy ? "Loading…" : "Load Discord messages"}</Text>
