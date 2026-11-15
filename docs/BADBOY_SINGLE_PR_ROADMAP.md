@@ -6,7 +6,7 @@ This document tracks observable implementation and verification evidence. A chec
 
 | Area | Current implementation in this branch | Remaining verification / blocker |
 |---|---|---|
-| Core AI and agentic tools | OpenRouter tool calling, bounded planner/executor/reviewer/synthesizer, single/multi mode | Live provider tool-call integration and Android end-to-end validation |
+| Core AI and agentic tools | Typed, bounded memory/skill context; owner-enabled plugin tool filtering; multi-round allowlisted tool calling; structured JSON planner with validation/repair; Planner → Executor → Reviewer → Synthesizer orchestration; task-aware free-model routing with provider fallback; empty-response and failed-tool recovery; bounded history/context | Live provider tool-call integration, real-account verification, and Android end-to-end validation |
 | Owner security | Owner token authentication, scoped D1 memory, device approval policy, plugin fail-closed approval verifier | One-time action approval API for provider side effects; penetration tests |
 | Voice and wake word | Expo speech, TTS, native Android TFLite wake-word foreground service | Real-device microphone arbitration, OEM battery and lock-screen matrix |
 | Phone control | Typed native Android device module, reminders, allowlisted actions | Physical device/API-level verification |
