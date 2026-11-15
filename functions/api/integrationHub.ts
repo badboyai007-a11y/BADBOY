@@ -200,7 +200,7 @@ export async function handleIntegrationRequest(
     const token = env.DISCORD_BOT_TOKEN?.trim();
     const channel = new URL(request.url).searchParams.get("channel")?.trim() ?? "";
     if (!token) return json({ code: "DISCORD_NOT_CONFIGURED", error: "Discord is not configured on the server." }, 503);
-    if (!/^\\d{17,20}$/.test(channel)) return json({ code: "INVALID_DISCORD_CHANNEL", error: "A valid Discord channel ID is required." }, 400);
+    if (!/^\d{17,20}$/.test(channel)) return json({ code: "INVALID_DISCORD_CHANNEL", error: "A valid Discord channel ID is required." }, 400);
     try {
       const url = new URL(`https://discord.com/api/v10/channels/${channel}/messages`);
       url.searchParams.set("limit", "20");

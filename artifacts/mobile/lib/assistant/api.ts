@@ -389,7 +389,7 @@ export interface DiscordMessage {
 /** Read a bounded Discord channel history through the server-side bot adapter. */
 export async function getDiscordMessages(channelId: string): Promise<DiscordMessage[]> {
   const cleanChannelId = channelId.trim();
-  if (!/^\\d{17,20}$/.test(cleanChannelId)) throw new Error("A valid Discord channel ID is required.");
+  if (!/^\d{17,20}$/.test(cleanChannelId)) throw new Error("A valid Discord channel ID is required.");
   const response = await expoFetch(
     apiUrl(`/integrations/discord/messages?channel=${encodeURIComponent(cleanChannelId)}`),
     {
