@@ -875,7 +875,7 @@ export interface GitHubRepoConfig {
 
 export const DEFAULT_REPO_CONFIG: GitHubRepoConfig = {
   owner: 'shomratofficial007-spec',
-  repo: 'Voice-Memory-Assistant-net',
+  repo: 'Badboy-VS-Versel-Ai',
   baseBranch: 'main',
 };
 
@@ -914,16 +914,73 @@ export function buildUpdatedFileContent(existingContent: string, plan: DevPlan, 
   return `${existingContent.trimEnd()}\n${commentSnippet}`;
 }
 
+/** Read-only repository preview. No branch, file, commit or PR is created. */
+export async function previewGitHubChanges(params: {
+  githubToken: string;
+  paths: string[];
+  repoConfig?: Partial<GitHubRepoConfig>;
+}): Promise<{ success: boolean; baseSha?: string; files: Array<{ path: string; exists: boolean; sha?: string; content?: string }>; error?: string }> {
+  const { githubToken, paths, repoConfig = {} } = params;
+  const owner = repoConfig.owner || DEFAULT_REPO_CONFIG.owner;
+  const repo = repoConfig.repo || DEFAULT_REPO_CONFIG.repo;
+  const baseBranch = repoConfig.baseBranch || DEFAULT_REPO_CONFIG.baseBranch;
+  const files: Array<{ path: string; exists: boolean; sha?: string; content?: string }> = [];
+  if (!githubToken.trim() || !Array.isArray(paths) || paths.length < 1 || paths.length > 20) {
+    return { success: false, files, error: 'একটি valid GitHub token এবং ১ থেকে ২০টি file path দিতে হবে।' };
+  }
+  const headers = {
+    Authorization: `Bearer ${githubToken.trim()}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'Badboy-Developer-Assistant',
+  };
+  try {
+    const refResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(baseBranch)}`, { headers });
+    if (!refResponse.ok) return { success: false, files, error: `GitHub repository/branch read failed (HTTP ${refResponse.status}).` };
+    const refData = await refResponse.json() as { object?: { sha?: string } };
+    const baseSha = refData.object?.sha;
+    if (!baseSha) return { success: false, files, error: 'Base branch SHA পাওয়া যায়নি।' };
+
+    for (const rawPath of paths) {
+      const path = rawPath.trim();
+      if (!path || path.length > 240 || path.startsWith('/') || path.includes('\\\\') ||
+          path.split('/').some((part) => !part || part === '.' || part === '..') ||
+          /(^|\\/)(\\.env|secrets?|credentials?)(\\.|$)/i.test(path) ||
+          /\\.(pem|key|p12|pfx|keystore)$/i.test(path)) {
+        return { success: false, baseSha, files: [], error: `এই path নিরাপদ read preview-এর জন্য অনুমোদিত নয়: ${path.slice(0, 120)}` };
+      }
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(baseBranch)}`, { headers });
+      if (response.status === 404) {
+        files.push({ path, exists: false });
+        continue;
+      }
+      if (!response.ok) return { success: false, baseSha, files, error: `File read failed for ${path} (HTTP ${response.status}).` };
+      const file = await response.json() as { type?: string; sha?: string; content?: string; encoding?: string };
+      if (file.type !== 'file' || file.encoding !== 'base64' || typeof file.content !== 'string') {
+        return { success: false, baseSha, files, error: `Unsupported GitHub content type for ${path}.` };
+      }
+      const content = decodeBase64ToContent(file.content);
+      if (content.length > 256_000) return { success: false, baseSha, files, error: `File exceeds 256KB preview limit: ${path}.` };
+      files.push({ path, exists: true, sha: file.sha, content });
+    }
+    return { success: true, baseSha, files };
+  } catch {
+    return { success: false, files, error: 'GitHub read-only preview request failed.' };
+  }
+}
+
 /**
  * Creates a GitHub Pull Request for the requested feature using GitHub REST API.
  */
 export async function createGitHubPullRequest(params: {
   githubToken: string;
   plan: DevPlan;
-  changes?: FileChange[];
+  changes: FileChange[];
+  approved: boolean;
+  expectedBaseSha: string;
   repoConfig?: Partial<GitHubRepoConfig>;
 }): Promise<PRResult> {
-  const { githubToken, plan, changes: explicitChanges, repoConfig = {} } = params;
+  const { githubToken, plan, changes: explicitChanges, approved, expectedBaseSha, repoConfig = {} } = params;
   const logs: string[] = [];
   const log = (msg: string) => logs.push(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
 
@@ -932,6 +989,38 @@ export async function createGitHubPullRequest(params: {
   const baseBranch = repoConfig.baseBranch || DEFAULT_REPO_CONFIG.baseBranch;
 
   log(`GitHub ইন্টিগ্রেশন শুরু করা হয়েছে: ${owner}/${repo}`);
+
+  // All GitHub writes are opt-in after the owner has reviewed a preview.
+  if (approved !== true) {
+    return { success: false, summary: 'মালিকের অনুমোদন প্রয়োজন।', logs,
+      error: 'GitHub-এ branch, file বা Pull Request লেখার আগে preview দেখে স্পষ্ট অনুমোদন দিতে হবে।' };
+  }
+  if (!expectedBaseSha.trim()) {
+    return { success: false, summary: 'Preview SHA অনুপস্থিত।', logs,
+      error: 'প্রথমে read-only preview তৈরি করে expectedBaseSha দিতে হবে।' };
+  }
+  if (!Array.isArray(explicitChanges) || explicitChanges.length < 1 || explicitChanges.length > 20) {
+    return { success: false, summary: 'পরিবর্তনের তালিকা অবৈধ।', logs,
+      error: 'অনুমোদিত write-এর জন্য ১ থেকে ২০টি স্পষ্ট file change দিতে হবে।' };
+  }
+  if (!/^feature\\/[a-zA-Z0-9][a-zA-Z0-9._/-]{0,100}$/.test(plan.branchName) || plan.branchName.includes('..')) {
+    return { success: false, summary: 'Branch name অবৈধ।', logs,
+      error: 'শুধু feature/ দিয়ে শুরু নিরাপদ branch name ব্যবহার করা যাবে।' };
+  }
+  const seenPaths = new Set<string>();
+  for (const change of explicitChanges) {
+    const path = change.path.trim();
+    if (!path || path.length > 240 || path.startsWith('/') || path.includes('\\\\') ||
+        path.split('/').some((part) => !part || part === '.' || part === '..') ||
+        /(^|\\/)(\\.env|secrets?|credentials?)(\\.|$)/i.test(path) ||
+        /\\.(pem|key|p12|pfx|keystore)$/i.test(path) ||
+        typeof change.content !== 'string' || change.content.length > 256_000 ||
+        seenPaths.has(path)) {
+      return { success: false, summary: 'File change নিরাপত্তা যাচাইয়ে ব্যর্থ।', logs,
+        error: `নিরাপদ file path, unique path ও 256KB সীমা যাচাই করুন: ${path.slice(0, 120)}` };
+    }
+    seenPaths.add(path);
+  }
 
   if (!githubToken || !githubToken.trim()) {
     log('ত্রুটি: GitHub Personal Access Token অনুপস্থিত।');
@@ -979,6 +1068,10 @@ export async function createGitHubPullRequest(params: {
     if (!baseSha) {
       throw new Error(`Base branch ${baseBranch} এর SHA পাওয়া যায়নি।`);
     }
+    if (baseSha !== expectedBaseSha) {
+      return { success: false, summary: 'Preview পুরোনো হয়ে গেছে।', logs,
+        error: 'Base branch preview-এর পর পরিবর্তিত হয়েছে। নতুন করে read-only preview নিয়ে আবার অনুমোদন দিন।' };
+    }
     log(`Base SHA পাওয়া গেছে: ${baseSha.slice(0, 7)}`);
 
     // 2. Create new feature branch
@@ -993,35 +1086,19 @@ export async function createGitHubPullRequest(params: {
       }),
     });
 
-    if (!createBranchRes.ok && createBranchRes.status !== 422) {
+    if (!createBranchRes.ok) {
       const branchErr = await createBranchRes.text();
       log(`ব্রাঞ্চ তৈরিতে ব্যর্থ: ${branchErr.slice(0, 150)}`);
       throw new Error(`ফিচার ব্রাঞ্চ তৈরি করা সম্ভব হয়নি: ${createBranchRes.status}`);
     }
     log(`ব্রাঞ্চ ${branchName} প্রস্তুত।`);
 
-    // 3. Fetch current file contents and construct safe, non-destructive commits
-    const finalChanges: FileChange[] = [];
-
-    if (explicitChanges && explicitChanges.length > 0) {
-      finalChanges.push(...explicitChanges);
-    } else {
-      for (const path of plan.filesToModify) {
-        log(`ফাইল পূর্বরূপ ও কন্টেন্ট সংগ্রহ করা হচ্ছে: ${path}...`);
-        let currentContent = '';
-
-        const getFileRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${baseBranch}`, { headers });
-        if (getFileRes.ok) {
-          const fileData = (await getFileRes.json()) as { content?: string; sha?: string };
-          if (fileData.content) {
-            currentContent = decodeBase64ToContent(fileData.content);
-          }
-        }
-
-        const newContent = buildUpdatedFileContent(currentContent, plan, path);
-        finalChanges.push({ path, content: newContent });
-      }
-    }
+    // The owner-approved preview supplies exact file contents; never synthesize
+    // placeholder edits or silently read/write a different file set.
+    const finalChanges: FileChange[] = explicitChanges.map((change) => ({
+      path: change.path.trim(),
+      content: change.content,
+    }));
 
     // Commit changes to feature branch
     for (const change of finalChanges) {
