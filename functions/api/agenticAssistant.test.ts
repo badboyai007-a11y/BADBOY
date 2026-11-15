@@ -414,7 +414,9 @@ test("disabled owner plugins are omitted from tool definitions and cannot execut
       { OPENROUTER_API_KEY: "server-key", TAVILY_API_KEY: "tavily-key" },
     );
     assert.equal(response.status, 200);
-    assert.match(await response.text(), /চূড়ান্ত/);
+    const body = await response.text();
+    assert.match(body, /চূড়ান্ত/);
+    assert.match(body, /tool_execution_failed/);
     assert.equal(tavilyCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
