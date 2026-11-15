@@ -85,7 +85,9 @@ export async function streamAgenticReply(
   settings: AssistantSettings,
   history: ChatHistoryItem[],
   onChunk: (chunk: string) => void,
+  memoryContext = '',
 ) {
+  const safeMemoryContext = memoryContext.trim().slice(0, 5000);
   const response = await expoFetch(apiUrl('/assistant/agent'), {
     method: 'POST',
     headers: {
