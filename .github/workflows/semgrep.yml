@@ -2,6 +2,7 @@ name: Semgrep Security Scan
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, feat/agentic-tool-calling-multi-agent]
   push:
     branches: [main, feat/verified-agent-integrations]
