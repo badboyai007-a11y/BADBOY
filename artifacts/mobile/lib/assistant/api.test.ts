@@ -220,7 +220,7 @@ test('searchAgentMemory filters sensitive, cross-project and malformed server ro
   const { searchAgentMemory } = await apiPromise;
   fetchHandler = async () => jsonResponse({ memories: [
     { id: 'private-1', projectId: 'project-1', category: 'note', content: 'safe context', source: 'owner', privacyLevel: 'private', updatedAt: '2026-11-15T00:00:00.000Z' },
-    { id: 'secret-1', projectId: 'project-1', category: 'secret', content: 'do not expose', source: 'owner', privacyLevel: 'sensitive', updatedAt: '2026-11-15T00:00:00.000Z' },
+    { id: 'secret-1', projectId: 'project-1', category: 'secret', content: 'do not expose', source: 'owner', privacyLevel: ' Sensitive ', updatedAt: '2026-11-15T00:00:00.000Z' },
     { id: 'other-1', projectId: 'another-project', category: 'note', content: 'cross-project', source: 'owner', privacyLevel: 'private', updatedAt: '2026-11-15T00:00:00.000Z' },
     { id: 'bad-1', projectId: 'project-1', category: 'note', content: 42, source: 'owner', privacyLevel: 'private', updatedAt: '2026-11-15T00:00:00.000Z' },
   ] });
