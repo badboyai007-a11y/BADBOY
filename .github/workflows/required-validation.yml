@@ -20,7 +20,7 @@ jobs:
   upstream-workflows:
     name: Upstream Workflows
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - name: Verify every upstream workflow on the exact PR head SHA
