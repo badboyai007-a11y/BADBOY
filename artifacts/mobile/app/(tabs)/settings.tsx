@@ -34,10 +34,13 @@ import {
 import { buildExpertReviewPrompt, inspectBadboyRepository, type RepositoryEvidence } from '@/lib/assistant/expertReview';
 import { useColors } from '@/hooks/useColors';
 import {
+  bindTelegramOwnerChat,
   checkTelegramMessages,
   connectTelegramBot,
   disconnectTelegramBot,
+  getTelegramOwnerChatId,
   hasTelegramBot,
+  parseTelegramOwnerCommand,
   sendTelegramMessage,
 } from '@/lib/assistant/telegram';
 import {
@@ -78,6 +81,7 @@ export default function SettingsScreen() {
   const [personalityDraft, setPersonalityDraft] = useState(settings.personality);
   const [botTokenDraft, setBotTokenDraft] = useState('');
   const [telegramConnected, setTelegramConnected] = useState(false);
+  const [telegramOwnerChatId, setTelegramOwnerChatId] = useState<number | null>(null);
   const [botUsername, setBotUsername] = useState('');
   const [telegramMessage, setTelegramMessage] = useState('');
   const [telegramItems, setTelegramItems] = useState<LocalTelegramMessage[]>([]);
@@ -225,6 +229,12 @@ export default function SettingsScreen() {
       if (active) setTelegramConnected(connected);
     }).catch(() => {
       if (active) setTelegramError('ফোনের নিরাপদ স্টোরেজ পরীক্ষা করা যায়নি।');
+    });
+
+    getTelegramOwnerChatId().then((chatId) => {
+      if (active) setTelegramOwnerChatId(chatId);
+    }).catch(() => {
+      if (active) setTelegramError('Telegram owner chat যাচাই করা যায়নি।');
     });
 
     getGitHubToken().then((token) => {
@@ -497,6 +507,7 @@ export default function SettingsScreen() {
           onPress: () => {
             void disconnectTelegramBot().then(() => {
               setTelegramConnected(false);
+              setTelegramOwnerChatId(null);
               setBotUsername('');
               setTelegramItems([]);
             }).catch(() => setTelegramError('Bot token মুছতে সমস্যা হয়েছে।'));
@@ -518,6 +529,64 @@ export default function SettingsScreen() {
     } finally {
       setTelegramBusy(false);
     }
+  };
+
+  const handleBindTelegramOwnerChat = async (item: LocalTelegramMessage) => {
+    if (telegramBusy || telegramOwnerChatId !== null) return;
+    Alert.alert(
+      'এই Telegram chat-কে Owner হিসেবে bind করবেন?',
+      `Chat ID: ${item.chatId}\\nSender: ${item.sender}\\n\\nশুধু এই private chat থেকে আসা অনুমোদিত command-ই Badboy গ্রহণ করবে।`,
+      [
+        { text: 'বাতিল', style: 'cancel' },
+        {
+          text: 'Owner chat bind',
+          onPress: () => {
+            setTelegramBusy(true);
+            void bindTelegramOwnerChat(item.chatId)
+              .then(() => setTelegramOwnerChatId(item.chatId))
+              .catch((cause) => setTelegramError(cause instanceof Error ? cause.message : 'Owner chat bind করা যায়নি।'))
+              .finally(() => setTelegramBusy(false));
+          },
+        },
+      ],
+    );
+  };
+
+  const handleApproveTelegramCommand = (item: LocalTelegramMessage) => {
+    if (telegramOwnerChatId !== item.chatId || telegramBusy) return;
+    const command = parseTelegramOwnerCommand(item.text);
+    if (!command) {
+      setTelegramError('এই Telegram command অনুমোদিত নয়। /badboy ask অথবা /badboy youtube ব্যবহার করুন।');
+      return;
+    }
+    const description = command.kind === 'ask'
+      ? `AI উত্তর তৈরি করে আপনার bound Telegram chat-এ পাঠাবে:\\n${command.prompt}`
+      : `YouTube search খুলবে:\\n${command.query}`;
+    Alert.alert('Telegram request অনুমোদন করবেন?', description, [
+      { text: 'বাতিল', style: 'cancel' },
+      {
+        text: 'অনুমোদন করুন',
+        onPress: () => {
+          setTelegramBusy(true);
+          setTelegramError(null);
+          void (async () => {
+            if (command.kind === 'ask') {
+              if (!settings.onlineAI) throw new Error('AI উত্তর তৈরির জন্য Online AI চালু করুন।');
+              let answer = '';
+              await streamReply(command.prompt, settings, (chunk) => { answer += chunk; });
+              if (!answer.trim()) throw new Error('AI থেকে কোনো উত্তর পাওয়া যায়নি।');
+              await sendTelegramMessage(answer.slice(0, 3500));
+            } else {
+              const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(command.query)}`;
+              await Linking.openURL(url);
+              await sendTelegramMessage(`YouTube search খোলা হয়েছে: ${command.query}`);
+            }
+          })().catch((cause) => {
+            setTelegramError(cause instanceof Error ? cause.message : 'Telegram request সম্পন্ন হয়নি।');
+          }).finally(() => setTelegramBusy(false));
+        },
+      },
+    ]);
   };
 
   const sendTelegram = () => {
@@ -1437,14 +1506,28 @@ export default function SettingsScreen() {
               <Text style={{ color: colors.secondaryForeground, fontWeight: '700' }}>Inbox দেখুন</Text>
             </Pressable>
             <Text style={[styles.smallNote, { color: colors.mutedForeground }]}>
-              প্রথমে Telegram-এ আপনার bot-কে /start পাঠান। নতুন বার্তা শুধু আপনি “Inbox দেখুন” চাপলে আনা হবে।
+              প্রথমে bot-এ /start পাঠিয়ে Inbox দেখুন। একটি private chat-কে একবার Owner হিসেবে bind করুন। অনুমোদিত command: /badboy ask ... অথবা /badboy youtube ...। অন্য command কোনো কাজ চালাবে না।
             </Text>
-            {telegramItems.map((item) => (
-              <View key={item.id} style={[styles.telegramItem, { borderColor: colors.border }]}>
-                <Text style={[styles.messageSender, { color: colors.foreground }]}>{item.sender}</Text>
-                <Text style={[styles.body, { color: colors.mutedForeground }]}>{item.text}</Text>
-              </View>
-            ))}
+            {telegramOwnerChatId ? <Text style={[styles.smallNote, { color: colors.primary }]}>Owner chat bound: {telegramOwnerChatId}</Text> : null}
+            {telegramItems.map((item) => {
+              const command = parseTelegramOwnerCommand(item.text);
+              const isBoundOwner = telegramOwnerChatId === item.chatId;
+              return (
+                <View key={item.id} style={[styles.telegramItem, { borderColor: colors.border }]}>
+                  <Text style={[styles.messageSender, { color: colors.foreground }]}>{item.sender}</Text>
+                  <Text style={[styles.body, { color: colors.mutedForeground }]}>{item.text}</Text>
+                  {!telegramOwnerChatId ? (
+                    <Pressable onPress={() => handleBindTelegramOwnerChat(item)} disabled={telegramBusy} style={[styles.secondaryButton, { backgroundColor: colors.secondary, marginTop: 8 }]}>
+                      <Text style={{ color: colors.secondaryForeground, fontWeight: '700' }}>এই private chat-কে Owner bind করুন</Text>
+                    </Pressable>
+                  ) : isBoundOwner && command ? (
+                    <Pressable onPress={() => handleApproveTelegramCommand(item)} disabled={telegramBusy} style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 8 }]}>
+                      <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>Request review ও approve করুন</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              );
+            })}
             <TextInput
               value={telegramMessage}
               onChangeText={setTelegramMessage}
