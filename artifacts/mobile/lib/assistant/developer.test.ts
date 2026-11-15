@@ -511,8 +511,6 @@ test('createGitHubPullRequest - handles invalid credentials and missing base SHA
         githubToken: 'invalid-token',
         plan,
         changes: [{ path: 'notes.md', content: 'note' }],
-      approved: true,
-      expectedBaseSha: 'base-sha',
         approved: true,
         expectedBaseSha: 'expected-base-sha',
       });
@@ -531,6 +529,8 @@ test('createGitHubPullRequest - handles invalid credentials and missing base SHA
         githubToken: 'valid-token',
         plan,
         changes: [{ path: 'notes.md', content: 'note' }],
+        approved: true,
+        expectedBaseSha: 'expected-base-sha',
       });
       assert.equal(result.success, false);
       assert.match(result.error ?? '', /SHA পাওয়া যায়নি/);
@@ -547,7 +547,7 @@ test('createGitHubPullRequest - reports commit failures and does not create a PR
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.endsWith('/git/ref/heads/main')) return Response.json({ object: { sha: 'base-sha' } });
-    if (url.endsWith('/git/refs')) return Response.json({});
+    if (url.endsWith('/git/refs')) return Response.json({ ref: 'refs/heads/feature/badboy-test' }, { status: 201 });
     if (url.includes('/contents/notes.md?ref=')) return new Response('not found', { status: 404 });
     if (url.endsWith('/contents/notes.md') && init?.method === 'PUT') {
       return new Response('write denied', { status: 403 });
@@ -562,6 +562,8 @@ test('createGitHubPullRequest - reports commit failures and does not create a PR
       githubToken: 'valid-token',
       plan,
       changes: [{ path: 'notes.md', content: 'note' }],
+      approved: true,
+      expectedBaseSha: 'base-sha',
     });
     assert.equal(result.success, false);
     assert.match(result.error ?? '', /ফাইল কমিট করতে ব্যর্থ/);
