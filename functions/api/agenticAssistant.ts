@@ -382,8 +382,8 @@ function modelErrorMessage(payload: CompletionResponse, status: number): string 
 export function selectAgentModels(messages: ChatMessage[]): string[] {
   const latestUser = [...messages].reverse().find((item) => item.role === "user")?.content;
   const prompt = typeof latestUser === "string" ? latestUser.toLowerCase() : "";
-  const codeTask = /\b(code|coding|typescript|javascript|python|kotlin|java|debug|bug|refactor|প্রোগ্রামিং|কোড|ডিবাগ)\b/i.test(prompt);
-  const reasoningTask = /\b(analy[sz]e|reason|plan|compare|architecture|strategy|বিশ্লেষণ|পরিকল্পনা|তুলনা)\b/i.test(prompt);
+  const codeTask = /(code|coding|typescript|javascript|python|kotlin|java|debug|bug|refactor|প্রোগ্রামিং|কোড|ডিবাগ)/i.test(prompt);
+  const reasoningTask = /(analy[sz]e|reason|plan|compare|architecture|strategy|বিশ্লেষণ|পরিকল্পনা|তুলনা)/i.test(prompt);
   const preferred = codeTask
     ? ["cohere/north-mini-code:free", "openrouter/free", "nvidia/nemotron-3.5-lightning:free", "thinkingmachines/inkling:free", "recursive/flint-v1.0:free"]
     : reasoningTask
