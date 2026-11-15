@@ -74,6 +74,8 @@ jobs:
           functions/personalAuth.test.ts
           functions/developerData.test.ts
           functions/api/agenticAssistant.test.ts
+          functions/api/agentMemory.test.ts
+          functions/api/integrationHub.test.ts
           &&
           pnpm --filter @workspace/mobile test
           '
