@@ -1,4 +1,11 @@
 import { Router } from "express";
+import { createHash } from "node:crypto";
+import {
+  createDraftPullRequest,
+  createRepositoryBranch,
+  dispatchAllowlistedWorkflow,
+  readRepositoryFile,
+} from "../services/githubIntegration";
 import {
   createGitHubOwnerSession,
   createOAuthState,
@@ -8,6 +15,7 @@ import {
   GitHubDeveloperSecurityError,
   GitHubOwnerRepositoryAccessVerifier,
   issueGitHubWriteApproval,
+  PostgresGitHubApprovalVerifier,
   requireGitHubOwnerSession,
   verifyOAuthState,
   type GitHubDeveloperEnv,
@@ -135,6 +143,19 @@ router.get("/me", requireOwner, (req, res) => {
   res.json({ id: owner.identity.id, login: owner.identity.login, name: owner.identity.name });
 });
 
+
+function requestHash(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function repositoryFromParams(req: import("express").Request) {
+  return { fullName: `${req.params.owner}/${req.params.repo}` };
+}
+
+function ownerVerifier(owner: NonNullable<GitHubDeveloperRequest["githubOwner"]>) {
+  return new GitHubOwnerRepositoryAccessVerifier(owner.accessToken);
+}
+
 router.get("/repositories/:owner/:repo/access", requireOwner, async (req, res) => {
   const owner = (req as GitHubDeveloperRequest).githubOwner;
   if (!owner) {
@@ -151,6 +172,141 @@ router.get("/repositories/:owner/:repo/access", requireOwner, async (req, res) =
     res.json({ repository: repository.fullName, read, write });
   } catch {
     res.status(502).json({ code: "GITHUB_PERMISSION_CHECK_FAILED", error: "GitHub repository permission could not be verified." });
+  }
+});
+
+
+router.get("/repositories/:owner/:repo/contents", requireOwner, async (req, res) => {
+  const owner = (req as GitHubDeveloperRequest).githubOwner;
+  if (!owner) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
+    return;
+  }
+  const path = typeof req.query.path === "string" ? req.query.path : "";
+  const ref = typeof req.query.ref === "string" ? req.query.ref : undefined;
+  try {
+    const result = await readRepositoryFile(
+      repositoryFromParams(req),
+      path,
+      ownerVerifier(owner),
+      ref,
+      { token: owner.accessToken },
+    );
+    res.json(result);
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "statusCode" in error
+      ? Number((error as { statusCode: unknown }).statusCode)
+      : 502;
+    res.status(status >= 400 && status <= 599 ? status : 502).json({
+      code: typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "GITHUB_REPOSITORY_READ_FAILED",
+      error: "GitHub repository content could not be read.",
+    });
+  }
+});
+
+router.post("/repositories/:owner/:repo/branches", requireOwner, async (req, res) => {
+  const owner = (req as GitHubDeveloperRequest).githubOwner;
+  if (!owner) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
+    return;
+  }
+  const { branch, baseSha, approvalId } = req.body ?? {};
+  const repository = repositoryFromParams(req);
+  if (typeof branch !== "string" || typeof baseSha !== "string" || typeof approvalId !== "string") {
+    res.status(400).json({ code: "INVALID_BRANCH_REQUEST", error: "Branch, base SHA and approval ID are required." });
+    return;
+  }
+  try {
+    const result = await createRepositoryBranch(
+      repository,
+      branch,
+      baseSha,
+      { approvalId },
+      new PostgresGitHubApprovalVerifier(owner.identity.id),
+      ownerVerifier(owner),
+      { token: owner.accessToken },
+    );
+    res.status(201).json(result);
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "statusCode" in error
+      ? Number((error as { statusCode: unknown }).statusCode)
+      : 502;
+    res.status(status >= 400 && status <= 599 ? status : 502).json({
+      code: typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "GITHUB_BRANCH_CREATE_FAILED",
+      error: "GitHub branch could not be created.",
+    });
+  }
+});
+
+router.post("/repositories/:owner/:repo/pull-requests/draft", requireOwner, async (req, res) => {
+  const owner = (req as GitHubDeveloperRequest).githubOwner;
+  if (!owner) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
+    return;
+  }
+  const { head, base, title, body, approvalId } = req.body ?? {};
+  const repository = repositoryFromParams(req);
+  if ([head, base, title, body, approvalId].some((value) => typeof value !== "string")) {
+    res.status(400).json({ code: "INVALID_DRAFT_PR_REQUEST", error: "Head, base, title, body and approval ID are required." });
+    return;
+  }
+  try {
+    const result = await createDraftPullRequest(
+      repository,
+      { head, base, title, body, approval: { approvalId } },
+      new PostgresGitHubApprovalVerifier(owner.identity.id),
+      ownerVerifier(owner),
+      { token: owner.accessToken },
+    );
+    res.status(201).json(result);
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "statusCode" in error
+      ? Number((error as { statusCode: unknown }).statusCode)
+      : 502;
+    res.status(status >= 400 && status <= 599 ? status : 502).json({
+      code: typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "GITHUB_DRAFT_PR_CREATE_FAILED",
+      error: "Draft pull request could not be created.",
+    });
+  }
+});
+
+router.post("/repositories/:owner/:repo/workflows/dispatch", requireOwner, async (req, res) => {
+  const owner = (req as GitHubDeveloperRequest).githubOwner;
+  if (!owner) {
+    res.status(401).json({ code: "GITHUB_OWNER_SESSION_REQUIRED", error: "Owner session is required." });
+    return;
+  }
+  const { workflowId, ref, inputs, approvalId } = req.body ?? {};
+  const repository = repositoryFromParams(req);
+  if (typeof workflowId !== "string" || typeof ref !== "string" || typeof approvalId !== "string") {
+    res.status(400).json({ code: "INVALID_WORKFLOW_DISPATCH_REQUEST", error: "Workflow ID, ref and approval ID are required." });
+    return;
+  }
+  try {
+    await dispatchAllowlistedWorkflow(
+      repository,
+      { workflowId, ref, inputs, approval: { approvalId } },
+      new PostgresGitHubApprovalVerifier(owner.identity.id),
+      ownerVerifier(owner),
+      { token: owner.accessToken },
+    );
+    res.status(202).json({ dispatched: true });
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "statusCode" in error
+      ? Number((error as { statusCode: unknown }).statusCode)
+      : 502;
+    res.status(status >= 400 && status <= 599 ? status : 502).json({
+      code: typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "GITHUB_WORKFLOW_DISPATCH_FAILED",
+      error: "GitHub workflow could not be dispatched.",
+    });
   }
 });
 
