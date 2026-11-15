@@ -4,6 +4,7 @@ import {
   evaluateSafeExpression,
   executeAgentTool,
   handleAgenticAssistantRequest,
+  normalizeStructuredAgentPlan,
   selectAgentModels,
   validateAgenticPayload,
 } from "./agenticAssistant.ts";
@@ -121,6 +122,24 @@ test("agent context is typed, bounded, and rejects oversized memory or skill inp
   assert.equal(validateAgenticPayload({ message: "x", skillContext: "s".repeat(4001) }).ok, false);
 });
 
+test("structured planner accepts valid bounded JSON and rejects malformed or excessive plans", () => {
+  const valid = normalizeStructuredAgentPlan(JSON.stringify({
+    goal: "পরিকল্পনা",
+    steps: [{ id: "one", task: "প্রথম কাজ", success_criteria: "কাজ শেষ" }],
+    risks: ["অনুমোদন ছাড়া কোনো বাহ্যিক কাজ নয়"],
+  }));
+  assert.ok(valid);
+  const parsed = JSON.parse(valid) as { steps: unknown[] };
+  assert.equal(parsed.steps.length, 1);
+  assert.equal(normalizeStructuredAgentPlan("plain text plan"), null);
+  assert.equal(normalizeStructuredAgentPlan(JSON.stringify({ goal: "x", steps: [], risks: [] })), null);
+  assert.equal(normalizeStructuredAgentPlan(JSON.stringify({
+    goal: "x",
+    steps: Array(9).fill({ task: "x", success_criteria: "y" }),
+    risks: [],
+  })), null);
+});
+
 test("model router prioritizes code and reasoning models while retaining free fallbacks", () => {
   const code = selectAgentModels([{ role: "user", content: "Debug this TypeScript code" }]);
   const reasoning = selectAgentModels([{ role: "user", content: "Analyze architecture and compare options" }]);
@@ -163,7 +182,7 @@ test("multi-agent endpoint plans, executes allowlisted tools, reviews, and strea
       assert.deepEqual(payload.response_format, { type: "json_object" });
       assert.ok(payload.messages.some((item) => String(item.content).includes("memory for the owner")));
       assert.ok(payload.messages.some((item) => String(item.content).includes("custom skill instructions")));
-      return completion("ধাপ ১: হিসাব যাচাই");
+      return completion(JSON.stringify({ goal: "হিসাব যাচাই", steps: [{ id: "step-1", task: "৬ × ৭ গণনা", success_criteria: "ফলাফল ৪২" }], risks: [] }));
     }
     if (calls.length === 2) return completion("", [{
       id: "tool-1", function: { name: "calculator", arguments: JSON.stringify({ expression: "6 * 7" }) },
