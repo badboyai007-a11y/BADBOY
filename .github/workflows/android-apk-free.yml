@@ -1,6 +1,15 @@
 name: Build Android APK (Free GitHub Runner)
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [feat/agentic-tool-calling-multi-agent]
+    paths:
+      - "artifacts/mobile/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/android-apk-free.yml"
   workflow_dispatch:
   push:
     paths:
