@@ -11,7 +11,7 @@ const items = [
   { name: 'memory', label: 'মেমোরি', icon: 'bookmark' as const, route: '/(tabs)/memory' },
   { name: 'workflows', label: 'ওয়ার্কফ্লো', icon: 'git-branch' as const, route: '/(tabs)/workflows' },
   { name: 'skills', label: 'Skills', icon: 'book-open' as const, route: '/(tabs)/skills' },
-  { name: 'plugins', label: 'Plugins', icon: 'puzzle' as const, route: '/(tabs)/plugins' },
+  { name: 'plugins', label: 'Plugins', icon: 'package' as const, route: '/(tabs)/plugins' },
   { name: 'settings', label: 'সেটিংস', icon: 'sliders' as const, route: '/(tabs)/settings' },
 ];
 
