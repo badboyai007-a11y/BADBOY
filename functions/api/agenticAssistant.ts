@@ -405,7 +405,11 @@ export function normalizeStructuredAgentPlan(content: string): string | null {
 
 export function selectAgentModels(messages: ChatMessage[]): string[] {
   const latestUser = [...messages].reverse().find((item) => item.role === "user")?.content;
-  const prompt = typeof latestUser === "string" ? latestUser.toLowerCase() : "";
+  const rawPrompt = typeof latestUser === "string" ? latestUser : "";
+  const originalRequest = rawPrompt.includes("Original request:")
+    ? rawPrompt.split("Original request:")[1].split("\n\nPlan:")[0]
+    : rawPrompt;
+  const prompt = originalRequest.toLowerCase();
   const codeTask = /(code|coding|typescript|javascript|python|kotlin|java|debug|bug|refactor|প্রোগ্রামিং|কোড|ডিবাগ)/i.test(prompt);
   const reasoningTask = /(analy[sz]e|reason|plan|compare|architecture|strategy|বিশ্লেষণ|পরিকল্পনা|তুলনা)/i.test(prompt);
   const preferred = codeTask
