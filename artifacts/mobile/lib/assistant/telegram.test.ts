@@ -51,6 +51,7 @@ test('disconnectTelegramBot clears token, chat and update cursor', async () => {
   reset();
   secure.set('oi-assistant-telegram-token', 'token');
   secure.set('oi-assistant-telegram-chat-id', '99');
+  secure.set('oi-assistant-telegram-owner-chat-id', '99');
   secure.set('oi-assistant-telegram-offset', '100');
   await disconnectTelegramBot();
   assert.equal(await hasTelegramBot(), false);
@@ -101,14 +102,15 @@ test('sendTelegramMessage validates bot and chat setup before sending', async ()
   reset();
   await assert.rejects(sendTelegramMessage('hello'), /Connect your bot first/);
   secure.set('oi-assistant-telegram-token', 'bot-token');
-  await assert.rejects(sendTelegramMessage('hello'), /send it \/start first/);
+  await assert.rejects(sendTelegramMessage('hello'), /bind your owner chat first/);
 });
 
 test('sendTelegramMessage sends to the last active chat and propagates API failures', async () => {
   const { sendTelegramMessage } = await telegramPromise;
   reset();
   secure.set('oi-assistant-telegram-token', 'bot-token');
-  secure.set('oi-assistant-telegram-chat-id', '12345');
+  secure.set('oi-assistant-telegram-chat-id', '99999');
+  secure.set('oi-assistant-telegram-owner-chat-id', '12345');
   fetchHandler = async (url, init) => {
     assert.equal(String(url), 'https://api.telegram.org/botbot-token/sendMessage');
     assert.equal(init.method, 'POST');
@@ -127,6 +129,7 @@ test('Telegram owner chat must be explicitly bound and only private chat command
   await assert.rejects(bindTelegramOwnerChat(-1), /invalid/);
   await bindTelegramOwnerChat(12345);
   assert.equal(await getTelegramOwnerChatId(), 12345);
+  assert.equal(secure.get('oi-assistant-telegram-chat-id'), '12345');
   assert.deepEqual(parseTelegramOwnerCommand('/badboy ask আজকের কাজগুলো সাজিয়ে দাও'), {
     kind: 'ask', prompt: 'আজকের কাজগুলো সাজিয়ে দাও',
   });
