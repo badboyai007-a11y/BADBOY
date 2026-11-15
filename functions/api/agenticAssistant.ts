@@ -381,6 +381,7 @@ async function runToolAgent(
   apiKey: string,
   messages: ChatMessage[],
   emit: (event: Record<string, unknown>) => void,
+  env: IntegrationEnv,
 ): Promise<string> {
   let current = [...messages];
   let totalCalls = 0;
@@ -396,7 +397,10 @@ async function runToolAgent(
         current.push({ role: "tool", tool_call_id: call.id, name: call.function.name, content: JSON.stringify({ error: "Tool call budget reached." }) });
         continue;
       }
-      const integrationTools = ["web_research", "home_assistant_states", "slack_history"] as const;\n      const outcome = (integrationTools as readonly string[]).includes(call.function.name)\n        ? await executeReadOnlyIntegrationTool(call.function.name, call.function.arguments, env)\n        : executeAgentTool(call.function.name, call.function.arguments);
+      const integrationTools = ["web_research", "home_assistant_states", "slack_history"] as const;
+      const outcome = (integrationTools as readonly string[]).includes(call.function.name)
+        ? await executeReadOnlyIntegrationTool(call.function.name, call.function.arguments, env)
+        : executeAgentTool(call.function.name, call.function.arguments);
       const serialized = JSON.stringify(outcome.result).slice(0, MAX_TOOL_RESULT_CHARS);
       current.push({
         role: "tool",
@@ -515,7 +519,9 @@ async function streamFinalAnswer(
   });
 }
 
-export interface AgenticAssistantEnv extends IntegrationEnv { OPENROUTER_API_KEY?: string; }\n\nexport async function handleAgenticAssistantRequest(request: Request, env: AgenticAssistantEnv): Promise<Response> {
+export interface AgenticAssistantEnv extends IntegrationEnv { OPENROUTER_API_KEY?: string; }
+
+export async function handleAgenticAssistantRequest(request: Request, env: AgenticAssistantEnv): Promise<Response> {
   const rawBody = await readRequestBody(request);
   if (rawBody instanceof Response) return rawBody;
   const validation = validateAgenticPayload(rawBody);
