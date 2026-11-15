@@ -160,7 +160,7 @@ export default function SettingsScreen() {
           ...projectBrain.frameworks,
           ...projectBrain.apiEndpoints,
           ...projectBrain.knownLimitations,
-        ].join('\\n').slice(0, 4000),
+        ].join('\n').slice(0, 4000),
       });
       setSelectedDeveloperProjectId(project.projectId);
       await refreshDeveloperProjects();
@@ -404,7 +404,7 @@ export default function SettingsScreen() {
 
     Alert.alert(
       'GitHub read-only preview তৈরি করবেন?',
-      `Repository: shomratofficial007-spec/Badboy-VS-Versel-Ai\\nBase branch: main\\nFiles: ${currentPlan.filesToModify.length}\\n\\nএখন শুধু GET/read preview হবে। কোনো branch, file, commit বা Pull Request তৈরি হবে না।`,
+      `Repository: shomratofficial007-spec/Badboy-VS-Versel-Ai\nBase branch: main\nFiles: ${currentPlan.filesToModify.length}\n\nএখন শুধু GET/read preview হবে। কোনো branch, file, commit বা Pull Request তৈরি হবে না।`,
       [
         { text: 'বাতিল', style: 'cancel' },
         {
@@ -439,7 +439,7 @@ export default function SettingsScreen() {
               });
               Alert.alert(
                 'GitHub preview সম্পন্ন',
-                `Base SHA: ${preview.baseSha.slice(0, 12)}\\n\\n${summary.join('\\n')}\\n\\nকোনো branch, file বা PR তৈরি হয়নি।`,
+                `Base SHA: ${preview.baseSha.slice(0, 12)}\n\n${summary.join('\n')}\n\nকোনো branch, file বা PR তৈরি হয়নি।`,
               );
             } catch (err) {
               setDevError(err instanceof Error ? err.message : 'GitHub preview ব্যর্থ হয়েছে।');
