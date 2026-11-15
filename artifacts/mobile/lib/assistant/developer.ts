@@ -458,6 +458,50 @@ export async function executeAgentTask(
     };
   }
 
+  // Safe Android device controls: allowlisted apps and Settings screens only.
+  const openVerb = /\\b(open|launch|start)\\b|খোলো|খুলে দাও|চালু কর/i.test(clean);
+  if (openVerb) {
+    const settingsTargets: Array<{ id: string; pattern: RegExp; label: string }> = [
+      { id: 'wifi', pattern: /wi[- ]?fi|ওয়াই.?ফাই/i, label: 'Wi-Fi settings' },
+      { id: 'bluetooth', pattern: /bluetooth|ব্লুটুথ/i, label: 'Bluetooth settings' },
+      { id: 'sound', pattern: /sound settings|শব্দের সেটিংস/i, label: 'Sound settings' },
+      { id: 'app', pattern: /app settings|অ্যাপ সেটিংস/i, label: 'Badboy app settings' },
+    ];
+    const setting = settingsTargets.find((target) => target.pattern.test(clean));
+    const appTargets: Array<{ id: string; pattern: RegExp; label: string }> = [
+      { id: 'youtube', pattern: /youtube|ইউটিউব/i, label: 'YouTube' },
+      { id: 'chrome', pattern: /chrome|ক্রোম/i, label: 'Chrome' },
+      { id: 'gmail', pattern: /gmail|জিমেইল/i, label: 'Gmail' },
+      { id: 'maps', pattern: /google maps|maps|ম্যাপ/i, label: 'Google Maps' },
+      { id: 'whatsapp', pattern: /whatsapp|হোয়াটসঅ্যাপ/i, label: 'WhatsApp' },
+      { id: 'telegram', pattern: /telegram|টেলিগ্রাম/i, label: 'Telegram' },
+    ];
+    const app = appTargets.find((target) => target.pattern.test(clean));
+    const target = setting ?? app;
+    if (target) {
+      log(`নিরাপদ Android Control target: ${target.label}`);
+      if (!userConfirmed) {
+        return {
+          taskId, state: 'permission_pending', prompt: clean, detectedLanguage,
+          requiresInternet: false, requiresConfirmation: true,
+          confirmationMessage: `আপনি কি ${target.label} খুলতে অনুমতি দিচ্ছেন?`,
+          summary: `${target.label} খোলার আগে আপনার অনুমতি প্রয়োজন।`,
+          logs, latencyMs: Date.now() - startTime,
+        };
+      }
+      return {
+        taskId, state: 'completed', prompt: clean, detectedLanguage,
+        requiresInternet: false, requiresConfirmation: true,
+        summary: `${target.label} খোলার অনুমতি দেওয়া হয়েছে।`,
+        logs,
+        outputData: setting
+          ? { action: 'open_device_settings', settingId: setting.id }
+          : { action: 'open_allowed_app', appId: app!.id },
+        latencyMs: Date.now() - startTime,
+      };
+    }
+  }
+
   // YouTube Commands - Distinctly opening search/deep links vs in-app playback
   if (lower.includes('youtube') || lower.includes('song') || lower.includes('music') || clean.includes('ইউটিউব') || clean.includes('গান')) {
     log('টুল সনাক্তকরণ: YouTube Search & Deep Link Adapter');
