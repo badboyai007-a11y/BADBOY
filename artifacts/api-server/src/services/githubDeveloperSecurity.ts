@@ -331,7 +331,15 @@ export const githubDeveloperCookies = {
 export function githubDeveloperCookieOptions(env: GitHubDeveloperEnv) {
   const appOrigin = requiredEnv(env.APP_ORIGIN, "APP_ORIGIN");
   const parsed = new URL(appOrigin);
-  if (parsed.protocol !== "https:" && parsed.hostname !== "localhost") {
+  if (
+    (parsed.protocol !== "https:" && parsed.hostname !== "localhost") ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.origin !== appOrigin
+  ) {
     throw new GitHubDeveloperSecurityError("APP_ORIGIN must use HTTPS.", 503, "APP_ORIGIN_INVALID");
   }
   return { httpOnly: true, secure: parsed.protocol === "https:", sameSite: "lax" as const, path: "/api/github", maxAge: SESSION_TTL_MS };
