@@ -296,7 +296,7 @@ export async function handleIntegrationRequest(
       if (Object.keys(value).some((key) => !["domain", "service", "entityId"].includes(key))
         || (value.domain !== "light" && value.domain !== "switch")
         || !["turn_on", "turn_off", "toggle"].includes(String(value.service))
-        || typeof value.entityId !== "string" || !/^(light|switch)\\.[a-z0-9_]+$/.test(value.entityId)
+        || typeof value.entityId !== "string" || !/^(light|switch)\.[a-z0-9_]+$/.test(value.entityId)
         || !value.entityId.startsWith(value.domain + ".")) {
         return json({ code: "INVALID_HOME_ASSISTANT_ACTION", error: "Only light/switch turn_on, turn_off, or toggle actions are supported." }, 400);
       }
@@ -324,7 +324,7 @@ export async function handleIntegrationRequest(
     if (Object.keys(body).some((key) => !["domain", "service", "entityId", "approvalToken"].includes(key))
       || (body.domain !== "light" && body.domain !== "switch")
       || !["turn_on", "turn_off", "toggle"].includes(String(body.service))
-      || typeof body.entityId !== "string" || !/^(light|switch)\\.[a-z0-9_]+$/.test(body.entityId)
+      || typeof body.entityId !== "string" || !/^(light|switch)\.[a-z0-9_]+$/.test(body.entityId)
       || !body.entityId.startsWith(String(body.domain) + ".")
       || typeof body.approvalToken !== "string") {
       return json({ code: "INVALID_HOME_ASSISTANT_ACTION", error: "Home Assistant action or approval token is invalid." }, 400);
