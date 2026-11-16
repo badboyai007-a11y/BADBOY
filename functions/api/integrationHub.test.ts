@@ -14,12 +14,15 @@ test("integration status exposes configuration but never provider secrets", () =
     HOME_ASSISTANT_URL: "https://ha.example",
     HOME_ASSISTANT_TOKEN: "secret-ha",
     SLACK_BOT_TOKEN: "secret-slack",
+    SLACK_ALLOWED_CHANNEL_IDS: "C123456,C654321",
     DISCORD_BOT_TOKEN: "secret-discord",
     GOOGLE_CALENDAR_ACCESS_TOKEN: "secret-calendar",
   });
   assert.equal(status.research.configured, true);
   assert.equal(status.homeAssistant.configured, true);
   assert.equal(status.slack.configured, true);
+  assert.equal(status.slack.writeConfigured, true);
+  assert.equal(status.slack.allowedChannelCount, 2);
   assert.equal(status.discord.configured, true);
   assert.equal(status.googleCalendar.configured, true);
   assert.equal(status.providerSecretsStayServerSide, true);
@@ -146,6 +149,31 @@ test("Home Assistant approval accepts dotted entity IDs and rejects domain misma
     db,
   );
   assert.equal(invalid.status, 400);
+});
+
+test("Slack write approval rejects channels outside the server-side allowlist", async () => {
+  const db = {
+    prepare() {
+      const statement = {
+        bind(..._values: unknown[]) { return statement; },
+        async run() { return { success: true, meta: { changes: 1 } }; },
+        async first<T>() { return null as T | null; },
+      };
+      return statement;
+    },
+  };
+  const request = (channel: string) => new Request("https://badboy.test/api/integrations/approval", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider: "slack", action: { channel, text: "approved message" } }),
+  });
+  const env = { SLACK_BOT_TOKEN: "server-secret", SLACK_ALLOWED_CHANNEL_IDS: "C123456" };
+  const blocked = await handleIntegrationRequest(request("C654321"), "/api/integrations/approval", env, fetch, "verified-owner", db);
+  assert.equal(blocked.status, 403);
+  assert.equal((await blocked.json() as { code: string }).code, "SLACK_CHANNEL_NOT_ALLOWED");
+
+  const allowed = await handleIntegrationRequest(request("C123456"), "/api/integrations/approval", env, fetch, "verified-owner", db);
+  assert.equal(allowed.status, 200);
 });
 
 test("Discord history validates channel IDs, keeps the bot token server-side and bounds messages", async () => {
