@@ -4,92 +4,41 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
-import { PROVIDERS, getConnectedProviderIds, removeProviderKey, saveProviderKey, type ProviderId } from '@/lib/assistant/providerManager';
+import { PROVIDERS, getConnectedProviderIds, getProviderBaseUrl, getCloudflareAccountId, saveCloudflareAccountId, saveProviderBaseUrl, removeProviderKey, saveProviderKey, type ProviderId } from '@/lib/assistant/providerManager';
+import { testProviderConnection, type ProviderModel } from '@/lib/assistant/providerChat';
 
 export default function ProviderManagerScreen() {
-  const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const [connected, setConnected] = useState<ProviderId[]>([]);
-  const [expanded, setExpanded] = useState<ProviderId | null>(null);
-  const [drafts, setDrafts] = useState<Partial<Record<ProviderId, string>>>({});
-  const [busy, setBusy] = useState<ProviderId | null>(null);
-
-  const refresh = useCallback(async () => setConnected(await getConnectedProviderIds()), []);
-  useEffect(() => { void refresh(); }, [refresh]);
-
-  const save = async (id: ProviderId) => {
-    const key = drafts[id]?.trim();
-    if (!key) { Alert.alert('API Key প্রয়োজন', 'Provider-এর API Key লিখুন।'); return; }
-    setBusy(id);
-    try {
-      await saveProviderKey(id, key);
-      setDrafts((current) => ({ ...current, [id]: '' }));
-      await refresh();
-      Alert.alert('সংরক্ষিত', 'API Key Android Secure Storage-এ রাখা হয়েছে।');
-    } catch (error) {
-      Alert.alert('সংরক্ষণ ব্যর্থ', error instanceof Error ? error.message : 'API Key সংরক্ষণ করা যায়নি।');
-    } finally { setBusy(null); }
-  };
-
-  const disconnect = (id: ProviderId) => Alert.alert('Provider বিচ্ছিন্ন করবেন?', 'এই Provider-এর সংরক্ষিত API Key মুছে যাবে।', [
-    { text: 'বাতিল', style: 'cancel' },
-    { text: 'বিচ্ছিন্ন করুন', style: 'destructive', onPress: async () => { await removeProviderKey(id); await refresh(); } },
-  ]);
-
-  return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 18, paddingTop: Math.max(insets.top, 12) + 12, paddingBottom: 36, gap: 12 }}>
-      <Pressable onPress={() => router.back()} style={styles.back}><Feather name="arrow-left" size={19} color={colors.foreground}/><Text style={{ color: colors.foreground, fontWeight: '700' }}>Settings</Text></Pressable>
-      <Text style={[styles.title, { color: colors.foreground }]}>Model Provider</Text>
-      <Text style={{ color: colors.mutedForeground, lineHeight: 20 }}>একাধিক AI provider সংযুক্ত করো। API Key এই Android ডিভাইসের Secure Storage-এ রাখা হবে।</Text>
-      {PROVIDERS.map((provider) => {
-        const active = connected.includes(provider.id);
-        const open = expanded === provider.id;
-        return (
-          <View key={provider.id} style={[styles.card, { backgroundColor: colors.card, borderColor: active ? colors.primary : colors.border }]}>
-            <Pressable onPress={() => setExpanded(open ? null : provider.id)} style={styles.row}>
-              <View style={[styles.icon, { backgroundColor: colors.secondary }]}><Feather name="cpu" size={19} color={colors.primary}/></View>
-              <View style={{ flex: 1, gap: 3 }}>
-                <Text style={[styles.name, { color: colors.foreground }]}>{provider.name}</Text>
-                <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{provider.description}</Text>
-              </View>
-              {active ? <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 11 }}>CONNECTED</Text> : null}
-              <Feather name={open ? 'chevron-up' : 'chevron-right'} size={19} color={colors.mutedForeground}/>
-            </Pressable>
-            {open ? (
-              <View style={{ gap: 9, paddingTop: 12 }}>
-                <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>API Base: {provider.baseUrl}</Text>
-                <TextInput value={drafts[provider.id] ?? ''} onChangeText={(value) => setDrafts((current) => ({ ...current, [provider.id]: value }))} placeholder={active ? 'নতুন API Key দিলে replace হবে' : 'API Key লিখুন'} placeholderTextColor={colors.mutedForeground} secureTextEntry autoCapitalize="none" autoCorrect={false} style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}/>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable onPress={() => void save(provider.id)} disabled={busy === provider.id} style={[styles.primary, { backgroundColor: colors.primary, flex: 1 }]}>
-                    {busy === provider.id ? <ActivityIndicator color={colors.primaryForeground}/> : <Feather name="lock" size={15} color={colors.primaryForeground}/>}
-                    <Text style={{ color: colors.primaryForeground, fontWeight: '800' }}>Save Key</Text>
-                  </Pressable>
-                  {active ? <Pressable onPress={() => disconnect(provider.id)} style={[styles.secondary, { borderColor: colors.border }]}><Text style={{ color: colors.destructive, fontWeight: '700' }}>Disconnect</Text></Pressable> : null}
-                </View>
-                <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>সংযোগ পরীক্ষা ও Live Model Discovery পরবর্তী ধাপে যুক্ত হবে। Free quota provider ও account অনুযায়ী বদলাতে পারে।</Text>
-              </View>
-            ) : null}
-          </View>
-        );
-      })}
-      <Pressable onPress={() => router.push('/(tabs)/models' as never)} style={[styles.card, styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={[styles.icon, { backgroundColor: colors.secondary }]}><Feather name="sliders" size={19} color={colors.primary}/></View>
-        <View style={{ flex: 1 }}><Text style={[styles.name, { color: colors.foreground }]}>Default Models</Text><Text style={{ color: colors.mutedForeground, fontSize: 12 }}>Default ও custom model নির্বাচন</Text></View>
-        <Feather name="chevron-right" size={19} color={colors.mutedForeground}/>
-      </Pressable>
-    </ScrollView>
-  );
+ const colors=useColors();const insets=useSafeAreaInsets();const router=useRouter();
+ const [connected,setConnected]=useState<ProviderId[]>([]);const [expanded,setExpanded]=useState<ProviderId|null>(null);
+ const [drafts,setDrafts]=useState<Partial<Record<ProviderId,string>>>({});const [bases,setBases]=useState<Partial<Record<ProviderId,string>>>({});
+ const [accountId,setAccountId]=useState('');const [busy,setBusy]=useState<ProviderId|null>(null);const [testing,setTesting]=useState<ProviderId|null>(null);
+ const [results,setResults]=useState<Partial<Record<ProviderId,{message:string;models:ProviderModel[]}>>>({});
+ const [errors,setErrors]=useState<Partial<Record<ProviderId,string>>>({});
+ const refresh=useCallback(async()=>{setConnected(await getConnectedProviderIds());const cf=await getCloudflareAccountId();setAccountId(cf||'');},[]);
+ useEffect(()=>{void refresh();},[refresh]);
+ const openProvider=async(id:ProviderId)=>{setExpanded(expanded===id?null:id);if(expanded!==id){setBases(v=>({...v,[id]:v[id]||''}));}};
+ const save=async(id:ProviderId)=>{const key=drafts[id]?.trim();if(!key){Alert.alert('API Key প্রয়োজন','Provider-এর API Key লিখুন।');return;}setBusy(id);setErrors(v=>({...v,[id]:''}));try{if(id==='omniroute'&&bases[id]?.trim())await saveProviderBaseUrl(id,bases[id]!);if(id==='cloudflare'&&accountId.trim())await saveCloudflareAccountId(accountId);await saveProviderKey(id,key);setDrafts(v=>({...v,[id]:''}));await refresh();Alert.alert('Key সংরক্ষিত','এখন Test Connection চাপো। Key Android Secure Storage-এ আছে।');}catch(e){Alert.alert('সংরক্ষণ ব্যর্থ',e instanceof Error?e.message:'Could not save provider.');}finally{setBusy(null);}};
+ const test=async(id:ProviderId)=>{setTesting(id);setErrors(v=>({...v,[id]:''}));try{const result=await testProviderConnection(id);setResults(v=>({...v,[id]:result}));}catch(e){setErrors(v=>({...v,[id]:e instanceof Error?e.message:'Connection test failed.'}));setResults(v=>({...v,[id]:undefined}));}finally{setTesting(null);}};
+ const disconnect=(id:ProviderId)=>Alert.alert('Provider disconnect করবেন?','সংরক্ষিত API Key মুছে যাবে।',[{text:'Cancel',style:'cancel'},{text:'Disconnect',style:'destructive',onPress:async()=>{await removeProviderKey(id);setResults(v=>({...v,[id]:undefined}));await refresh();}}]);
+ const freeLabel=(kind:string)=>kind==='trial'?'Trial':kind==='quota'?'Quota-based':kind==='account-dependent'?'Account-based':kind==='self-hosted'?'Local / Self-hosted':'Free tier';
+ return <ScrollView style={{flex:1,backgroundColor:colors.background}} contentContainerStyle={{padding:18,paddingTop:Math.max(insets.top,12)+10,paddingBottom:40,gap:12}}>
+  <Pressable onPress={()=>router.back()} style={styles.back}><Feather name="arrow-left" size={19} color={colors.foreground}/><Text style={{color:colors.foreground,fontWeight:'700'}}>Settings</Text></Pressable>
+  <Text style={[styles.title,{color:colors.foreground}]}>Model Provider</Text>
+  <Text style={{color:colors.mutedForeground,lineHeight:20}}>Provider সংযোগ করো, API পরীক্ষা করো এবং উপলব্ধ Model স্বয়ংক্রিয়ভাবে আনো। Free quota ও account eligibility provider অনুযায়ী বদলায়।</Text>
+  {PROVIDERS.map(provider=>{const active=connected.includes(provider.id);const open=expanded===provider.id;const result=results[provider.id];return <View key={provider.id} style={[styles.card,{backgroundColor:colors.card,borderColor:result?colors.primary:colors.border}]}>
+   <Pressable onPress={()=>void openProvider(provider.id)} style={styles.row}><View style={[styles.icon,{backgroundColor:colors.secondary}]}><Feather name="cpu" size={19} color={colors.primary}/></View><View style={{flex:1,gap:3}}><Text style={[styles.name,{color:colors.foreground}]}>{provider.name}</Text><Text style={{color:colors.mutedForeground,fontSize:12}}>{freeLabel(provider.freeTier)} · {provider.description}</Text></View>{result?<Feather name="check-circle" color={colors.primary} size={18}/>:active?<Text style={{color:colors.mutedForeground,fontSize:10,fontWeight:'800'}}>KEY SAVED</Text>:null}<Feather name={open?'chevron-up':'chevron-right'} size={19} color={colors.mutedForeground}/></Pressable>
+   {open?<View style={{gap:9,paddingTop:12}}>
+    {provider.id==='omniroute'?<><Text style={{color:colors.mutedForeground,fontSize:12}}>API Base URL (same phone: http://127.0.0.1:20128/v1)</Text><TextInput value={bases.omniroute??''} onChangeText={v=>setBases(x=>({...x,omniroute:v}))} placeholder={provider.baseUrl} placeholderTextColor={colors.mutedForeground} autoCapitalize="none" style={[styles.input,{color:colors.foreground,borderColor:colors.border}]}/></>:null}
+    {provider.id==='cloudflare'?<><Text style={{color:colors.mutedForeground,fontSize:12}}>Cloudflare Account ID (32-character ID)</Text><TextInput value={accountId} onChangeText={setAccountId} placeholder="Account ID" placeholderTextColor={colors.mutedForeground} autoCapitalize="none" style={[styles.input,{color:colors.foreground,borderColor:colors.border}]}/></>:null}
+    <TextInput value={drafts[provider.id]??''} onChangeText={v=>setDrafts(x=>({...x,[provider.id]:v}))} placeholder={active?'নতুন API Key দিলে replace হবে':'API Key'} placeholderTextColor={colors.mutedForeground} secureTextEntry autoCapitalize="none" autoCorrect={false} style={[styles.input,{color:colors.foreground,borderColor:colors.border}]}/>
+    <View style={{flexDirection:'row',gap:8}}><Pressable onPress={()=>void save(provider.id)} disabled={busy===provider.id} style={[styles.primary,{backgroundColor:colors.primary,flex:1}]}>{busy===provider.id?<ActivityIndicator color={colors.primaryForeground}/>:<Feather name="lock" size={15} color={colors.primaryForeground}/>}<Text style={{color:colors.primaryForeground,fontWeight:'800'}}>Save Key</Text></Pressable><Pressable onPress={()=>void test(provider.id)} disabled={!active||testing===provider.id} style={[styles.secondary,{borderColor:colors.border,opacity:active?1:.5}]}>{testing===provider.id?<ActivityIndicator color={colors.primary}/>:<Feather name="activity" size={15} color={colors.primary}/>}<Text style={{color:colors.foreground,fontWeight:'700'}}>Test</Text></Pressable></View>
+    {errors[provider.id]?<Text style={{color:colors.destructive,fontSize:12}}>{errors[provider.id]}</Text>:null}
+    {result?<View style={{backgroundColor:colors.secondary,borderRadius:12,padding:10,gap:5}}><Text style={{color:colors.primary,fontWeight:'800',fontSize:12}}>CONNECTION VERIFIED</Text><Text style={{color:colors.foreground,fontSize:12}}>{result.message}</Text><Text style={{color:colors.mutedForeground,fontSize:12}}>Discovered models: {result.models.length}</Text>{result.models.slice(0,5).map(m=><Text key={m.id} style={{color:colors.foreground,fontSize:12}}>• {m.id}</Text>)}{result.models.length>5?<Text style={{color:colors.mutedForeground,fontSize:11}}>আরও {result.models.length-5}টি Model Default Models-এ পাওয়া যাবে।</Text>:null}</View>:null}
+    <Text style={{color:colors.mutedForeground,fontSize:11}}>API Key ডিভাইসের Secure Storage-এ থাকে। Test সফল না হওয়া পর্যন্ত Provider-কে Connected ধরা হবে না।</Text>
+    {active?<Pressable onPress={()=>disconnect(provider.id)}><Text style={{color:colors.destructive,fontWeight:'700',fontSize:12}}>Disconnect and delete key</Text></Pressable>:null}
+   </View>:null}
+  </View>})}
+  <Pressable onPress={()=>router.push('/(tabs)/models' as never)} style={[styles.card,styles.row,{backgroundColor:colors.card,borderColor:colors.border}]}><View style={[styles.icon,{backgroundColor:colors.secondary}]}><Feather name="sliders" size={19} color={colors.primary}/></View><View style={{flex:1}}><Text style={[styles.name,{color:colors.foreground}]}>Default Models</Text><Text style={{color:colors.mutedForeground,fontSize:12}}>Discovered model বেছে নাও</Text></View><Feather name="chevron-right" size={19} color={colors.mutedForeground}/></Pressable>
+ </ScrollView>;
 }
-
-const styles = StyleSheet.create({
-  back: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  title: { fontSize: 27, fontWeight: '900' },
-  card: { borderWidth: 1, borderRadius: 18, padding: 13 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  icon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  name: { fontSize: 15, fontWeight: '800' },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
-  primary: { minHeight: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7 },
-  secondary: { minHeight: 42, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
-});
+const styles=StyleSheet.create({back:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8},title:{fontSize:27,fontWeight:'900'},card:{borderWidth:1,borderRadius:18,padding:13},row:{flexDirection:'row',alignItems:'center',gap:11},icon:{width:42,height:42,borderRadius:14,alignItems:'center',justifyContent:'center'},name:{fontSize:15,fontWeight:'800'},input:{borderWidth:1,borderRadius:12,paddingHorizontal:12,paddingVertical:11},primary:{minHeight:42,borderRadius:12,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:7},secondary:{minHeight:42,borderWidth:1,borderRadius:12,paddingHorizontal:12,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:7}});
