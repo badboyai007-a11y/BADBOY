@@ -86,10 +86,23 @@ export function isOwnerLoginRequiredError(error: unknown): boolean {
 }
 
 export async function restoreOwnerSession(): Promise<boolean> {
-  // Re-read native persistence at app startup instead of trusting this module's
-  // in-memory cache. This makes a fresh JS runtime restore test meaningful and
-  // detects a token that was cleared from SecureStore outside this module.
-  if (isWebPlatform()) return Boolean(activeToken);
-  activeToken = null;
-  return Boolean(await getOwnerToken());
+  // Never unlock the app merely because a token string exists. Re-read secure
+  // persistence on native startup and verify it with the Worker before the
+  // authenticated tabs can mount. Invalid/expired tokens are removed.
+  let token: string | null = null;
+  if (isWebPlatform()) {
+    token = activeToken;
+  } else {
+    activeToken = null;
+    token = await getOwnerToken();
+  }
+  if (!token) return false;
+  try {
+    await verifyOwnerToken(token);
+    activeToken = token;
+    return true;
+  } catch {
+    await clearOwnerToken().catch(() => undefined);
+    return false;
+  }
 }
