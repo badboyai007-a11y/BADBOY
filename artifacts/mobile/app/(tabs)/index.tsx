@@ -1135,6 +1135,26 @@ export default function ChatScreen() {
         />
       )}
 
+      {messages.length > 0 && quickActionsExpanded ? (
+        <View style={[styles.quickGrid,{paddingHorizontal:12,paddingVertical:8,backgroundColor:colors.background}]}>
+          {[
+            { label: 'Coding', icon: 'code', prompt: 'আমাকে coding-এ সাহায্য করো।' },
+            { label: 'Research', icon: 'search', prompt: 'এই বিষয়ে বিস্তারিত research করো: ' },
+            { label: 'Memory', icon: 'database', prompt: 'আমার saved memory থেকে প্রাসঙ্গিক তথ্য খুঁজে দাও।' },
+            { label: 'Developer', icon: 'terminal', prompt: 'Developer mode-এ এই কাজটি বিশ্লেষণ করো: ' },
+            { label: 'Voice', icon: 'mic', prompt: 'Voice settings ও voice workflow সাহায্য করো।' },
+            { label: 'Android', icon: 'smartphone', prompt: 'Android control-এর জন্য সাহায্য করো: ' },
+            { label: 'Tools', icon: 'tool', prompt: 'উপযুক্ত tools ব্যবহার করে কাজটি করো: ' },
+            { label: 'Creative', icon: 'edit-3', prompt: 'সৃজনশীলভাবে এটি তৈরি করো: ' },
+          ].map((item) => (
+            <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{backgroundColor:colors.card,borderColor:colors.border}]}>
+              <Feather name={item.icon as any} size={17} color={colors.primary}/>
+              <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       {error ? (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive }]}>
           <Feather name="alert-triangle" size={16} color={colors.destructiveForeground} />
