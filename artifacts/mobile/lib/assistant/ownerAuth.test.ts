@@ -3,6 +3,7 @@ import { afterEach, mock, test } from 'node:test';
 import {
   clearOwnerToken,
   getOwnerToken,
+  isOwnerLoginRequiredError,
   restoreOwnerSession,
   saveOwnerToken,
   verifyOwnerToken,
@@ -137,4 +138,14 @@ test('handles a successful HTTP response without authenticated confirmation as f
   )) as typeof fetch;
 
   await assert.rejects(verifyOwnerToken(OWNER_TOKEN), /Owner authentication failed/);
+});
+
+
+test('recognizes the Worker owner-login-required response shown in chat', () => {
+  assert.equal(
+    isOwnerLoginRequiredError(new Error('Owner login is required. Enter your Badboy Owner Token to continue.')),
+    true,
+  );
+  assert.equal(isOwnerLoginRequiredError(new Error('Network request failed')), false);
+  assert.equal(isOwnerLoginRequiredError(new Error('AI provider quota exceeded')), false);
 });
