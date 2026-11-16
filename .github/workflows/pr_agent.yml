@@ -17,6 +17,8 @@ concurrency:
 
 jobs:
   pr_agent_job:
+    # Dependabot PRs do not receive repository Actions secrets; avoid a guaranteed Gemini-key failure.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     name: Run PR Agent
     steps:
