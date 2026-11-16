@@ -32,10 +32,10 @@ export default function DefaultModelsScreen() {
     await SecureStore.setItemAsync(MODEL_KEY, JSON.stringify(choice));
     Alert.alert('Default Model সেট হয়েছে', choice.modelId);
   };
-  const addCustom = async () => {
+  const addCustom = async (targetProviderId: ProviderId) => {
     const id = modelId.trim();
     if (!id) return;
-    const next = [...customModels.filter((item) => !(item.providerId === providerId && item.modelId === id)), { providerId, modelId: id, label: id }];
+    const next = [...customModels.filter((item) => !(item.providerId === targetProviderId && item.modelId === id)), { providerId: targetProviderId, modelId: id, label: id }];
     setCustomModels(next);
     await SecureStore.setItemAsync(CUSTOM_KEY, JSON.stringify(next));
     setModelId('');
@@ -57,7 +57,7 @@ export default function DefaultModelsScreen() {
           {customModels.filter((item) => item.providerId === id).map((item) => <Pressable key={item.modelId} onPress={() => void choose(item)} style={[styles.modelRow, { borderColor: colors.border }]}><Text style={{ color: colors.foreground, flex: 1 }}>{item.modelId}</Text><Feather name={selected?.modelId === item.modelId && selected.providerId === id ? 'check-circle' : 'circle'} color={colors.primary} size={17}/></Pressable>)}
           <View style={{ flexDirection: 'row', gap: 7, marginTop: 9 }}>
             <TextInput value={providerId === id ? modelId : ''} onFocus={() => setProviderId(id)} onChangeText={(value) => { setProviderId(id); setModelId(value); }} placeholder="Model ID (e.g. provider/model)" placeholderTextColor={colors.mutedForeground} autoCapitalize="none" autoCorrect={false} style={[styles.input, { color: colors.foreground, borderColor: colors.border, flex: 1 }]}/>
-            <Pressable onPress={() => { setProviderId(id); void addCustom(); }} style={[styles.add, { backgroundColor: colors.primary }]}><Feather name="plus" size={17} color={colors.primaryForeground}/></Pressable>
+            <Pressable onPress={() => { setProviderId(id); void addCustom(id); }} style={[styles.add, { backgroundColor: colors.primary }]}><Feather name="plus" size={17} color={colors.primaryForeground}/></Pressable>
           </View>
           {active ? <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700', marginTop: 8 }}>Default: {selected?.modelId}</Text> : null}
         </View>;
