@@ -51,6 +51,7 @@ import { useColors } from '@/hooks/useColors';
 import { getOfflineWakeWordStatus, startOfflineWakeWord, stopOfflineWakeWord, subscribeToWakeWord, subscribeToWakeWordStatus } from '@/lib/assistant/wakeWord';
 import { getActiveCustomSkillContext } from '@/lib/assistant/skillStorage';
 import { loadEnabledPluginIds } from '@/lib/assistant/pluginStorage';
+import { getDefaultModel, getProvider, type ModelChoice } from '@/lib/assistant/providerManager';
 
 const VOICE_RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
@@ -90,6 +91,8 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
+  const [defaultModel, setDefaultModel] = useState<ModelChoice | null>(null);
   const [drawerModal, setDrawerModal] = useState<'search' | 'history' | 'options' | 'newChat' | null>(null);
   const [chatSearch, setChatSearch] = useState('');
   const { messages, setMessages, settings, updateSettings, setExpertReviewDraft } = useAssistant();
@@ -118,6 +121,8 @@ export default function ChatScreen() {
   wakeWordAllowedRef.current = Platform.OS === 'android' && settings.voiceProcessingConsent && settings.wakeWordEnabled && settings.voiceInputEnabled;
 
   useEffect(() => { setSelectedLang(settings.voiceLanguage); }, [settings.voiceLanguage]);
+  useEffect(() => { void getDefaultModel().then(setDefaultModel).catch(() => setDefaultModel(null)); }, []);
+  useEffect(() => { if (messages.length > 0) setQuickActionsExpanded(false); }, [messages.length]);
   useEffect(() => {
     if (!settings.voiceOutputEnabled) {
       stopSpeaking();
@@ -918,6 +923,9 @@ export default function ChatScreen() {
         <Pressable onPress={showChatOptions} accessibilityRole="button" accessibilityLabel="চ্যাট অপশন খুলুন" style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 6 }]}>
           <Feather name="more-horizontal" size={19} color={colors.foreground} />
         </Pressable>
+        <Pressable onPress={() => setQuickActionsExpanded((value) => !value)} accessibilityRole="button" accessibilityLabel={quickActionsExpanded ? 'Quick actions hide করুন' : 'Quick actions দেখান'} style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 4 }]}>
+          <Feather name="settings" size={17} color={colors.foreground}/>
+        </Pressable>
 
         {/* Language Selector Toggle */}
         <Pressable
@@ -941,6 +949,17 @@ export default function ChatScreen() {
         </Pressable>
       </View>
 
+      <Pressable
+        onPress={() => router.push('/(tabs)/providers' as never)}
+        accessibilityRole="button"
+        accessibilityLabel="Default provider ও model settings"
+        style={[styles.providerStrip, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+      >
+        <View style={styles.providerMini}><Feather name="cpu" size={12} color={colors.primary}/><Text numberOfLines={1} style={[styles.providerMiniText,{color:colors.foreground}]}>{defaultModel ? (getProvider(defaultModel.providerId)?.name || defaultModel.providerId) : 'Provider not selected'}</Text></View>
+        <View style={[styles.providerDivider,{backgroundColor:colors.border}]}/>
+        <View style={styles.providerMini}><Feather name="layers" size={12} color={colors.primary}/><Text numberOfLines={1} style={[styles.providerMiniText,{color:colors.foreground,flex:1}]}>{defaultModel?.label || defaultModel?.modelId || 'Choose model'}</Text></View>
+        <View style={[styles.onlinePill,{backgroundColor:settings.onlineAI?'rgba(22,190,120,0.13)':'rgba(140,140,140,0.14)'}]}><View style={[styles.onlineDot,{backgroundColor:settings.onlineAI?'#19C783':'#929292'}]}/><Text style={[styles.onlineText,{color:settings.onlineAI?'#19C783':colors.mutedForeground}]}>{settings.onlineAI?'ONLINE':'OFFLINE'}</Text></View>
+      </Pressable>
 
       {drawerOpen ? (
         <View style={[styles.drawerScrim, { backgroundColor: 'rgba(0,0,0,0.58)' }]}>
@@ -1071,17 +1090,25 @@ export default function ChatScreen() {
           <Text style={[styles.welcomeText, { color: colors.mutedForeground }]}>
             আমি তোমার AI সহকারী। নিচের একটি বিষয় বেছে নাও অথবা মেসেজ লিখে শুরু করো।
           </Text>
-          <View style={styles.suggestions}>
-            {['কোড লিখতে সাহায্য', 'নতুন কিছু শিখি', 'প্রজেক্ট ঠিক করি', 'একটি সৃজনশীল গল্প লেখো'].map((item) => (
-              <Pressable
-                key={item}
-                onPress={() => setDraft(item)}
-                style={[styles.suggestion, { borderColor: colors.border, backgroundColor: colors.card }]}
-              >
-                <Text style={{ color: colors.foreground, fontSize: 14 }}>{item}</Text>
-              </Pressable>
-            ))}
-          </View>
+          {quickActionsExpanded ? (
+            <View style={styles.quickGrid}>
+              {[
+                { label: 'Coding', icon: 'code', prompt: 'আমাকে coding-এ সাহায্য করো।' },
+                { label: 'Research', icon: 'search', prompt: 'এই বিষয়ে বিস্তারিত research করো: ' },
+                { label: 'Memory', icon: 'database', prompt: 'আমার saved memory থেকে প্রাসঙ্গিক তথ্য খুঁজে দাও।' },
+                { label: 'Developer', icon: 'terminal', prompt: 'Developer mode-এ এই কাজটি বিশ্লেষণ করো: ' },
+                { label: 'Voice', icon: 'mic', prompt: 'Voice settings ও voice workflow সাহায্য করো।' },
+                { label: 'Android', icon: 'smartphone', prompt: 'Android control-এর জন্য সাহায্য করো: ' },
+                { label: 'Tools', icon: 'tool', prompt: 'উপযুক্ত tools ব্যবহার করে কাজটি করো: ' },
+                { label: 'Creative', icon: 'edit-3', prompt: 'সৃজনশীলভাবে এটি তৈরি করো: ' },
+              ].map((item) => (
+                <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{backgroundColor:colors.card,borderColor:colors.border}]}>
+                  <Feather name={item.icon as any} size={17} color={colors.primary}/>
+                  <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : (
         <FlatList
@@ -1202,6 +1229,16 @@ const styles = StyleSheet.create({
   searchInput: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, marginBottom: 10 },
   historyItem: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   header: { paddingHorizontal: 14, paddingBottom: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, columnGap: 6, rowGap: 8 },
+  providerStrip:{minHeight:30,paddingHorizontal:12,paddingVertical:5,flexDirection:'row',alignItems:'center',gap:8,borderBottomWidth:1},
+  providerMini:{flexDirection:'row',alignItems:'center',gap:5,minWidth:0},
+  providerMiniText:{fontSize:10,fontWeight:'800',maxWidth:115},
+  providerDivider:{width:1,height:15},
+  onlinePill:{marginLeft:'auto',borderRadius:20,paddingHorizontal:7,paddingVertical:4,flexDirection:'row',alignItems:'center',gap:4},
+  onlineDot:{width:5,height:5,borderRadius:3},
+  onlineText:{fontSize:8,fontWeight:'900',letterSpacing:.5},
+  quickGrid:{width:'100%',flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:7,marginTop:22},
+  quickAction:{width:'30%',minHeight:55,borderWidth:1,borderRadius:13,alignItems:'center',justifyContent:'center',gap:5,padding:7},
+
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, flexShrink: 1, minWidth: 150 },
   titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   brandTitle: { fontSize: 16, fontWeight: '700', letterSpacing: 0.5, flexShrink: 1 },
