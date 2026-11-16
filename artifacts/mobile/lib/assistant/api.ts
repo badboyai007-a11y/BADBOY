@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import type { AssistantSettings } from '@/lib/assistant/types';
 import { getTranscriptionLanguageCode } from './transcriptionLanguage';
 import { getOwnerToken } from './ownerAuth';
+import { streamProviderReply } from './providerChat';
 
 // This repository deploys its own Worker; do not send native APK traffic to the
 // unrelated legacy Voice-Memory-Assistant Worker.
@@ -64,6 +65,13 @@ export async function streamReply(
   settings: AssistantSettings,
   onChunk: (chunk: string) => void,
 ) {
+  // A locally selected provider/model takes precedence for ordinary chat.
+  // Agentic chat and developer workflows keep their existing owner-authenticated orchestration path.
+  const providerHandled = await streamProviderReply(
+    `${settings.personality}\n\nLanguage preference: ${settings.voiceLanguage}.\n\n${message}`,
+    onChunk,
+  );
+  if (providerHandled) return;
   const response = await expoFetch(apiUrl('/assistant/chat'), {
     method: 'POST',
     headers: {
