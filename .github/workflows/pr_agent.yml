@@ -18,9 +18,12 @@ concurrency:
 jobs:
   pr_agent_job:
     runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     name: Run PR Agent
     steps:
       - id: pr-agent
+        if: env.GEMINI_API_KEY != '' && (github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]')
         uses: Codium-ai/pr-agent@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,6 +36,6 @@ jobs:
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "false"
           github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "review_requested", "synchronize", "edited"]'
-          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ env.GEMINI_API_KEY }}
           config.git_provider: "github"
           config.allow_bugs: "true"
