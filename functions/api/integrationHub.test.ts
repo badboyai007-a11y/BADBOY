@@ -96,11 +96,15 @@ test("Slack history validates channel and returns bounded messages", async () =>
   assert.equal(result.messages[0].text, "hello");
 });
 
-test("side-effecting integration actions fail closed without one-time owner approval", async () => {
-  const response = await handleIntegrationRequest(new Request("https://badboy.test/api/integrations/slack/send", { method: "POST" }), "/api/integrations/slack/send", { SLACK_BOT_TOKEN: "secret" });
-  assert.equal(response.status, 403);
-  const body = await response.json() as { sideEffectsAllowed: boolean };
-  assert.equal(body.sideEffectsAllowed, false);
+test("side-effecting integration actions fail closed when approval identity or storage is unavailable", async () => {
+  const response = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/slack/send", { method: "POST" }),
+    "/api/integrations/slack/send",
+    { SLACK_BOT_TOKEN: "secret" },
+  );
+  assert.equal(response.status, 503);
+  const body = await response.json() as { code: string };
+  assert.equal(body.code, "APPROVAL_STORAGE_NOT_CONFIGURED");
 });
 
 
