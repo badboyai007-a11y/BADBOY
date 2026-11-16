@@ -61,7 +61,7 @@ export default function OwnerLoginScreen() {
       <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content,{paddingTop:Math.max(insets.top,12)+8,paddingBottom:Math.max(insets.bottom,16)+14,minHeight:height}]}>
           <View style={styles.topLine}><Text style={styles.kicker}>THINK BEYOND</Text><Text style={styles.kickerRed}>LIMITS.</Text><View style={styles.live}><View style={styles.liveDot}/><Text style={styles.liveText}>SECURE SYSTEM</Text></View></View>
-          <View style={styles.hero}><DarkAiEmblem/></View>
+          <View style={[styles.hero,{height:Math.min(270,Math.max(180,height*.28))}]}><DarkAiEmblem/></View>
           <View style={styles.brandWrap}>
             <Text style={styles.brand}>BADBOY <Text style={styles.brandRed}>AI</Text></Text>
             <Text style={styles.tagline}>SMART  •  SECURE  •  POWERFUL</Text>
@@ -110,7 +110,7 @@ const styles=StyleSheet.create({
  live:{marginLeft:'auto',flexDirection:'row',alignItems:'center',gap:6,borderWidth:1,borderColor:'#48265D',borderRadius:20,paddingHorizontal:9,paddingVertical:5},
  liveDot:{width:6,height:6,borderRadius:3,backgroundColor:'#2BEEA5'},
  liveText:{color:'#B8AFCB',fontSize:8,fontWeight:'900',letterSpacing:1},
- hero:{height:Math.min(270,Math.max(180, height*.28)),width:'100%',alignSelf:'center'},
+ hero:{height:220,width:'100%',alignSelf:'center'},
  brandWrap:{alignItems:'center',marginTop:-8,marginBottom:9},
  brand:{color:'#F6F4FF',fontSize:38,fontWeight:'900',fontStyle:'italic',letterSpacing:-1.5,textShadowColor:'#A100FF',textShadowRadius:15},
  brandRed:{color:'#FF284F'},
