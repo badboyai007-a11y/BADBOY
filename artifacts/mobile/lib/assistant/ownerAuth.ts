@@ -77,6 +77,14 @@ export async function verifyOwnerToken(token: string): Promise<void> {
   }
 }
 
+/** Identify Worker responses that require the owner to authenticate again. */
+export function isOwnerLoginRequiredError(error: unknown): boolean {
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'string' ? error : '';
+  return /owner login is required|owner (?:token|authentication).*?(?:invalid|expired|required|401)|(?:401|403).*?(?:owner|auth)/i.test(message);
+}
+
 export async function restoreOwnerSession(): Promise<boolean> {
   // Re-read native persistence at app startup instead of trusting this module's
   // in-memory cache. This makes a fresh JS runtime restore test meaningful and

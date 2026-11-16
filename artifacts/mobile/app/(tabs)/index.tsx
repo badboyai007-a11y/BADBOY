@@ -28,6 +28,8 @@ import {
   isGeneralMusicRequest,
 } from '@/lib/assistant/youtube';
 import { useAssistant } from '@/context/AssistantContext';
+import { useOwnerAuth } from '@/context/OwnerAuthContext';
+import { isOwnerLoginRequiredError } from '@/lib/assistant/ownerAuth';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { searchAgentMemory, streamAgenticReply, streamReply, transcribeRecordedAudio } from '@/lib/assistant/api';
@@ -91,6 +93,7 @@ export default function ChatScreen() {
   const [drawerModal, setDrawerModal] = useState<'search' | 'history' | 'options' | 'newChat' | null>(null);
   const [chatSearch, setChatSearch] = useState('');
   const { messages, setMessages, settings, updateSettings, setExpertReviewDraft } = useAssistant();
+  const { signOut } = useOwnerAuth();
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [improving, setImproving] = useState(false);
@@ -1108,7 +1111,22 @@ export default function ChatScreen() {
       {error ? (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive }]}>
           <Feather name="alert-triangle" size={16} color={colors.destructiveForeground} />
-          <Text style={{ color: colors.destructiveForeground, flex: 1, fontSize: 13, lineHeight: 18 }}>{error}</Text>
+          <View style={{ flex: 1, gap: 8 }}>
+            <Text style={{ color: colors.destructiveForeground, fontSize: 13, lineHeight: 18 }}>{error}</Text>
+            {isOwnerLoginRequiredError(error) ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  void signOut().catch((cause) => {
+                    setError(cause instanceof Error ? cause.message : 'Owner session reset করা যায়নি। আবার চেষ্টা করুন।');
+                  });
+                }}
+                style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.destructiveForeground }}
+              >
+                <Text style={{ color: colors.destructive, fontWeight: '800', fontSize: 13 }}>Owner Login খুলুন</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ) : null}
 
