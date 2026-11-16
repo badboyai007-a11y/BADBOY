@@ -13,7 +13,8 @@ export const PROVIDERS: ProviderDefinition[] = [
 {id:'cloudflare',name:'Cloudflare Workers AI',description:'Requires Account ID + API token; quota-based',freeTier:'quota',baseUrl:'https://api.cloudflare.com/client/v4',docsUrl:'https://developers.cloudflare.com/workers-ai/',compatible:'cloudflare'},
 {id:'cohere',name:'Cohere',description:'Trial limits; uses native Chat API',freeTier:'trial',baseUrl:'https://api.cohere.com',docsUrl:'https://docs.cohere.com/',compatible:'cohere'},
 {id:'nvidia',name:'NVIDIA NIM',description:'Availability and credits depend on account',freeTier:'account-dependent',baseUrl:'https://integrate.api.nvidia.com/v1',docsUrl:'https://docs.nvidia.com/nim/',compatible:'openai'},
-{id:'omniroute',name:'OmniRoute (Termux)',description:'Local router; same-phone URL uses 127.0.0.1',freeTier:'self-hosted',baseUrl:'http://127.0.0.1:20128/v1',docsUrl:'https://github.com/Deep-orbit/OmniRoute',compatible:'openai'},\n{id:'custom',name:'Custom Provider',description:'নিজের HTTPS OpenAI-compatible API endpoint',freeTier:'account-dependent',baseUrl:'',docsUrl:'',compatible:'openai'},
+{id:'omniroute',name:'OmniRoute (Termux)',description:'Local router; same-phone URL uses 127.0.0.1',freeTier:'self-hosted',baseUrl:'http://127.0.0.1:20128/v1',docsUrl:'https://github.com/Deep-orbit/OmniRoute',compatible:'openai'},
+{id:'custom',name:'Custom Provider',description:'নিজের HTTPS OpenAI-compatible API endpoint',freeTier:'account-dependent',baseUrl:'',docsUrl:'',compatible:'openai'},
 ];
 const KEY='badboy.ai.provider-key.', BASE='badboy.ai.provider-base.', ACCOUNT='badboy.ai.provider-account.', DEFAULT='badboy.ai.default-model.v2', CUSTOM='badboy.ai.custom-models.v2';
 export interface ModelChoice {providerId:ProviderId;modelId:string;label:string;}
