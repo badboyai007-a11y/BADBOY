@@ -97,6 +97,37 @@ test('checkTelegramMessages skips cursor writes when there are no messages and a
   assert.equal(secure.get('oi-assistant-telegram-offset'), '22');
 });
 
+
+test('checkTelegramMessages exposes only the explicitly bound owner private chat', async () => {
+  const { bindTelegramOwnerChat, checkTelegramMessages } = await telegramPromise;
+  reset();
+  secure.set('oi-assistant-telegram-token', 'bot-token');
+  await bindTelegramOwnerChat(12345);
+  fetchHandler = async (_url, init) => {
+    assert.equal(JSON.parse(String(init.body)).offset, 0);
+    return response({ ok: true, result: [
+      { update_id: 1, message: { message_id: 1, date: 100, text: '/badboy ask owner', chat: { id: 12345, type: 'private', first_name: 'Owner' } } },
+      { update_id: 2, message: { message_id: 2, date: 101, text: '/badboy ask stranger', chat: { id: 67890, type: 'private', first_name: 'Stranger' } } },
+      { update_id: 3, message: { message_id: 3, date: 102, text: '/badboy ask group', chat: { id: -100, type: 'supergroup' } } },
+    ] });
+  };
+  assert.deepEqual(await checkTelegramMessages(), [
+    { id: 1, chatId: 12345, sender: 'Owner', text: '/badboy ask owner', date: 100 },
+  ]);
+  assert.equal(secure.get('oi-assistant-telegram-offset'), '4');
+});
+
+test('checkTelegramMessages rejects a corrupt update cursor instead of sending NaN to Telegram', async () => {
+  const { checkTelegramMessages } = await telegramPromise;
+  reset();
+  secure.set('oi-assistant-telegram-token', 'bot-token');
+  secure.set('oi-assistant-telegram-offset', 'not-a-number');
+  fetchHandler = async () => {
+    throw new Error('Telegram must not be called with a corrupt cursor');
+  };
+  await assert.rejects(checkTelegramMessages(), /Telegram update cursor is invalid/);
+});
+
 test('sendTelegramMessage validates bot and chat setup before sending', async () => {
   const { sendTelegramMessage } = await telegramPromise;
   reset();

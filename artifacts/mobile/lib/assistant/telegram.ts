@@ -91,7 +91,12 @@ export async function disconnectTelegramBot() {
 export async function checkTelegramMessages() {
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
   if (!token) throw new Error('Connect your bot first.');
-  const offset = Number((await SecureStore.getItemAsync(UPDATE_OFFSET_KEY)) ?? 0);
+  const rawOffset = (await SecureStore.getItemAsync(UPDATE_OFFSET_KEY)) ?? '0';
+  if (!/^\d+$/.test(rawOffset) || !Number.isSafeInteger(Number(rawOffset))) {
+    throw new Error('Telegram update cursor is invalid. Disconnect and reconnect the bot to reset it.');
+  }
+  const offset = Number(rawOffset);
+  const ownerChatId = await getTelegramOwnerChatId();
   const updates = await telegramCall<TelegramUpdate[]>(token, 'getUpdates', {
     offset,
     timeout: 0,
@@ -99,8 +104,10 @@ export async function checkTelegramMessages() {
   });
   const messages = updates.flatMap((update) => {
     const message = update.message;
-    // Only private chats can become an owner-approved command channel.
+    // Only private chats can become an owner-approved command channel. Once
+    // bound, discard every other private chat before exposing messages to UI.
     if (!message || message.chat.type !== 'private') return [];
+    if (ownerChatId !== null && message.chat.id !== ownerChatId) return [];
     return [{
       id: update.update_id,
       chatId: message.chat.id,

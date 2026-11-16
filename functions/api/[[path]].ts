@@ -31,6 +31,7 @@ interface Env {
   HOME_ASSISTANT_URL?: string;
   HOME_ASSISTANT_TOKEN?: string;
   SLACK_BOT_TOKEN?: string;
+  SLACK_ALLOWED_CHANNEL_IDS?: string;
   DISCORD_BOT_TOKEN?: string;
   GOOGLE_CALENDAR_ACCESS_TOKEN?: string;
 }
@@ -1110,7 +1111,16 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
   }
 
   if (pathname.startsWith("/api/integrations/") || pathname === "/api/research/search") {
-    return handleIntegrationRequest(request, pathname, env as IntegrationEnv);
+    // Pass only the identity established by authenticatePersonalOwner and the
+    // server-side D1 binding; request payloads never choose an approval owner.
+    return handleIntegrationRequest(
+      request,
+      pathname,
+      env as IntegrationEnv,
+      fetch,
+      verifiedOwnerId ?? "",
+      env.AGENT_DB,
+    );
   }
 
   if (request.method === "POST" && pathname === "/api/developer/analyze") {
