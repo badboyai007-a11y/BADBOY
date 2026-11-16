@@ -101,8 +101,15 @@ export async function restoreOwnerSession(): Promise<boolean> {
     await verifyOwnerToken(token);
     activeToken = token;
     return true;
-  } catch {
-    await clearOwnerToken().catch(() => undefined);
+  } catch (error) {
+    const status = error && typeof error === 'object' && 'status' in error
+      ? Number((error as { status?: unknown }).status)
+      : 0;
+    // A rejected token is deleted; a temporary network/server failure is not
+    // proof that the token is invalid, so preserve it for the next retry.
+    if (status >= 400 && status < 500) {
+      await clearOwnerToken().catch(() => undefined);
+    }
     return false;
   }
 }
