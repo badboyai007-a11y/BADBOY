@@ -1,10 +1,9 @@
 /**
  * Owner-authenticated, server-side integration adapters.
- *
- * Provider credentials are read only from Worker secrets. The mobile app never
- * receives provider tokens. All adapters are read-only in this slice; write
- * operations remain disabled until one-time owner approval is implemented.
+ * Provider credentials stay in Worker secrets. Side effects require a matching,
+ * short-lived, single-use approval issued after an explicit Owner confirmation.
  */
+import { consumeIntegrationApproval, issueIntegrationApproval, type ApprovalDatabase, type IntegrationProvider } from "./integrationApprovals.ts";
 export interface IntegrationEnv {
   TAVILY_API_KEY?: string;
   HOME_ASSISTANT_URL?: string;
@@ -71,9 +70,9 @@ export function getIntegrationStatus(env: IntegrationEnv) {
     research: { configured: Boolean(env.TAVILY_API_KEY?.trim()), mode: "read_only" },
     homeAssistant: {
       configured: Boolean(configuredUrl(env.HOME_ASSISTANT_URL) && env.HOME_ASSISTANT_TOKEN?.trim()),
-      mode: "read_only",
+      mode: "read_write_with_owner_approval",
     },
-    slack: { configured: Boolean(env.SLACK_BOT_TOKEN?.trim()), mode: "read_only" },
+    slack: { configured: Boolean(env.SLACK_BOT_TOKEN?.trim()), mode: "read_write_with_owner_approval" },
     discord: { configured: Boolean(env.DISCORD_BOT_TOKEN?.trim()), mode: "read_only" },
     googleCalendar: { configured: Boolean(env.GOOGLE_CALENDAR_ACCESS_TOKEN?.trim()), mode: "read_only" },
     telegram: { configured: false, mode: "mobile_secure_store" },
@@ -87,6 +86,8 @@ export async function handleIntegrationRequest(
   pathname: string,
   env: IntegrationEnv,
   fetcher: Fetcher = fetch,
+  ownerId = "",
+  approvalDb?: ApprovalDatabase,
 ): Promise<Response> {
   if (pathname === "/api/integrations/status" && request.method === "GET") {
     return json({ integrations: getIntegrationStatus(env) });
@@ -280,15 +281,99 @@ export async function handleIntegrationRequest(
     }
   }
 
-  if (
-    (pathname === "/api/integrations/home-assistant/service" || pathname === "/api/integrations/slack/send")
-    && request.method === "POST"
-  ) {
-    return json({
-      code: "OWNER_APPROVAL_FLOW_REQUIRED",
-      error: "This write action is disabled until a one-time owner approval flow is configured.",
-      sideEffectsAllowed: false,
-    }, 403);
+  if (pathname === "/api/integrations/approval" && request.method === "POST") {
+    if (!ownerId || !approvalDb) return json({ code: "APPROVAL_STORAGE_NOT_CONFIGURED", error: "Owner approval storage is unavailable." }, 503);
+    const body = await readJson(request);
+    if (body instanceof Response) return body;
+    const provider = body.provider;
+    const action = body.action;
+    if ((provider !== "home_assistant" && provider !== "slack") || !action || typeof action !== "object" || Array.isArray(action)) {
+      return json({ code: "INVALID_APPROVAL_REQUEST", error: "A supported provider and action are required." }, 400);
+    }
+    const value = action as Record<string, unknown>;
+    let normalized: Record<string, unknown>;
+    if (provider === "home_assistant") {
+      if (Object.keys(value).some((key) => !["domain", "service", "entityId"].includes(key))
+        || (value.domain !== "light" && value.domain !== "switch")
+        || !["turn_on", "turn_off", "toggle"].includes(String(value.service))
+        || typeof value.entityId !== "string" || !/^(light|switch)\\.[a-z0-9_]+$/.test(value.entityId)
+        || !value.entityId.startsWith(value.domain + ".")) {
+        return json({ code: "INVALID_HOME_ASSISTANT_ACTION", error: "Only light/switch turn_on, turn_off, or toggle actions are supported." }, 400);
+      }
+      normalized = { domain: value.domain, service: value.service, entityId: value.entityId };
+    } else {
+      if (Object.keys(value).some((key) => !["channel", "text"].includes(key))
+        || typeof value.channel !== "string" || !/^[A-Z0-9]{6,32}$/.test(value.channel)
+        || typeof value.text !== "string" || !value.text.trim() || value.text.length > 4000) {
+        return json({ code: "INVALID_SLACK_ACTION", error: "Slack send requires a valid channel ID and 1–4,000 characters of text." }, 400);
+      }
+      normalized = { channel: value.channel, text: value.text.trim() };
+    }
+    try {
+      const approval = await issueIntegrationApproval(approvalDb, ownerId, provider as IntegrationProvider, normalized);
+      return json({ ...approval, provider, action: normalized });
+    } catch {
+      return json({ code: "APPROVAL_ISSUE_FAILED", error: "Owner approval could not be issued." }, 503);
+    }
+  }
+
+  if (pathname === "/api/integrations/home-assistant/service" && request.method === "POST") {
+    if (!ownerId || !approvalDb) return json({ code: "APPROVAL_STORAGE_NOT_CONFIGURED", error: "Owner approval storage is unavailable." }, 503);
+    const body = await readJson(request);
+    if (body instanceof Response) return body;
+    if (Object.keys(body).some((key) => !["domain", "service", "entityId", "approvalToken"].includes(key))
+      || (body.domain !== "light" && body.domain !== "switch")
+      || !["turn_on", "turn_off", "toggle"].includes(String(body.service))
+      || typeof body.entityId !== "string" || !/^(light|switch)\\.[a-z0-9_]+$/.test(body.entityId)
+      || !body.entityId.startsWith(String(body.domain) + ".")
+      || typeof body.approvalToken !== "string") {
+      return json({ code: "INVALID_HOME_ASSISTANT_ACTION", error: "Home Assistant action or approval token is invalid." }, 400);
+    }
+    const action = { domain: body.domain, service: body.service, entityId: body.entityId };
+    const approved = await consumeIntegrationApproval(approvalDb, ownerId, "home_assistant", action, body.approvalToken).catch(() => false);
+    if (!approved) return json({ code: "OWNER_APPROVAL_REQUIRED", error: "A matching, unused and unexpired Owner approval is required.", sideEffectsAllowed: false }, 403);
+    const base = configuredUrl(env.HOME_ASSISTANT_URL);
+    const token = env.HOME_ASSISTANT_TOKEN?.trim();
+    if (!base || !token) return json({ code: "HOME_ASSISTANT_NOT_CONFIGURED", error: "Home Assistant requires a server-side HTTPS URL and token." }, 503);
+    try {
+      const response = await fetchWithTimeout(fetcher, new URL(`/api/services/${action.domain}/${action.service}`, base), {
+        method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ entity_id: action.entityId }),
+      });
+      if (!response.ok) return json({ code: "HOME_ASSISTANT_SERVICE_FAILED", error: "Home Assistant rejected the approved service call.", providerStatus: response.status }, 502);
+      return json({ ok: true, provider: "home_assistant", action, result: await response.json().catch(() => null) });
+    } catch {
+      return json({ code: "HOME_ASSISTANT_UNAVAILABLE", error: "Home Assistant service call timed out or could not connect." }, 502);
+    }
+  }
+
+  if (pathname === "/api/integrations/slack/send" && request.method === "POST") {
+    if (!ownerId || !approvalDb) return json({ code: "APPROVAL_STORAGE_NOT_CONFIGURED", error: "Owner approval storage is unavailable." }, 503);
+    const body = await readJson(request);
+    if (body instanceof Response) return body;
+    if (Object.keys(body).some((key) => !["channel", "text", "approvalToken"].includes(key))
+      || typeof body.channel !== "string" || !/^[A-Z0-9]{6,32}$/.test(body.channel)
+      || typeof body.text !== "string" || !body.text.trim() || body.text.length > 4000
+      || typeof body.approvalToken !== "string") {
+      return json({ code: "INVALID_SLACK_ACTION", error: "Slack send payload or approval token is invalid." }, 400);
+    }
+    const action = { channel: body.channel, text: body.text.trim() };
+    const approved = await consumeIntegrationApproval(approvalDb, ownerId, "slack", action, body.approvalToken).catch(() => false);
+    if (!approved) return json({ code: "OWNER_APPROVAL_REQUIRED", error: "A matching, unused and unexpired Owner approval is required.", sideEffectsAllowed: false }, 403);
+    const token = env.SLACK_BOT_TOKEN?.trim();
+    if (!token) return json({ code: "SLACK_NOT_CONFIGURED", error: "Slack is not configured on the server." }, 503);
+    try {
+      const response = await fetchWithTimeout(fetcher, "https://slack.com/api/chat.postMessage", {
+        method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ channel: action.channel, text: action.text }),
+      });
+      if (!response.ok) return json({ code: "SLACK_PROVIDER_ERROR", error: "Slack message send failed.", providerStatus: response.status }, 502);
+      const payload = await response.json() as { ok?: boolean; channel?: string; ts?: string };
+      if (payload.ok !== true) return json({ code: "SLACK_API_ERROR", error: "Slack did not accept the approved message." }, 502);
+      return json({ ok: true, provider: "slack", channel: payload.channel ?? action.channel, timestamp: payload.ts ?? null });
+    } catch {
+      return json({ code: "SLACK_UNAVAILABLE", error: "Slack message send timed out or could not connect." }, 502);
+    }
   }
 
   return json({ code: "INTEGRATION_ENDPOINT_NOT_FOUND", error: "Integration endpoint not found." }, 404);
