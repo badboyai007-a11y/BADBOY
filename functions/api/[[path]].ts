@@ -1110,7 +1110,16 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
   }
 
   if (pathname.startsWith("/api/integrations/") || pathname === "/api/research/search") {
-    return handleIntegrationRequest(request, pathname, env as IntegrationEnv);
+    // Pass only the identity established by authenticatePersonalOwner and the
+    // server-side D1 binding; request payloads never choose an approval owner.
+    return handleIntegrationRequest(
+      request,
+      pathname,
+      env as IntegrationEnv,
+      fetch,
+      verifiedOwnerId ?? "",
+      env.AGENT_DB,
+    );
   }
 
   if (request.method === "POST" && pathname === "/api/developer/analyze") {
