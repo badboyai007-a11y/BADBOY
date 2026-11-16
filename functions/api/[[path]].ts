@@ -31,6 +31,7 @@ interface Env {
   HOME_ASSISTANT_URL?: string;
   HOME_ASSISTANT_TOKEN?: string;
   SLACK_BOT_TOKEN?: string;
+  SLACK_ALLOWED_CHANNEL_IDS?: string;
   DISCORD_BOT_TOKEN?: string;
   GOOGLE_CALENDAR_ACCESS_TOKEN?: string;
 }
