@@ -30,3 +30,7 @@ export async function saveDefaultModel(choice:ModelChoice){await SecureStore.set
 export async function getDefaultModel():Promise<ModelChoice|null>{const raw=await SecureStore.getItemAsync(DEFAULT);if(!raw)return null;try{return JSON.parse(raw) as ModelChoice;}catch{return null;}}
 export async function saveCustomModels(items:ModelChoice[]){await SecureStore.setItemAsync(CUSTOM,JSON.stringify(items));}
 export async function getCustomModels():Promise<ModelChoice[]>{const raw=await SecureStore.getItemAsync(CUSTOM);if(!raw)return[];try{return JSON.parse(raw) as ModelChoice[];}catch{return[];}}
+
+const DISCOVERED='badboy.ai.discovered-models.v1';
+export async function saveDiscoveredModels(providerId:ProviderId,models:ModelChoice[]){const all=await getAllDiscoveredModels();await SecureStore.setItemAsync(DISCOVERED,JSON.stringify({...all,[providerId]:models}));}
+export async function getAllDiscoveredModels():Promise<Partial<Record<ProviderId,ModelChoice[]>>>{const raw=await SecureStore.getItemAsync(DISCOVERED);if(!raw)return{};try{return JSON.parse(raw) as Partial<Record<ProviderId,ModelChoice[]>>;}catch{return{};}}
