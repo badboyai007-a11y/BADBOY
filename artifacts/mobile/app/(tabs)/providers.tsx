@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
-import { PROVIDERS, getConnectedProviderIds, getProviderBaseUrl, getCloudflareAccountId, saveCloudflareAccountId, saveProviderBaseUrl, removeProviderKey, saveProviderKey, type ProviderId } from '@/lib/assistant/providerManager';
+import { PROVIDERS, getConnectedProviderIds, getProviderBaseUrl, getCloudflareAccountId, saveCloudflareAccountId, saveProviderBaseUrl, removeProviderKey, saveProviderKey, saveDiscoveredModels, type ProviderId } from '@/lib/assistant/providerManager';
 import { testProviderConnection, type ProviderModel } from '@/lib/assistant/providerChat';
 
 export default function ProviderManagerScreen() {
@@ -18,7 +18,7 @@ export default function ProviderManagerScreen() {
  useEffect(()=>{void refresh();},[refresh]);
  const openProvider=async(id:ProviderId)=>{setExpanded(expanded===id?null:id);if(expanded!==id){setBases(v=>({...v,[id]:v[id]||''}));}};
  const save=async(id:ProviderId)=>{const key=drafts[id]?.trim();if(!key){Alert.alert('API Key প্রয়োজন','Provider-এর API Key লিখুন।');return;}setBusy(id);setErrors(v=>({...v,[id]:''}));try{if(id==='omniroute'&&bases[id]?.trim())await saveProviderBaseUrl(id,bases[id]!);if(id==='cloudflare'&&accountId.trim())await saveCloudflareAccountId(accountId);await saveProviderKey(id,key);setDrafts(v=>({...v,[id]:''}));await refresh();Alert.alert('Key সংরক্ষিত','এখন Test Connection চাপো। Key Android Secure Storage-এ আছে।');}catch(e){Alert.alert('সংরক্ষণ ব্যর্থ',e instanceof Error?e.message:'Could not save provider.');}finally{setBusy(null);}};
- const test=async(id:ProviderId)=>{setTesting(id);setErrors(v=>({...v,[id]:''}));try{const result=await testProviderConnection(id);setResults(v=>({...v,[id]:result}));}catch(e){setErrors(v=>({...v,[id]:e instanceof Error?e.message:'Connection test failed.'}));setResults(v=>({...v,[id]:undefined}));}finally{setTesting(null);}};
+ const test=async(id:ProviderId)=>{setTesting(id);setErrors(v=>({...v,[id]:''}));try{const result=await testProviderConnection(id);await saveDiscoveredModels(id,result.models.map(model=>({providerId:id,modelId:model.id,label:model.name||model.id})));setResults(v=>({...v,[id]:result}));}catch(e){setErrors(v=>({...v,[id]:e instanceof Error?e.message:'Connection test failed.'}));setResults(v=>({...v,[id]:undefined}));}finally{setTesting(null);}};
  const disconnect=(id:ProviderId)=>Alert.alert('Provider disconnect করবেন?','সংরক্ষিত API Key মুছে যাবে।',[{text:'Cancel',style:'cancel'},{text:'Disconnect',style:'destructive',onPress:async()=>{await removeProviderKey(id);setResults(v=>({...v,[id]:undefined}));await refresh();}}]);
  const freeLabel=(kind:string)=>kind==='trial'?'Trial':kind==='quota'?'Quota-based':kind==='account-dependent'?'Account-based':kind==='self-hosted'?'Local / Self-hosted':'Free tier';
  return <ScrollView style={{flex:1,backgroundColor:colors.background}} contentContainerStyle={{padding:18,paddingTop:Math.max(insets.top,12)+10,paddingBottom:40,gap:12}}>
