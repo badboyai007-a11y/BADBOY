@@ -9,6 +9,7 @@ export interface IntegrationEnv {
   HOME_ASSISTANT_URL?: string;
   HOME_ASSISTANT_TOKEN?: string;
   SLACK_BOT_TOKEN?: string;
+  SLACK_ALLOWED_CHANNEL_IDS?: string;
   DISCORD_BOT_TOKEN?: string;
   GOOGLE_CALENDAR_ACCESS_TOKEN?: string;
 }
@@ -46,6 +47,10 @@ async function readJson(request: Request): Promise<Record<string, unknown> | Res
   return value as Record<string, unknown>;
 }
 
+function allowedSlackChannels(env: IntegrationEnv): Set<string> {
+  return new Set((env.SLACK_ALLOWED_CHANNEL_IDS ?? "").split(",").map((value) => value.trim()).filter((value) => /^[A-Z0-9]{6,32}$/.test(value)));
+}
+
 function configuredUrl(value: string | undefined): URL | null {
   if (!value?.trim()) return null;
   try {
@@ -72,7 +77,7 @@ export function getIntegrationStatus(env: IntegrationEnv) {
       configured: Boolean(configuredUrl(env.HOME_ASSISTANT_URL) && env.HOME_ASSISTANT_TOKEN?.trim()),
       mode: "read_write_with_owner_approval",
     },
-    slack: { configured: Boolean(env.SLACK_BOT_TOKEN?.trim()), mode: "read_write_with_owner_approval" },
+    slack: { configured: Boolean(env.SLACK_BOT_TOKEN?.trim()), writeConfigured: Boolean(env.SLACK_BOT_TOKEN?.trim() && allowedSlackChannels(env).size), allowedChannelCount: allowedSlackChannels(env).size, mode: "read_write_with_owner_approval" },
     discord: { configured: Boolean(env.DISCORD_BOT_TOKEN?.trim()), mode: "read_only" },
     googleCalendar: { configured: Boolean(env.GOOGLE_CALENDAR_ACCESS_TOKEN?.trim()), mode: "read_only" },
     telegram: { configured: false, mode: "mobile_secure_store" },
@@ -307,6 +312,9 @@ export async function handleIntegrationRequest(
         || typeof value.text !== "string" || !value.text.trim() || value.text.length > 4000) {
         return json({ code: "INVALID_SLACK_ACTION", error: "Slack send requires a valid channel ID and 1–4,000 characters of text." }, 400);
       }
+      if (!allowedSlackChannels(env).has(value.channel)) {
+        return json({ code: "SLACK_CHANNEL_NOT_ALLOWED", error: "This channel is not in the server-side Slack write allowlist." }, 403);
+      }
       normalized = { channel: value.channel, text: value.text.trim() };
     }
     try {
@@ -362,6 +370,9 @@ export async function handleIntegrationRequest(
     if (!approved) return json({ code: "OWNER_APPROVAL_REQUIRED", error: "A matching, unused and unexpired Owner approval is required.", sideEffectsAllowed: false }, 403);
     const token = env.SLACK_BOT_TOKEN?.trim();
     if (!token) return json({ code: "SLACK_NOT_CONFIGURED", error: "Slack is not configured on the server." }, 503);
+    if (!allowedSlackChannels(env).has(action.channel)) {
+      return json({ code: "SLACK_CHANNEL_NOT_ALLOWED", error: "This channel is not in the server-side Slack write allowlist." }, 403);
+    }
     try {
       const response = await fetchWithTimeout(fetcher, "https://slack.com/api/chat.postMessage", {
         method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
