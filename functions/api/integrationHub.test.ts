@@ -108,6 +108,46 @@ test("side-effecting integration actions fail closed when approval identity or s
 });
 
 
+test("Home Assistant approval accepts dotted entity IDs and rejects domain mismatches", async () => {
+  const db = {
+    prepare() {
+      const statement = {
+        bind(..._values: unknown[]) { return statement; },
+        async run() { return { success: true, meta: { changes: 1 } }; },
+        async first<T>() { return null as T | null; },
+      };
+      return statement;
+    },
+  };
+  const valid = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/approval", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: "home_assistant", action: { domain: "light", service: "turn_on", entityId: "light.office" } }),
+    }),
+    "/api/integrations/approval",
+    {},
+    fetch,
+    "verified-owner",
+    db,
+  );
+  assert.equal(valid.status, 200);
+
+  const invalid = await handleIntegrationRequest(
+    new Request("https://badboy.test/api/integrations/approval", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: "home_assistant", action: { domain: "light", service: "turn_on", entityId: "switch.office" } }),
+    }),
+    "/api/integrations/approval",
+    {},
+    fetch,
+    "verified-owner",
+    db,
+  );
+  assert.equal(invalid.status, 400);
+});
+
 test("Discord history validates channel IDs, keeps the bot token server-side and bounds messages", async () => {
   const invalid = await handleIntegrationRequest(
     new Request("https://badboy.test/api/integrations/discord/messages?channel=not-a-channel"),
