@@ -123,7 +123,7 @@ export default function ChatScreen() {
 
   useEffect(() => { setSelectedLang(settings.voiceLanguage); }, [settings.voiceLanguage]);
   useEffect(() => { void getDefaultModel().then(setDefaultModel).catch(() => setDefaultModel(null)); }, []);
-  useEffect(() => { if (messages.length > 0) setQuickActionsExpanded(false); }, [messages.length]);
+  useEffect(() => { setQuickActionsExpanded(messages.length === 0); }, [messages.length]);
   useEffect(() => {
     if (!settings.voiceOutputEnabled) {
       stopSpeaking();
