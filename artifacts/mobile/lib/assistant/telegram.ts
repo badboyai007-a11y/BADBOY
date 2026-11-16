@@ -92,7 +92,7 @@ export async function checkTelegramMessages() {
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
   if (!token) throw new Error('Connect your bot first.');
   const rawOffset = (await SecureStore.getItemAsync(UPDATE_OFFSET_KEY)) ?? '0';
-  if (!/^\\d+$/.test(rawOffset) || !Number.isSafeInteger(Number(rawOffset))) {
+  if (!/^\d+$/.test(rawOffset) || !Number.isSafeInteger(Number(rawOffset))) {
     throw new Error('Telegram update cursor is invalid. Disconnect and reconnect the bot to reset it.');
   }
   const offset = Number(rawOffset);
