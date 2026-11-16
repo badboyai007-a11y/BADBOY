@@ -2,7 +2,7 @@ import { fetch as expoFetch } from 'expo/fetch';
 import { getCloudflareAccountId, getDefaultModel, getProvider, getProviderBaseUrl, getProviderKey, type ProviderId } from './providerManager';
 
 export interface ProviderModel { id:string; name?:string; free:boolean|null; }
-function safeError(status:number,body:string){let message='';try{const parsed=JSON.parse(body);message=parsed?.error?.message||parsed?.message||parsed?.error||'';}catch{}return (String(message||'').replace(/Bearer\s+\S+/gi,'Bearer [redacted]').slice(0,220)||'Request failed')+' (HTTP '+status+')';}
+function safeError(status:number,body:string){let message='';try{const parsed=JSON.parse(body);message=parsed?.error?.message||parsed?.message||parsed?.error||'';}catch{/* Provider error payload was not valid JSON. */}return (String(message||'').replace(/Bearer\s+\S+/gi,'Bearer [redacted]').slice(0,220)||'Request failed')+' (HTTP '+status+')';}
 async function request(url:string,init:RequestInit,timeout=18000){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeout);try{return await expoFetch(url,{...init,signal:controller.signal});}catch(e){if(controller.signal.aborted)throw new Error('Connection timed out. Check server/network and try again.');throw e;}finally{clearTimeout(timer);}}
 export async function testProviderConnection(id:ProviderId):Promise<{ok:boolean;message:string;models:ProviderModel[]}>{
  const provider=getProvider(id);const key=await getProviderKey(id);if(!provider||!key)throw new Error('Provider configuration বা API Key পাওয়া যায়নি।');
@@ -30,6 +30,6 @@ export async function streamProviderReply(message:string,onChunk:(chunk:string)=
  if(!r.ok)throw new Error(safeError(r.status,await r.text()));
  const reader=r.body?.getReader();if(!reader)throw new Error('Provider stream is unavailable.');
  const decoder=new TextDecoder();let buffer='';let complete=false;
- while(!complete){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split('\n');buffer=lines.pop()||'';for(const line of lines){if(!line.startsWith('data:'))continue;const payload=line.slice(5).trim();if(payload==='[DONE]'){complete=true;break;}try{const event=JSON.parse(payload);const chunk=event.choices?.[0]?.delta?.content;if(typeof chunk==='string'&&chunk)onChunk(chunk);}catch{}}}
+ while(!complete){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split('\n');buffer=lines.pop()||'';for(const line of lines){if(!line.startsWith('data:'))continue;const payload=line.slice(5).trim();if(payload==='[DONE]'){complete=true;break;}try{const event=JSON.parse(payload);const chunk=event.choices?.[0]?.delta?.content;if(typeof chunk==='string'&&chunk)onChunk(chunk);}catch{/* Ignore non-JSON SSE keepalive/comment lines. */}}}
  return true;
 }
