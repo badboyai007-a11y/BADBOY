@@ -92,6 +92,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [defaultModel, setDefaultModel] = useState<ModelChoice | null>(null);
   const [drawerModal, setDrawerModal] = useState<'search' | 'history' | 'options' | 'newChat' | null>(null);
   const [chatSearch, setChatSearch] = useState('');
@@ -1177,6 +1178,25 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
+      <Modal visible={attachmentMenuOpen} transparent animationType="fade" onRequestClose={() => setAttachmentMenuOpen(false)}>
+        <Pressable style={styles.attachmentBackdrop} onPress={() => setAttachmentMenuOpen(false)}>
+          <View style={[styles.attachmentPanel,{backgroundColor:colors.card,borderColor:colors.border}]}>
+            <Text style={{color:colors.foreground,fontWeight:'900',fontSize:15,marginBottom:8}}>Attach to message</Text>
+            {[
+              {label:'File',icon:'file',detail:'Documents and other files'},
+              {label:'Photo',icon:'image',detail:'Choose a photo'},
+              {label:'Video',icon:'video',detail:'Choose a video'},
+            ].map((item) => (
+              <Pressable key={item.label} onPress={() => { setAttachmentMenuOpen(false); Alert.alert(item.label, 'এই attachment picker ও chat upload workflow এখনো সংযুক্ত হয়নি। UI-তে অপশনটি রাখা হয়েছে; upload কাজ করবে বলে দাবি করছি না।'); }} style={[styles.attachmentOption,{borderColor:colors.border}]}>
+                <View style={[styles.attachmentIcon,{backgroundColor:colors.secondary}]}><Feather name={item.icon as any} size={18} color={colors.primary}/></View>
+                <View style={{flex:1}}><Text style={{color:colors.foreground,fontWeight:'800'}}>{item.label}</Text><Text style={{color:colors.mutedForeground,fontSize:11}}>{item.detail}</Text></View>
+                <Feather name="chevron-right" size={17} color={colors.mutedForeground}/>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* Composer Row */}
       <View
         style={[
@@ -1189,6 +1209,9 @@ export default function ChatScreen() {
           },
         ]}
       >
+        <Pressable onPress={() => setAttachmentMenuOpen(true)} accessibilityRole="button" accessibilityLabel="ফাইল, ছবি বা ভিডিও যোগ করুন" style={[styles.roundButton,{backgroundColor:colors.secondary}]}>
+          <Feather name="plus" size={20} color={colors.foreground}/>
+        </Pressable>
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -1300,6 +1323,11 @@ const styles = StyleSheet.create({
   improveButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, marginTop: 4 },
   errorBox: { marginHorizontal: 12, marginBottom: 8, borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   composer: { marginHorizontal: 12, borderWidth: 1, borderRadius: 20, minHeight: 52, maxHeight: 130, paddingHorizontal: 8, paddingVertical: 6, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  attachmentBackdrop:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.55)',padding:12},
+  attachmentPanel:{borderWidth:1,borderRadius:20,padding:14,paddingBottom:20,gap:8},
+  attachmentOption:{minHeight:58,borderWidth:1,borderRadius:13,padding:9,flexDirection:'row',alignItems:'center',gap:10},
+  attachmentIcon:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center'},
+
   input: { flex: 1, minHeight: 38, maxHeight: 110, paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, fontSize: 15 },
   roundButton: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });
