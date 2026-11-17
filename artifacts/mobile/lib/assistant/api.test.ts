@@ -18,6 +18,13 @@ mock.module('react-native', {
 mock.module('expo/fetch', {
   namedExports: { fetch: (...args: any[]) => fetchHandler(...args) },
 });
+mock.module('expo-secure-store', {
+  namedExports: {
+    getItemAsync: async () => null,
+    setItemAsync: async () => undefined,
+    deleteItemAsync: async () => undefined,
+  },
+});
 mock.module('expo-file-system/legacy', {
   namedExports: {
     EncodingType: { Base64: 'base64' },
