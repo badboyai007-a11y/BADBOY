@@ -829,17 +829,18 @@ export default function ChatScreen() {
 
     return (
       <View style={[styles.messageRow, isUser && styles.userRow]}>
+        {!isUser ? <View style={styles.messageAvatar}><BadboyLogo size={18} /></View> : null}
         <View
           style={[
             styles.messageBubble,
             {
-              backgroundColor: isUser ? colors.primary : colors.card,
-              borderColor: isUser ? colors.primary : colors.border,
+              backgroundColor: isUser ? 'rgba(139,92,246,0.28)' : 'rgba(34,211,238,0.065)',
+              borderColor: isUser ? 'rgba(168,85,247,0.42)' : 'rgba(34,211,238,0.20)',
             },
             isUser && styles.userBubble,
           ]}
         >
-          <Text selectable style={{ color: isUser ? colors.primaryForeground : colors.foreground, fontSize: 15, lineHeight: 22 }}>
+          <Text selectable style={{ color: isUser ? '#F5F0FF' : '#DDD9EA', fontSize: 13, lineHeight: 20 }}>
             {item.content || (busy && item.role === 'assistant' ? 'Badboy ভাবছে…' : '')}
           </Text>
           {ytIntent ? (
@@ -922,9 +923,7 @@ export default function ChatScreen() {
                 <Text style={styles.statusBadgeText}>{getStatusText()}</Text>
               </View>
             </View>
-            <Text style={[styles.brandSub, { color: colors.mutedForeground }]}>
-              {settings.onlineAI ? 'তোমার AI সহকারী' : 'অফলাইন মোড'}
-            </Text>
+            <Text style={[styles.brandSub, { color: colors.mutedForeground }]}>NEURAL ASSISTANT</Text>
           </View>
         </View>
 
@@ -1095,10 +1094,11 @@ export default function ChatScreen() {
           <View style={[styles.welcomeMark, { backgroundColor: colors.secondary, borderColor: colors.primary }]}>
             <BadboyLogo size={48} />
           </View>
-          <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>কীভাবে সাহায্য করতে পারি?</Text>
+          <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Hey, I'm BADBOY.</Text>
           <Text style={[styles.welcomeText, { color: colors.mutedForeground }]}>
-            আমি তোমার AI সহকারী। নিচের একটি বিষয় বেছে নাও অথবা মেসেজ লিখে শুরু করো।
+            Your premium AI copilot — built to think fast, build hard and never hold back.
           </Text>
+          {quickActionsExpanded ? <Text style={styles.quickLabel}>QUICK ACTIONS  ·  8 AVAILABLE</Text> : null}
           {quickActionsExpanded ? (
             <View style={styles.quickGrid}>
               {[
@@ -1110,8 +1110,8 @@ export default function ChatScreen() {
                 { label: 'Android', icon: 'smartphone', prompt: 'Android control-এর জন্য সাহায্য করো: ' },
                 { label: 'Tools', icon: 'tool', prompt: 'উপযুক্ত tools ব্যবহার করে কাজটি করো: ' },
                 { label: 'Creative', icon: 'edit-3', prompt: 'সৃজনশীলভাবে এটি তৈরি করো: ' },
-              ].map((item) => (
-                <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{backgroundColor:colors.card,borderColor:colors.border}]}>
+              ] .map((item, index) => (
+                <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{width:index >= 6 ? '46%' : '30%',backgroundColor:colors.card,borderColor:colors.border}]}>
                   <Feather name={item.icon as any} size={17} color={colors.primary}/>
                   <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
                 </Pressable>
@@ -1155,8 +1155,8 @@ export default function ChatScreen() {
             { label: 'Android', icon: 'smartphone', prompt: 'Android control-এর জন্য সাহায্য করো: ' },
             { label: 'Tools', icon: 'tool', prompt: 'উপযুক্ত tools ব্যবহার করে কাজটি করো: ' },
             { label: 'Creative', icon: 'edit-3', prompt: 'সৃজনশীলভাবে এটি তৈরি করো: ' },
-          ].map((item) => (
-            <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{backgroundColor:colors.card,borderColor:colors.border}]}>
+          ] .map((item, index) => (
+            <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{width:index >= 6 ? '46%' : '30%',backgroundColor:colors.card,borderColor:colors.border}]}>
               <Feather name={item.icon as any} size={17} color={colors.primary}/>
               <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
             </Pressable>
@@ -1313,15 +1313,17 @@ const styles = StyleSheet.create({
   searchInput: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, marginBottom: 10 },
   historyItem: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   header: { paddingHorizontal: 14, paddingBottom: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, columnGap: 6, rowGap: 8 },
-  providerStrip:{minHeight:30,paddingHorizontal:12,paddingVertical:5,flexDirection:'row',alignItems:'center',gap:8,borderBottomWidth:1},
+  providerStrip:{minHeight:28,marginHorizontal:14,marginBottom:8,paddingHorizontal:10,paddingVertical:4,flexDirection:'row',alignItems:'center',gap:8,borderWidth:1,borderColor:'rgba(255,255,255,0.07)',borderRadius:20,backgroundColor:'rgba(255,255,255,0.025)'}, 
   providerMini:{flexDirection:'row',alignItems:'center',gap:5,minWidth:0},
   providerMiniText:{fontSize:10,fontWeight:'800',maxWidth:115},
   providerDivider:{width:1,height:15},
   onlinePill:{marginLeft:'auto',borderRadius:20,paddingHorizontal:7,paddingVertical:4,flexDirection:'row',alignItems:'center',gap:4},
   onlineDot:{width:5,height:5,borderRadius:3},
   onlineText:{fontSize:8,fontWeight:'900',letterSpacing:.5},
-  quickGrid:{width:'100%',flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:7,marginTop:22},
-  quickAction:{width:'30%',minHeight:55,borderWidth:1,borderRadius:13,alignItems:'center',justifyContent:'center',gap:5,padding:7},
+  quickGrid:{width:'100%',flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:7,marginTop:10},
+  quickLabel:{alignSelf:'flex-start',marginTop:18,marginBottom:2,color:'#77738E',fontSize:9,fontWeight:'900',letterSpacing:2},
+  quickAction:{minHeight:58,borderWidth:1,borderRadius:13,alignItems:'center',justifyContent:'center',gap:6,padding:7,backgroundColor:'rgba(255,255,255,0.025)'},
+  messageAvatar:{width:25,height:25,borderRadius:9,alignItems:'center',justifyContent:'center',marginTop:2,backgroundColor:'rgba(139,92,246,0.13)',borderWidth:1,borderColor:'rgba(168,85,247,0.28)'}, 
 
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, flexShrink: 1, minWidth: 150 },
   titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
@@ -1334,17 +1336,17 @@ const styles = StyleSheet.create({
   visualizerContainer: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 38, marginHorizontal: 8 },
   visualizerBar: { width: 3, borderRadius: 2 },
   iconButton: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  welcome: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingBottom: 20 },
+  welcome: { flex: 1, alignItems: 'flex-start', justifyContent: 'flex-start', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
   welcomeMark: { width: 76, height: 76, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  welcomeTitle: { fontSize: 24, fontWeight: '700', textAlign: 'center', letterSpacing: 0.1 },
-  welcomeText: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginTop: 8, maxWidth: 360 },
+  welcomeTitle: { fontSize: 21, fontWeight: '900', textAlign: 'left', letterSpacing: -0.35 },
+  welcomeText: { fontSize: 12, lineHeight: 18, textAlign: 'left', marginTop: 5, maxWidth: 310 }, 
   suggestions: { width: '100%', gap: 10, marginTop: 26 },
   suggestion: { borderWidth: 1, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16 },
   messageList: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
-  messageRow: { width: '100%', alignItems: 'flex-start', marginVertical: 4 },
-  userRow: { alignItems: 'flex-end' },
-  messageBubble: { maxWidth: '85%', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1 },
-  userBubble: { borderBottomRightRadius: 4 },
+  messageRow: { width: '100%', flexDirection:'row',alignItems: 'flex-start',gap:8,marginVertical: 7 },
+  userRow: { justifyContent:'flex-end',alignItems: 'flex-end' },
+  messageBubble: { maxWidth: '82%', paddingVertical: 10, paddingHorizontal: 13, borderRadius: 16, borderTopLeftRadius:5,borderWidth: 1,shadowColor:'#8B5CF6',shadowOpacity:0.10,shadowRadius:12,elevation:2 },
+  userBubble: { borderTopLeftRadius:16,borderTopRightRadius:5,borderBottomRightRadius:16 }, 
   ytButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1363,7 +1365,7 @@ const styles = StyleSheet.create({
   messageAction: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
   improveButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, marginTop: 4 },
   errorBox: { marginHorizontal: 12, marginBottom: 8, borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  composer: { marginHorizontal: 12, borderWidth: 1, borderRadius: 20, minHeight: 52, maxHeight: 130, paddingHorizontal: 7, paddingVertical: 6, flexDirection: 'row', alignItems: 'flex-end', gap: 4, shadowColor: '#8A20FF', shadowOpacity: 0.16, shadowRadius: 12, elevation: 4 },
+  composer: { marginHorizontal: 12, borderWidth: 1, borderRadius: 23, minHeight: 56, maxHeight: 136, paddingHorizontal: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'flex-end', gap: 4, shadowColor: '#8A20FF', shadowOpacity: 0.20, shadowRadius: 16, elevation: 6 }, 
   emojiTray: { marginHorizontal: 12, marginBottom: 7, borderWidth: 1, borderRadius: 16, paddingHorizontal: 8, paddingVertical: 6, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4 },
   emojiChip: { minWidth: 34, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: 'rgba(135,55,255,0.10)' },
   attachmentBackdrop:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.55)',padding:12},
