@@ -42,7 +42,7 @@ function renderOwnerLogin(Screen: React.ComponentType) {
 }
 
 const host = (tag: string) => function Host({ children, accessibilityLabel, placeholder, disabled, onPress }: any) {
-  if (tag === 'button' && typeof onPress === 'function' && textContent(children).includes('LOGIN NOW')) pressHandlers.push(onPress);
+  if (tag === 'button' && typeof onPress === 'function' && textContent(children).includes('Login Now')) pressHandlers.push(onPress);
   return React.createElement(tag, {
     ...(accessibilityLabel ? { 'aria-label': accessibilityLabel } : {}),
     ...(placeholder ? { placeholder } : {}),
@@ -88,12 +88,18 @@ test('Owner Login renders the owner-token gate and keeps submit disabled without
   hookState.length = 0;
   pressHandlers.length = 0;
   const html = renderOwnerLogin(OwnerLoginScreen);
-  assert.match(html, /BADBOY/);
+  assert.match(html, /Badboy/);
   assert.match(html, /OWNER/);
-  assert.match(html, /LOGIN NOW/);
+  assert.match(html, /Login Now/);
   assert.match(html, /Owner Token/);
-  assert.match(html, /OWNER AUTHORIZATION REQUIRED/);
-  assert.match(html, /Without Owner Login, you cannot access the main app/);
+  assert.match(html, /Enter your Owner Token to access/);
+  assert.match(html, /Without Owner Login,/);
+  assert.match(html, /You cannot access the main app!/);
+  assert.match(html, /Secure Access/);
+  assert.match(html, /Owner Control/);
+  assert.match(html, /Full Features Unlocked/);
+  assert.match(html, /Badboy AI Premium/);
+  assert.match(html, /Built for the Real Power Users/);
   assert.match(html, /disabled/);
   assert.equal(pressHandlers.length, 1);
   await pressHandlers[0]();

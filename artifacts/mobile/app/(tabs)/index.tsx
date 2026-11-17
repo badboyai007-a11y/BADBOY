@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,6 +22,7 @@ import {
   View,
 } from 'react-native';
 import { BadboyLogo } from '@/components/BadboyLogo';
+import { ChatFooter, ChatHeader, ProviderModelStrip, QuickActionGrid, WelcomeBanner } from '@/components/ChatChrome';
 import {
   cleanSongQuery,
   extractYouTubeIntent,
@@ -678,7 +680,7 @@ export default function ChatScreen() {
     }
     const transcript = messages.map((item) =>
       `${item.role === 'user' ? 'আপনি' : 'Badboy AI'}: ${item.content}`,
-    ).join('\\n\\n');
+    ).join('\n\n');
     try {
       await Share.share({ message: transcript, title: 'Badboy AI চ্যাট' });
     } catch {
@@ -798,14 +800,14 @@ export default function ChatScreen() {
     if (listening) return wakeDetected ? 'Oi Badboy সনাক্ত হয়েছে!' : 'কথা বলুন…';
     if (busy) return 'Badboy ভাবছে…';
     if (!settings.onlineAI) return 'অফলাইন মোড';
-    return 'Badboy প্রস্তুত';
+    return 'Your Ultimate AI Assistant';
   };
 
   const getStatusColor = () => {
-    if (listening) return colors.primary;
-    if (busy) return '#f59e0b';
-    if (!settings.onlineAI) return colors.destructive;
-    return colors.secondaryForeground;
+    if (listening) return '#C084FC';
+    if (busy) return '#F59E0B';
+    if (!settings.onlineAI) return '#F87171';
+    return '#B7ADD0';
   };
 
   const openYouTubeUrl = async (webUrl: string, appUrl: string) => {
@@ -826,21 +828,18 @@ export default function ChatScreen() {
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
     const ytIntent = !isUser ? extractYouTubeIntent(item.content) : null;
+    const time = new Date(item.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
     return (
       <View style={[styles.messageRow, isUser && styles.userRow]}>
-        {!isUser ? <View style={styles.messageAvatar}><BadboyLogo size={18} /></View> : null}
-        <View
-          style={[
-            styles.messageBubble,
-            {
-              backgroundColor: isUser ? 'rgba(139,92,246,0.28)' : 'rgba(34,211,238,0.065)',
-              borderColor: isUser ? 'rgba(168,85,247,0.42)' : 'rgba(34,211,238,0.20)',
-            },
-            isUser && styles.userBubble,
-          ]}
-        >
-          <Text selectable style={{ color: isUser ? '#F5F0FF' : '#DDD9EA', fontSize: 13, lineHeight: 20 }}>
+        {!isUser ? (
+          <View style={styles.avatarWrap}>
+            <View style={styles.messageAvatar}><BadboyLogo size={30} /></View>
+            <View style={styles.avatarDot} />
+          </View>
+        ) : null}
+        <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble]}>
+          <Text selectable style={styles.messageText}>
             {item.content || (busy && item.role === 'assistant' ? 'Badboy ভাবছে…' : '')}
           </Text>
           {ytIntent ? (
@@ -860,14 +859,14 @@ export default function ChatScreen() {
           {!isUser && item.content.trim() ? (
             <View style={styles.messageActions}>
               {settings.voiceOutputEnabled ? (
-                <Pressable onPress={() => playMessage(item)} accessibilityRole="button" accessibilityLabel={speakingMessageId === item.id ? 'পড়া বন্ধ করুন' : 'উত্তর পড়ে শুনুন'} style={[styles.messageAction, { borderColor: colors.border }]}>
-                  <Feather name={speakingMessageId === item.id ? 'volume-x' : 'volume-2'} size={13} color={colors.mutedForeground} />
-                  <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>{speakingMessageId === item.id ? 'বন্ধ' : 'শুনুন'}</Text>
+                <Pressable onPress={() => playMessage(item)} accessibilityRole="button" accessibilityLabel={speakingMessageId === item.id ? 'পড়া বন্ধ করুন' : 'উত্তর পড়ে শুনুন'} style={styles.messageAction}>
+                  <Feather name={speakingMessageId === item.id ? 'volume-x' : 'volume-2'} size={13} color="#A39EB5" />
+                  <Text style={styles.messageActionText}>{speakingMessageId === item.id ? 'বন্ধ' : 'শুনুন'}</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={() => { void shareMessage(item); }} accessibilityRole="button" accessibilityLabel="উত্তর শেয়ার করুন" style={[styles.messageAction, { borderColor: colors.border }]}>
-                <Feather name="share-2" size={13} color={colors.mutedForeground} />
-                <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>শেয়ার</Text>
+              <Pressable onPress={() => { void shareMessage(item); }} accessibilityRole="button" accessibilityLabel="উত্তর শেয়ার করুন" style={styles.messageAction}>
+                <Feather name="share-2" size={13} color="#A39EB5" />
+                <Text style={styles.messageActionText}>শেয়ার</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -876,98 +875,61 @@ export default function ChatScreen() {
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Expert Review-এ পাঠান"
-                style={[styles.messageAction, { borderColor: colors.border }]}
+                style={styles.messageAction}
               >
-                <Feather name="clipboard" size={13} color={colors.mutedForeground} />
-                <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>Expert Review</Text>
+                <Feather name="clipboard" size={13} color="#A39EB5" />
+                <Text style={styles.messageActionText}>Expert Review</Text>
               </Pressable>
-              <Pressable onPress={() => void regenerateAnswer(item)} disabled={busy} accessibilityRole="button" accessibilityLabel="উত্তর আবার তৈরি করুন" style={[styles.messageAction, { borderColor: colors.border, opacity: busy ? 0.5 : 1 }]}>
-                <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
-                <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>আবার উত্তর</Text>
+              <Pressable onPress={() => void regenerateAnswer(item)} disabled={busy} accessibilityRole="button" accessibilityLabel="উত্তর আবার তৈরি করুন" style={[styles.messageAction, { opacity: busy ? 0.5 : 1 }]}>
+                <Feather name="refresh-cw" size={13} color="#A39EB5" />
+                <Text style={styles.messageActionText}>আবার উত্তর</Text>
               </Pressable>
             </View>
           ) : null}
+          <View style={styles.metaRow}>
+            <Text style={styles.metaTime}>{time}</Text>
+            {isUser ? (
+              <View style={styles.checks}>
+                <Feather name="check" size={12} color="#67E8F9" />
+                <Feather name="check" size={12} color="#67E8F9" style={{ marginLeft: -7 }} />
+              </View>
+            ) : null}
+          </View>
         </View>
+        {isUser ? <View style={styles.userAvatar}><Feather name="user" size={22} color="#E9D5FF" /></View> : null}
       </View>
     );
   };
 
   return (
     <KeyboardAvoidingView
-      style={[styles.screen, { backgroundColor: colors.background }]}
+      style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 4 : 0}
     >
-      {/* Badboy Futuristic Top Bar */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: Math.max(insets.top, 8),
-            backgroundColor: colors.card,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
-        <Pressable onPress={() => setDrawerOpen(true)} accessibilityRole="button" accessibilityLabel="সাইড মেনু খুলুন" style={[styles.iconButton, { backgroundColor: colors.secondary, marginRight: 8 }]}>
-          <Feather name="menu" size={20} color={colors.foreground} />
-        </Pressable>
-        <View style={styles.brand}>
-          <Animated.View style={[{ transform: [{ scale: corePulse }] }]}>
-            <BadboyLogo size={38} />
-          </Animated.View>
-          <View>
-            <View style={styles.titleRow}>
-              <Text style={[styles.brandTitle, { color: colors.foreground }]}>Badboy AI</Text>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
-                <Text style={styles.statusBadgeText}>{getStatusText()}</Text>
-              </View>
-            </View>
-            <Text style={[styles.brandSub, { color: colors.mutedForeground }]}>NEURAL ASSISTANT</Text>
-          </View>
-        </View>
+      <LinearGradient colors={['#05030D', '#0B0618', '#14060F']} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <View pointerEvents="none" style={styles.glowPurple} />
+      <View pointerEvents="none" style={styles.glowRed} />
 
-        {/* ChatGPT-style chat options */}
-        <Pressable onPress={showChatOptions} accessibilityRole="button" accessibilityLabel="চ্যাট অপশন খুলুন" style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 6 }]}>
-          <Feather name="more-horizontal" size={19} color={colors.foreground} />
-        </Pressable>
-        <Pressable onPress={() => setQuickActionsExpanded((value) => !value)} accessibilityRole="button" accessibilityLabel={quickActionsExpanded ? 'Quick actions hide করুন' : 'Quick actions দেখান'} style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 4 }]}>
-          <Feather name="settings" size={17} color={colors.foreground}/>
-        </Pressable>
+      <ChatHeader
+        topInset={insets.top}
+        avatarScale={corePulse}
+        online={settings.onlineAI}
+        subtitle={getStatusText()}
+        subtitleColor={getStatusColor()}
+        quickActionsExpanded={quickActionsExpanded}
+        onAvatar={() => setDrawerOpen(true)}
+        onToggleQuick={() => setQuickActionsExpanded((value) => !value)}
+        onOptions={showChatOptions}
+      />
 
-        {/* Language Selector Toggle */}
-        <Pressable
-          onPress={() => setSelectedLang((prev) => getNextVoiceLanguage(prev))}
-          style={[styles.langToggle, { borderColor: colors.border, backgroundColor: colors.secondary }]}
-          accessibilityRole="button"
-          accessibilityLabel="ভাষা পরিবর্তন করুন"
-        >
-          <Text style={[styles.langText, { color: colors.primary }]}>
-            {getVoiceLanguageLabel(selectedLang)}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="নতুন চ্যাট শুরু করুন"
-          onPress={startNewChat}
-          style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 4 }]}
-        >
-          <Feather name="plus" size={19} color={colors.foreground} />
-        </Pressable>
-      </View>
-
-      <Pressable
-        onPress={() => router.push('/(tabs)/providers' as never)}
-        accessibilityRole="button"
-        accessibilityLabel="Default provider ও model settings"
-        style={[styles.providerStrip, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
-      >
-        <View style={styles.providerMini}><Feather name="cpu" size={12} color={colors.primary}/><Text numberOfLines={1} style={[styles.providerMiniText,{color:colors.foreground}]}>{defaultModel ? (getProvider(defaultModel.providerId)?.name || defaultModel.providerId) : 'Provider not selected'}</Text></View>
-        <View style={[styles.providerDivider,{backgroundColor:colors.border}]}/>
-        <View style={styles.providerMini}><Feather name="layers" size={12} color={colors.primary}/><Text numberOfLines={1} style={[styles.providerMiniText,{color:colors.foreground,flex:1}]}>{defaultModel?.label || defaultModel?.modelId || 'Choose model'}</Text></View>
-        <View style={[styles.onlinePill,{backgroundColor:settings.onlineAI?'rgba(22,190,120,0.13)':'rgba(140,140,140,0.14)'}]}><View style={[styles.onlineDot,{backgroundColor:settings.onlineAI?'#19C783':'#929292'}]}/><Text style={[styles.onlineText,{color:settings.onlineAI?'#19C783':colors.mutedForeground}]}>{settings.onlineAI?'ONLINE':'OFFLINE'}</Text></View>
-      </Pressable>
+      <ProviderModelStrip
+        providerName={defaultModel ? (getProvider(defaultModel.providerId)?.name || defaultModel.providerId) : 'Select provider'}
+        modelName={defaultModel?.label || defaultModel?.modelId || 'Select model'}
+        online={settings.onlineAI}
+        onProvider={() => router.push('/(tabs)/providers' as never)}
+        onModel={() => router.push('/(tabs)/models' as never)}
+      />
 
       {drawerOpen ? (
         <View style={[styles.drawerScrim, { backgroundColor: 'rgba(0,0,0,0.58)' }]}>
@@ -1031,6 +993,7 @@ export default function ChatScreen() {
             {drawerModal === 'options' ? (
               <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 20, gap: 10 }}>
                 {[
+                  { label: `ভাষা: ${getVoiceLanguageLabel(selectedLang)} (বদলাতে চাপুন)`, action: () => setSelectedLang((prev) => getNextVoiceLanguage(prev)) },
                   { label: 'AI ব্যক্তিত্ব / উত্তর-স্টাইল', action: () => { setDrawerModal(null); chooseAiStyle(); } },
                   { label: 'গল্প, কবিতা, স্ক্রিপ্ট', action: () => { setDrawerModal(null); showCreativeOptions(); } },
                   { label: 'নতুন চ্যাট', action: () => setDrawerModal('newChat') },
@@ -1090,35 +1053,9 @@ export default function ChatScreen() {
       </Modal>
 
       {!messages.length ? (
-        <View style={styles.welcome}>
-          <View style={[styles.welcomeMark, { backgroundColor: colors.secondary, borderColor: colors.primary }]}>
-            <BadboyLogo size={48} />
-          </View>
-          <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Hey, I'm BADBOY.</Text>
-          <Text style={[styles.welcomeText, { color: colors.mutedForeground }]}>
-            Your premium AI copilot — built to think fast, build hard and never hold back.
-          </Text>
-          {quickActionsExpanded ? <Text style={styles.quickLabel}>QUICK ACTIONS  ·  8 AVAILABLE</Text> : null}
-          {quickActionsExpanded ? (
-            <View style={styles.quickGrid}>
-              {[
-                { label: 'Coding', icon: 'code', prompt: 'আমাকে coding-এ সাহায্য করো।' },
-                { label: 'Research', icon: 'search', prompt: 'এই বিষয়ে বিস্তারিত research করো: ' },
-                { label: 'Memory', icon: 'database', prompt: 'আমার saved memory থেকে প্রাসঙ্গিক তথ্য খুঁজে দাও।' },
-                { label: 'Developer', icon: 'terminal', prompt: 'Developer mode-এ এই কাজটি বিশ্লেষণ করো: ' },
-                { label: 'Voice', icon: 'mic', prompt: 'Voice settings ও voice workflow সাহায্য করো।' },
-                { label: 'Android', icon: 'smartphone', prompt: 'Android control-এর জন্য সাহায্য করো: ' },
-                { label: 'Tools', icon: 'tool', prompt: 'উপযুক্ত tools ব্যবহার করে কাজটি করো: ' },
-                { label: 'Creative', icon: 'edit-3', prompt: 'সৃজনশীলভাবে এটি তৈরি করো: ' },
-              ].map((item, index) => (
-                <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{width:index >= 6 ? '46%' : '30%',backgroundColor:colors.card,borderColor:colors.border}]}>
-                  <Feather name={item.icon as any} size={17} color={colors.primary}/>
-                  <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.welcome} keyboardShouldPersistTaps="handled">
+          <WelcomeBanner />
+        </ScrollView>
       ) : (
         <FlatList
           ref={listRef}
@@ -1130,39 +1067,24 @@ export default function ChatScreen() {
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
           ListFooterComponent={
-            settings.autoImprove && settings.onlineAI ? (
-              <Pressable
-                onPress={requestImprovement}
-                disabled={improving || busy}
-                style={styles.improveButton}
-              >
-                {improving ? <ActivityIndicator size="small" color={colors.primary} /> : <Feather name="sliders" size={14} color={colors.primary} />}
-                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>শৈলী সংশোধন</Text>
-              </Pressable>
-            ) : undefined
+            <View>
+              <WelcomeBanner />
+              {settings.autoImprove && settings.onlineAI ? (
+                <Pressable
+                  onPress={requestImprovement}
+                  disabled={improving || busy}
+                  style={styles.improveButton}
+                >
+                  {improving ? <ActivityIndicator size="small" color={colors.primary} /> : <Feather name="sliders" size={14} color={colors.primary} />}
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>শৈলী সংশোধন</Text>
+                </Pressable>
+              ) : null}
+            </View>
           }
         />
       )}
 
-      {messages.length > 0 && quickActionsExpanded ? (
-        <View style={[styles.quickGrid,{paddingHorizontal:12,paddingVertical:8,backgroundColor:colors.background}]}>
-          {[
-            { label: 'Coding', icon: 'code', prompt: 'আমাকে coding-এ সাহায্য করো।' },
-            { label: 'Research', icon: 'search', prompt: 'এই বিষয়ে বিস্তারিত research করো: ' },
-            { label: 'Memory', icon: 'database', prompt: 'আমার saved memory থেকে প্রাসঙ্গিক তথ্য খুঁজে দাও।' },
-            { label: 'Developer', icon: 'terminal', prompt: 'Developer mode-এ এই কাজটি বিশ্লেষণ করো: ' },
-            { label: 'Voice', icon: 'mic', prompt: 'Voice settings ও voice workflow সাহায্য করো।' },
-            { label: 'Android', icon: 'smartphone', prompt: 'Android control-এর জন্য সাহায্য করো: ' },
-            { label: 'Tools', icon: 'tool', prompt: 'উপযুক্ত tools ব্যবহার করে কাজটি করো: ' },
-            { label: 'Creative', icon: 'edit-3', prompt: 'সৃজনশীলভাবে এটি তৈরি করো: ' },
-          ] .map((item, index) => (
-            <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{width:index >= 6 ? '46%' : '30%',backgroundColor:colors.card,borderColor:colors.border}]}>
-              <Feather name={item.icon as any} size={17} color={colors.primary}/>
-              <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+      {quickActionsExpanded ? <QuickActionGrid onPick={setDraft} /> : null}
 
       {error ? (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive }]}>
@@ -1174,7 +1096,7 @@ export default function ChatScreen() {
                 accessibilityRole="button"
                 onPress={() => {
                   void signOut().catch((cause) => {
-                    setError(cause instanceof Error ? cause.message : 'Owner session reset করা যায়নি। আবার চেষ্টা করুন।');
+                    setError(cause instanceof Error ? cause.message : 'Owner session reset করা যায়নি। আবার চেষ্টা করুন।');
                   });
                 }}
                 style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.destructiveForeground }}
@@ -1195,7 +1117,7 @@ export default function ChatScreen() {
               {label:'Photo',icon:'image',detail:'Choose a photo'},
               {label:'Video',icon:'video',detail:'Choose a video'},
             ].map((item) => (
-              <Pressable key={item.label} onPress={() => { setAttachmentMenuOpen(false); Alert.alert(item.label, 'এই attachment picker ও chat upload workflow এখনো সংযুক্ত হয়নি। UI-তে অপশনটি রাখা হয়েছে; upload কাজ করবে বলে দাবি করছি না।'); }} style={[styles.attachmentOption,{borderColor:colors.border}]}>
+              <Pressable key={item.label} onPress={() => { setAttachmentMenuOpen(false); Alert.alert(item.label, 'এই attachment picker ও chat upload workflow এখনো সংযুক্ত হয়নি। UI-তে অপশনটি রাখা হয়েছে; upload কাজ করবে বলে দাবি করছি না।'); }} style={[styles.attachmentOption,{borderColor:colors.border}]}>
                 <View style={[styles.attachmentIcon,{backgroundColor:colors.secondary}]}><Feather name={item.icon as any} size={18} color={colors.primary}/></View>
                 <View style={{flex:1}}><Text style={{color:colors.foreground,fontWeight:'800'}}>{item.label}</Text><Text style={{color:colors.mutedForeground,fontSize:11}}>{item.detail}</Text></View>
                 <Feather name="chevron-right" size={17} color={colors.mutedForeground}/>
@@ -1206,7 +1128,7 @@ export default function ChatScreen() {
       </Modal>
 
       {emojiPickerOpen ? (
-        <View style={[styles.emojiTray, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.emojiTray}>
           {['😀', '😂', '🥰', '👍', '❤️', '🔥', '🙏', '🤔', '🎉', '🚀'].map((emoji) => (
             <Pressable
               key={emoji}
@@ -1224,49 +1146,41 @@ export default function ChatScreen() {
       ) : null}
 
       {/* Composer Row */}
-      <View
-        style={[
-          styles.composer,
-          {
-            borderColor: colors.border,
-            backgroundColor: colors.card,
-            marginBottom:
-              Platform.OS === 'web' ? 12 : Math.max(insets.bottom, 8) + 16,
-          },
-        ]}
-      >
-        <Pressable onPress={() => setAttachmentMenuOpen(true)} accessibilityRole="button" accessibilityLabel="ফাইল, ছবি বা ভিডিও যোগ করুন" style={[styles.roundButton,{backgroundColor:colors.secondary}]}>
-          <Feather name="plus" size={20} color={colors.foreground}/>
+      <View style={styles.composer}>
+        <Pressable onPress={() => setAttachmentMenuOpen(true)} accessibilityRole="button" accessibilityLabel="ফাইল, ছবি বা ভিডিও যোগ করুন" style={styles.sideButton}>
+          <Feather name="paperclip" size={22} color="#C4B5FD" />
         </Pressable>
-        <Pressable
-          onPress={() => setEmojiPickerOpen((open) => !open)}
-          accessibilityRole="button"
-          accessibilityLabel={emojiPickerOpen ? 'ইমোজি বন্ধ করুন' : 'ইমোজি যোগ করুন'}
-          style={[styles.roundButton, { backgroundColor: emojiPickerOpen ? colors.primary : colors.secondary }]}
-        >
-          <Feather name="smile" size={18} color={emojiPickerOpen ? colors.primaryForeground : colors.foreground}/>
-        </Pressable>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Badboy-কে কিছু বলুন…"
-          placeholderTextColor={colors.mutedForeground}
-          multiline
-          maxLength={4000}
-          returnKeyType="default"
-          style={[styles.input, { color: colors.foreground }]}
-          accessibilityLabel="আপনার প্রশ্ন"
-        />
+        <View style={styles.inputWrap}>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder="Type your message..."
+            placeholderTextColor="#8E8A9C"
+            multiline
+            maxLength={4000}
+            returnKeyType="default"
+            style={styles.input}
+            accessibilityLabel="আপনার প্রশ্ন"
+          />
+          <Pressable
+            onPress={() => setEmojiPickerOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel={emojiPickerOpen ? 'ইমোজি বন্ধ করুন' : 'ইমোজি যোগ করুন'}
+            style={styles.emojiButton}
+          >
+            <Feather name="smile" size={22} color={emojiPickerOpen ? '#F0ABFC' : '#C4B5FD'} />
+          </Pressable>
+        </View>
         <Pressable
           onPress={() => void toggleVoice()}
           accessibilityRole="button"
           accessibilityLabel={listening ? 'ভয়েস গ্রহণ বন্ধ করুন' : 'ভয়েস অন করুন'}
           disabled={!settings.voiceInputEnabled || !settings.voiceProcessingConsent}
-          style={[styles.roundButton, { backgroundColor: listening ? colors.primary : colors.secondary }]}
+          style={[styles.roundButton, { backgroundColor: listening ? colors.primary : 'rgba(124,58,237,0.16)' }]}
         >
           {listening
             ? <ActivityIndicator size="small" color={colors.primaryForeground} />
-            : <Feather name="mic" size={18} color={listening ? colors.primaryForeground : colors.foreground} />}
+            : <Feather name="mic" size={18} color="#E9D5FF" />}
         </Pressable>
         <Pressable
           onPress={() => {
@@ -1279,26 +1193,29 @@ export default function ChatScreen() {
           }}
           accessibilityRole="button"
           accessibilityLabel={settings.autoSpeakReplies && settings.autoSubmitVoice ? 'Auto Voice Conversation বন্ধ করুন' : 'Auto Voice Conversation চালু করুন'}
-          style={[styles.roundButton, { backgroundColor: settings.autoSpeakReplies && settings.autoSubmitVoice ? colors.primary : colors.secondary }]}
+          style={[styles.roundButton, { backgroundColor: settings.autoSpeakReplies && settings.autoSubmitVoice ? colors.primary : 'rgba(124,58,237,0.16)' }]}
         >
-          <Feather name="headphones" size={18} color={settings.autoSpeakReplies && settings.autoSubmitVoice ? colors.primaryForeground : colors.foreground} />
+          <Feather name="headphones" size={18} color={settings.autoSpeakReplies && settings.autoSubmitVoice ? colors.primaryForeground : '#E9D5FF'} />
         </Pressable>
         <Pressable
           onPress={() => void sendMessage(draft)}
           disabled={!draft.trim() || busy}
           accessibilityRole="button"
           accessibilityLabel="পাঠান"
-          style={[styles.roundButton, { backgroundColor: colors.primary, opacity: !draft.trim() || busy ? 0.4 : 1 }]}
+          style={[styles.sendButton, { opacity: !draft.trim() || busy ? 0.45 : 1 }]}
         >
-          {busy ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Feather name="arrow-up" size={20} color={colors.primaryForeground} />}
+          {busy ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Feather name="send" size={22} color="#FFFFFF" />}
         </Pressable>
       </View>
+      <ChatFooter bottomInset={insets.bottom} />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+  screen: { flex: 1, backgroundColor: '#05030D' },
+  glowPurple: { position: 'absolute', top: 40, left: -110, width: 260, height: 260, borderRadius: 130, backgroundColor: '#6D00FF', opacity: 0.12 },
+  glowRed: { position: 'absolute', top: 320, right: -130, width: 260, height: 260, borderRadius: 130, backgroundColor: '#FF123F', opacity: 0.09 },
   drawerScrim: { ...StyleSheet.absoluteFill, zIndex: 100, flexDirection: 'row' },
   drawerOutside: { flex: 1 },
   drawerPanel: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '82%', maxWidth: 340, borderRightWidth: 1, paddingHorizontal: 16, zIndex: 101, elevation: 18 },
@@ -1312,41 +1229,24 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12 },
   searchInput: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, marginBottom: 10 },
   historyItem: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  header: { paddingHorizontal: 14, paddingBottom: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, columnGap: 6, rowGap: 8 },
-  providerStrip:{minHeight:28,marginHorizontal:14,marginBottom:8,paddingHorizontal:10,paddingVertical:4,flexDirection:'row',alignItems:'center',gap:8,borderWidth:1,borderColor:'rgba(255,255,255,0.07)',borderRadius:20,backgroundColor:'rgba(255,255,255,0.025)'}, 
-  providerMini:{flexDirection:'row',alignItems:'center',gap:5,minWidth:0},
-  providerMiniText:{fontSize:10,fontWeight:'800',maxWidth:115},
-  providerDivider:{width:1,height:15},
-  onlinePill:{marginLeft:'auto',borderRadius:20,paddingHorizontal:7,paddingVertical:4,flexDirection:'row',alignItems:'center',gap:4},
-  onlineDot:{width:5,height:5,borderRadius:3},
-  onlineText:{fontSize:8,fontWeight:'900',letterSpacing:.5},
-  quickGrid:{width:'100%',flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:7,marginTop:10},
-  quickLabel:{alignSelf:'flex-start',marginTop:18,marginBottom:2,color:'#77738E',fontSize:9,fontWeight:'900',letterSpacing:2},
-  quickAction:{minHeight:58,borderWidth:1,borderRadius:13,alignItems:'center',justifyContent:'center',gap:6,padding:7,backgroundColor:'rgba(255,255,255,0.025)'},
-  messageAvatar:{width:25,height:25,borderRadius:9,alignItems:'center',justifyContent:'center',marginTop:2,backgroundColor:'rgba(139,92,246,0.13)',borderWidth:1,borderColor:'rgba(168,85,247,0.28)'}, 
-
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, flexShrink: 1, minWidth: 150 },
-  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   brandTitle: { fontSize: 16, fontWeight: '700', letterSpacing: 0.5, flexShrink: 1 },
   brandSub: { fontSize: 11, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, maxWidth: 150 },
-  statusBadgeText: { fontSize: 10, fontWeight: '600', color: '#ffffff' },
-  langToggle: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6, marginHorizontal: 2, maxWidth: '100%' },
-  langText: { fontSize: 11, fontWeight: '700' },
-  visualizerContainer: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 38, marginHorizontal: 8 },
-  visualizerBar: { width: 3, borderRadius: 2 },
   iconButton: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  welcome: { flex: 1, alignItems: 'flex-start', justifyContent: 'flex-start', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  welcomeMark: { width: 76, height: 76, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  welcomeTitle: { fontSize: 21, fontWeight: '900', textAlign: 'left', letterSpacing: -0.35 },
-  welcomeText: { fontSize: 12, lineHeight: 18, textAlign: 'left', marginTop: 5, maxWidth: 310 }, 
-  suggestions: { width: '100%', gap: 10, marginTop: 26 },
-  suggestion: { borderWidth: 1, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16 },
-  messageList: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
-  messageRow: { width: '100%', flexDirection:'row',alignItems: 'flex-start',gap:8,marginVertical: 7 },
-  userRow: { justifyContent:'flex-end',alignItems: 'flex-end' },
-  messageBubble: { maxWidth: '78%', paddingVertical: 10, paddingHorizontal: 13, borderRadius: 16, borderTopLeftRadius:5,borderWidth: 1,shadowColor:'#8B5CF6',shadowOpacity:0.10,shadowRadius:12,elevation:2 },
-  userBubble: { borderTopLeftRadius:16,borderTopRightRadius:5,borderBottomRightRadius:16 }, 
+  welcome: { paddingTop: 6, paddingBottom: 12 },
+  messageList: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 },
+  messageRow: { width: '100%', flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginVertical: 8 },
+  userRow: { justifyContent: 'flex-end' },
+  avatarWrap: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  messageAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#0B0716', borderWidth: 2, borderColor: '#A855F7' },
+  avatarDot: { position: 'absolute', right: 0, bottom: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#05030D' },
+  userAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2A1260', borderWidth: 2, borderColor: '#8B5CF6' },
+  messageBubble: { maxWidth: '76%', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1 },
+  userBubble: { backgroundColor: 'rgba(109,40,217,0.55)', borderColor: '#8B5CF6', borderBottomRightRadius: 5, shadowColor: '#8B5CF6', shadowOpacity: 0.35, shadowRadius: 12, elevation: 3 },
+  botBubble: { backgroundColor: 'rgba(10,8,24,0.92)', borderColor: 'rgba(168,85,247,0.55)', borderBottomLeftRadius: 5, shadowColor: '#C026D3', shadowOpacity: 0.25, shadowRadius: 12, elevation: 3 },
+  messageText: { color: '#F5F0FF', fontSize: 15, lineHeight: 22 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5, marginTop: 4 },
+  metaTime: { color: '#B7ADD0', fontSize: 11 },
+  checks: { flexDirection: 'row', alignItems: 'center' },
   ytButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1361,18 +1261,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  messageActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 7, marginLeft: 3 },
-  messageAction: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
+  messageActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 7 },
+  messageAction: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(168,85,247,0.3)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
+  messageActionText: { color: '#A39EB5', fontSize: 11 },
   improveButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, marginTop: 4 },
   errorBox: { marginHorizontal: 12, marginBottom: 8, borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  composer: { marginHorizontal: 12, borderWidth: 1, borderRadius: 23, minHeight: 56, maxHeight: 136, paddingHorizontal: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'flex-end', gap: 4, shadowColor: '#8A20FF', shadowOpacity: 0.20, shadowRadius: 16, elevation: 6 }, 
-  emojiTray: { marginHorizontal: 12, marginBottom: 7, borderWidth: 1, borderRadius: 16, paddingHorizontal: 8, paddingVertical: 6, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4 },
+  composer: { marginHorizontal: 12, marginBottom: 6, marginTop: 4, borderWidth: 1, borderColor: '#7C3AED', borderRadius: 18, minHeight: 60, paddingHorizontal: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'flex-end', gap: 6, backgroundColor: 'rgba(12,8,28,0.92)', shadowColor: '#8A20FF', shadowOpacity: 0.3, shadowRadius: 16, elevation: 6 },
+  sideButton: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
+  inputWrap: { flex: 1, minHeight: 44, maxHeight: 120, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#B91C6B', borderRadius: 16, paddingLeft: 12, paddingRight: 4, backgroundColor: 'rgba(8,6,20,0.95)' },
+  input: { flex: 1, minHeight: 40, maxHeight: 110, paddingVertical: 8, fontSize: 15, color: '#F5F0FF' },
+  emojiButton: { width: 34, height: 40, alignItems: 'center', justifyContent: 'center' },
+  sendButton: { width: 48, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#6D28D9', borderWidth: 1, borderColor: '#A855F7' },
+  emojiTray: { marginHorizontal: 12, marginBottom: 7, borderWidth: 1, borderColor: '#5B2DB0', borderRadius: 16, paddingHorizontal: 8, paddingVertical: 6, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4, backgroundColor: 'rgba(12,8,28,0.95)' },
   emojiChip: { minWidth: 34, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: 'rgba(135,55,255,0.10)' },
   attachmentBackdrop:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.55)',padding:12},
   attachmentPanel:{borderWidth:1,borderRadius:20,padding:14,paddingBottom:20,gap:8},
   attachmentOption:{minHeight:58,borderWidth:1,borderRadius:13,padding:9,flexDirection:'row',alignItems:'center',gap:10},
   attachmentIcon:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center'},
-
-  input: { flex: 1, minHeight: 38, maxHeight: 110, paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, fontSize: 15 },
-  roundButton: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  roundButton: { width: 38, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });
