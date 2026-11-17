@@ -775,7 +775,7 @@ export async function handleAgenticAssistantRequest(request: Request, env: Agent
           const reviewed = await completeText(apiKey, [
             { role: "system", content: "You are Badboy Reviewer. Check the proposed answer for correctness, missing requirements, unsupported claims, and safety. Return concise review notes in Bangla. Do not invent facts." },
             { role: "user", content: `User request:\n${message}\n\nPlan:\n${plan}\n\nExecutor result:\n${execution}\n\nList any corrections needed.` },
-          ]);
+          ], false, undefined, undefined, provider);
           review = reviewed.content.slice(0, 3000) || review;
           send({ type: "agent", agent: "reviewer", status: "completed" });
         }
