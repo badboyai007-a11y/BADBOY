@@ -60,10 +60,10 @@ mock.module('react-native', {
 mock.module('@expo/vector-icons', { namedExports: { Feather: () => null } });
 mock.module('expo-linear-gradient', { namedExports: { LinearGradient: ({ children }: any) => React.createElement('div', null, children) } });
 mock.module('react-native-svg', {
-  defaultExport: ({ children }: any) => React.createElement('svg', null, children),
-  namedExports: {
-    Circle: 'circle', Defs: 'defs', Ellipse: 'ellipse', LinearGradient: 'linearGradient', Path: 'path', Stop: 'stop',
-  },
+  defaultExport: Object.assign(
+    ({ children }: any) => React.createElement('svg', null, children),
+    { Circle: 'circle', Defs: 'defs', Ellipse: 'ellipse', LinearGradient: 'linearGradient', Path: 'path', Stop: 'stop' },
+  ),
 });
 mock.module('react-native-safe-area-context', { namedExports: { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) } });
 mock.module('../context/OwnerAuthContext.tsx', {
