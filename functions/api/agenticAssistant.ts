@@ -720,7 +720,7 @@ export async function handleAgenticAssistantRequest(request: Request, env: Agent
   const validation = validateAgenticPayload(rawBody);
   if (!validation.ok) return jsonResponse({ code: validation.code, error: validation.error }, 400);
   const provider = validation.value.provider;
-  const apiKey = provider ? "" : env.OPENROUTER_API_KEY?.trim();
+  const apiKey = provider ? "" : (env.OPENROUTER_API_KEY?.trim() ?? "");
   if (!provider && !apiKey) return jsonResponse({ code: "AI_NOT_CONFIGURED", error: "OpenRouter is not configured on the server." }, 503);
 
   const { message, personality, developerMode, mode, history, enabledPlugins, memoryContext, skillContext } = validation.value;
