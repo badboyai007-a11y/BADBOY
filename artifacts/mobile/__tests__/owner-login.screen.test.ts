@@ -59,10 +59,12 @@ mock.module('react-native', {
 });
 mock.module('@expo/vector-icons', { namedExports: { Feather: () => null } });
 mock.module('expo-linear-gradient', { namedExports: { LinearGradient: ({ children }: any) => React.createElement('div', null, children) } });
-mock.module('react-native-svg', { namedExports: {
-  default: ({ children }: any) => React.createElement('svg', null, children),
-  Circle: 'circle', Defs: 'defs', Ellipse: 'ellipse', LinearGradient: 'linearGradient', Path: 'path', Stop: 'stop',
-} });
+mock.module('react-native-svg', {
+  defaultExport: ({ children }: any) => React.createElement('svg', null, children),
+  namedExports: {
+    Circle: 'circle', Defs: 'defs', Ellipse: 'ellipse', LinearGradient: 'linearGradient', Path: 'path', Stop: 'stop',
+  },
+});
 mock.module('react-native-safe-area-context', { namedExports: { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) } });
 mock.module('../context/OwnerAuthContext.tsx', {
   namedExports: { useOwnerAuth: () => ({ signIn: async (token: string) => {
@@ -74,48 +76,53 @@ mock.module('../context/OwnerAuthContext.tsx', {
 
 const ownerLoginScreenPromise = import('../app/owner-login');
 
-test('Owner Login starts with a disabled secure-token action and explains local data privacy', async () => {
+test('Owner Login renders the owner-token gate and keeps submit disabled without a token', async () => {
   const { default: OwnerLoginScreen } = await ownerLoginScreenPromise;
   hookState.length = 0;
+  pressHandlers.length = 0;
   const html = renderOwnerLogin(OwnerLoginScreen);
   assert.match(html, /BADBOY/);
-  assert.match(html, /Owner Login/);
-  assert.match(html, /Paste Owner Token/);
-  assert.match(html, /Secure Sign In/);
+  assert.match(html, /OWNER/);
+  assert.match(html, /LOGIN NOW/);
+  assert.match(html, /Owner Token/);
+  assert.match(html, /OWNER AUTHORIZATION REQUIRED/);
+  assert.match(html, /Without Owner Login, you cannot access the main app/);
   assert.match(html, /disabled/);
-  assert.match(html, /SecureStore/);
-  assert.match(html, /Chat History ও সাধারণ Memory ফোনেই থাকবে/);
-  assert.match(html, /Developer Agent-এর Project Memory ও Tasks Owner Token-সুরক্ষিত Cloudflare D1-এ সংরক্ষিত হয়/);
+  assert.equal(pressHandlers.length, 1);
+  await pressHandlers[0]();
+  assert.deepEqual(signInCalls, []);
 });
 
-test('Owner Login submit handler delegates to owner auth and safely handles rejection', async () => {
+test('Owner Login submits the entered token through the existing owner auth provider', async () => {
   const { default: OwnerLoginScreen } = await ownerLoginScreenPromise;
+  hookState.length = 0;
+  hookState[0] = 'owner-token-test';
   pressHandlers.length = 0;
   signInCalls.length = 0;
-  rejectSignIn = true;
-  hookState.length = 0;
+  rejectSignIn = false;
   renderOwnerLogin(OwnerLoginScreen);
   assert.equal(pressHandlers.length, 1);
   await pressHandlers[0]();
-  assert.deepEqual(signInCalls, ['']);
-  rejectSignIn = false;
+  assert.deepEqual(signInCalls, ['owner-token-test']);
 });
 
-test('Owner Login submit handler completes after successful owner authentication', async () => {
+test('Owner Login safely handles rejected owner authentication', async () => {
   const { default: OwnerLoginScreen } = await ownerLoginScreenPromise;
+  hookState.length = 0;
+  hookState[0] = 'invalid-token';
   pressHandlers.length = 0;
   signInCalls.length = 0;
-  rejectSignIn = false;
-  hookState.length = 0;
-  pressHandlers.length = 0;
+  rejectSignIn = true;
   renderOwnerLogin(OwnerLoginScreen);
   await pressHandlers[0]();
-  assert.deepEqual(signInCalls, ['']);
+  assert.deepEqual(signInCalls, ['invalid-token']);
+  rejectSignIn = false;
 });
 
 test('Owner Login ignores a second submit while an authentication request is pending', async () => {
   const { default: OwnerLoginScreen } = await ownerLoginScreenPromise;
   hookState.length = 0;
+  hookState[0] = 'owner-token-test';
   signInCalls.length = 0;
   rejectSignIn = false;
   holdSignIn = true;
@@ -125,11 +132,12 @@ test('Owner Login ignores a second submit while an authentication request is pen
   const firstSubmit = pressHandlers[0]();
   assert.equal(typeof resolvePendingSignIn, 'function');
 
+  hookState[1] = true;
   pressHandlers.length = 0;
   renderOwnerLogin(OwnerLoginScreen);
   assert.equal(pressHandlers.length, 1);
   await pressHandlers[0]();
-  assert.deepEqual(signInCalls, ['']);
+  assert.deepEqual(signInCalls, ['owner-token-test']);
 
   resolvePendingSignIn?.();
   await firstSubmit;
