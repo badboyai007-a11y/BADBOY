@@ -96,7 +96,7 @@ mock.module('react-native', {
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Alert: { alert: (title: string, message: string, buttons: any[] = []) => alerts.push({ title, message, buttons }) },
     Linking: { openURL: async (url: string) => { openedUrls.push(url); } },
-    Platform: { OS: 'android' },
+    Platform: { OS: 'android', select: (options: Record<string, unknown>) => options.android ?? options.default ?? options.ios },
     Pressable: host('button'),
     ScrollView: host('main'),
     Share: { share: async () => ({ action: 'dismissedAction' }) },
