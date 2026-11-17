@@ -26,9 +26,8 @@ function DarkAiEmblem() {
     <Path d="M192 158 Q213 135 232 158 L209 168 Z" fill="url(#red)"/>
     <Path d="M132 160 L164 155 M196 155 L228 160" stroke="#FF2349" strokeWidth="5" strokeLinecap="round"/>
     <Path d="M180 167 L165 210 L180 221 L195 210 Z" fill="#090D18" stroke="#8B1D7A" strokeWidth="2"/>
-    <Path d="M120 60 L135 23 L153 46 L180 7 L207 46 L225 23 L240 60 Z" fill="#11121D" stroke="#D29B42" strokeWidth="3"/>
-    <Path d="M135 42 L151 49 L180 18 L209 49 L225 42" stroke="#FFD16D" strokeWidth="3" fill="none"/>
-    <Circle cx="180" cy="29" r="6" fill="#FF334D"/>
+    <Path d="M116 72 Q180 35 244 72" stroke="#A21BFF" strokeWidth="3" fill="none" opacity=".75"/>
+    <Path d="M132 78 L148 68 L164 78 M196 78 L212 68 L228 78" stroke="#FF3158" strokeWidth="2" fill="none"/>
     <Path d="M91 184 Q51 162 39 193 Q24 224 65 241 L120 230 M269 184 Q309 162 321 193 Q336 224 295 241 L240 230" fill="#080B15" stroke="#4823A0" strokeWidth="5"/>
     <Path d="M48 200 L77 190 L92 205 L77 220 L48 214 Z M312 200 L283 190 L268 205 L283 220 L312 214 Z" fill="#141B2B" stroke="#7B31FF" strokeWidth="2"/>
     <Circle cx="70" cy="205" r="5" fill="#B400FF"/><Circle cx="290" cy="205" r="5" fill="#FF254A"/>
