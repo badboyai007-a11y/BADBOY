@@ -362,10 +362,23 @@ export function validateAgenticPayload(body: unknown): AgenticValidation {
     }
     const host = endpoint.hostname.toLowerCase();
     const isIpLiteral = /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host) || host.startsWith("[") || host.includes(":");
+    const officialDomains: Partial<Record<AgenticProviderConfig["providerId"], string>> = {
+      gemini: "googleapis.com",
+      groq: "groq.com",
+      cerebras: "cerebras.ai",
+      sambanova: "sambanova.ai",
+      mistral: "mistral.ai",
+      openrouter: "openrouter.ai",
+      cloudflare: "cloudflare.com",
+      cohere: "cohere.com",
+      nvidia: "nvidia.com",
+    };
+    const officialDomain = officialDomains[raw.providerId as AgenticProviderConfig["providerId"]];
+    const wrongProviderHost = officialDomain !== undefined && host !== officialDomain && !host.endsWith(`.${officialDomain}`);
     if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.search || endpoint.hash
-      || (endpoint.port && endpoint.port !== "443") || isIpLiteral
+      || (endpoint.port && endpoint.port !== "443") || isIpLiteral || wrongProviderHost
       || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) {
-      return { ok: false, code: "INVALID_AGENTIC_PROVIDER", error: "Provider URL must use a public HTTPS hostname without credentials, query strings, fragments, or custom ports." };
+      return { ok: false, code: "INVALID_AGENTIC_PROVIDER", error: "Provider URL must use the provider's public HTTPS hostname without credentials, query strings, fragments, or custom ports." };
     }
     provider = {
       providerId: raw.providerId as AgenticProviderConfig["providerId"],
@@ -421,8 +434,10 @@ function systemPrompt(personality: string, developerMode: boolean): string {
   return [base, developer, personality.slice(0, 1000)].filter(Boolean).join("\n\n");
 }
 
-function modelErrorMessage(payload: CompletionResponse, status: number): string {
-  return payload.error?.message?.slice(0, 300) || `OpenRouter returned HTTP ${status}.`;
+function modelErrorMessage(payload: CompletionResponse, status: number, secret?: string): string {
+  const message = payload.error?.message ?? `AI provider returned HTTP ${status}.`;
+  const safeMessage = secret ? message.split(secret).join("[redacted]") : message;
+  return safeMessage.slice(0, 300);
 }
 
 export function normalizeStructuredAgentPlan(content: string): string | null {
@@ -506,7 +521,7 @@ async function completeText(apiKey: string, messages: ChatMessage[], tools = fal
   const response = await requestCompletion(apiKey, messages, { tools, toolDefinitions, responseFormat, maxTokens: 1800 }, provider);
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as CompletionResponse;
-    throw new Error(modelErrorMessage(body, response.status));
+    throw new Error(modelErrorMessage(body, response.status, provider?.apiKey));
   }
   const body = await response.json() as CompletionResponse;
   const message = body.choices?.[0]?.message;
@@ -642,7 +657,7 @@ async function streamFinalAnswer(
   const upstream = await requestCompletion(apiKey, messages, { stream: true, maxTokens: 2400 }, provider);
   if (!upstream.ok || !upstream.body) {
     const body = await upstream.json().catch(() => ({})) as CompletionResponse;
-    return jsonResponse({ code: "AGENT_FINAL_RESPONSE_FAILED", error: modelErrorMessage(body, upstream.status) }, upstream.status === 429 ? 429 : 502);
+    return jsonResponse({ code: "AGENT_FINAL_RESPONSE_FAILED", error: modelErrorMessage(body, upstream.status, provider?.apiKey) }, upstream.status === 429 ? 429 : 502);
   }
   const encoder = new TextEncoder();
   const reader = upstream.body.getReader();
