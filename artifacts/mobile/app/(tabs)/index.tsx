@@ -93,6 +93,7 @@ export default function ChatScreen() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [defaultModel, setDefaultModel] = useState<ModelChoice | null>(null);
   const [drawerModal, setDrawerModal] = useState<'search' | 'history' | 'options' | 'newChat' | null>(null);
   const [chatSearch, setChatSearch] = useState('');
@@ -263,6 +264,7 @@ export default function ChatScreen() {
     if (!text || busy) return;
     Keyboard.dismiss();
     setDraft('');
+    setEmojiPickerOpen(false);
     setError(null);
 
     const userMessage = newMessage('user', text);
@@ -900,7 +902,7 @@ export default function ChatScreen() {
         style={[
           styles.header,
           {
-            paddingTop: 8,
+            paddingTop: Math.max(insets.top, 8),
             backgroundColor: colors.card,
             borderBottomColor: colors.border,
           },
@@ -1203,6 +1205,24 @@ export default function ChatScreen() {
         </Pressable>
       </Modal>
 
+      {emojiPickerOpen ? (
+        <View style={[styles.emojiTray, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {['😀', '😂', '🥰', '👍', '❤️', '🔥', '🙏', '🤔', '🎉', '🚀'].map((emoji) => (
+            <Pressable
+              key={emoji}
+              onPress={() => {
+                setDraft((current) => `${current}${current && !current.endsWith(' ') ? ' ' : ''}${emoji}`.slice(0, 4000));
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`ইমোজি ${emoji} যোগ করুন`}
+              style={styles.emojiChip}
+            >
+              <Text style={{ fontSize: 22 }}>{emoji}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       {/* Composer Row */}
       <View
         style={[
@@ -1217,6 +1237,14 @@ export default function ChatScreen() {
       >
         <Pressable onPress={() => setAttachmentMenuOpen(true)} accessibilityRole="button" accessibilityLabel="ফাইল, ছবি বা ভিডিও যোগ করুন" style={[styles.roundButton,{backgroundColor:colors.secondary}]}>
           <Feather name="plus" size={20} color={colors.foreground}/>
+        </Pressable>
+        <Pressable
+          onPress={() => setEmojiPickerOpen((open) => !open)}
+          accessibilityRole="button"
+          accessibilityLabel={emojiPickerOpen ? 'ইমোজি বন্ধ করুন' : 'ইমোজি যোগ করুন'}
+          style={[styles.roundButton, { backgroundColor: emojiPickerOpen ? colors.primary : colors.secondary }]}
+        >
+          <Feather name="smile" size={18} color={emojiPickerOpen ? colors.primaryForeground : colors.foreground}/>
         </Pressable>
         <TextInput
           value={draft}
@@ -1241,12 +1269,19 @@ export default function ChatScreen() {
             : <Feather name="mic" size={18} color={listening ? colors.primaryForeground : colors.foreground} />}
         </Pressable>
         <Pressable
-          onPress={() => updateSettings({ autoSpeakReplies: !voiceMode })}
+          onPress={() => {
+            const enabled = !(settings.autoSpeakReplies && settings.autoSubmitVoice);
+            if (enabled && (!settings.voiceInputEnabled || !settings.voiceProcessingConsent)) {
+              setError('Auto Voice Conversation চালু করতে Settings থেকে Voice Input ও Voice Consent চালু করুন।');
+              return;
+            }
+            updateSettings({ autoSpeakReplies: enabled, autoSubmitVoice: enabled });
+          }}
           accessibilityRole="button"
-          accessibilityLabel={voiceMode ? 'স্বয়ংক্রিয় ভয়েস উত্তর বন্ধ করুন' : 'স্বয়ংক্রিয় ভয়েস উত্তর চালু করুন'}
-          style={[styles.roundButton, { backgroundColor: voiceMode ? colors.primary : colors.secondary }]}
+          accessibilityLabel={settings.autoSpeakReplies && settings.autoSubmitVoice ? 'Auto Voice Conversation বন্ধ করুন' : 'Auto Voice Conversation চালু করুন'}
+          style={[styles.roundButton, { backgroundColor: settings.autoSpeakReplies && settings.autoSubmitVoice ? colors.primary : colors.secondary }]}
         >
-          <Feather name="headphones" size={18} color={voiceMode ? colors.primaryForeground : colors.foreground} />
+          <Feather name="headphones" size={18} color={settings.autoSpeakReplies && settings.autoSubmitVoice ? colors.primaryForeground : colors.foreground} />
         </Pressable>
         <Pressable
           onPress={() => void sendMessage(draft)}
@@ -1328,7 +1363,9 @@ const styles = StyleSheet.create({
   messageAction: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
   improveButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, marginTop: 4 },
   errorBox: { marginHorizontal: 12, marginBottom: 8, borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  composer: { marginHorizontal: 12, borderWidth: 1, borderRadius: 20, minHeight: 52, maxHeight: 130, paddingHorizontal: 8, paddingVertical: 6, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  composer: { marginHorizontal: 12, borderWidth: 1, borderRadius: 20, minHeight: 52, maxHeight: 130, paddingHorizontal: 7, paddingVertical: 6, flexDirection: 'row', alignItems: 'flex-end', gap: 4, shadowColor: '#8A20FF', shadowOpacity: 0.16, shadowRadius: 12, elevation: 4 },
+  emojiTray: { marginHorizontal: 12, marginBottom: 7, borderWidth: 1, borderRadius: 16, paddingHorizontal: 8, paddingVertical: 6, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4 },
+  emojiChip: { minWidth: 34, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: 'rgba(135,55,255,0.10)' },
   attachmentBackdrop:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.55)',padding:12},
   attachmentPanel:{borderWidth:1,borderRadius:20,padding:14,paddingBottom:20,gap:8},
   attachmentOption:{minHeight:58,borderWidth:1,borderRadius:13,padding:9,flexDirection:'row',alignItems:'center',gap:10},
