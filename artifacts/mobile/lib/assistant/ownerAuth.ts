@@ -105,9 +105,10 @@ export async function restoreOwnerSession(): Promise<boolean> {
     const status = error && typeof error === 'object' && 'status' in error
       ? Number((error as { status?: unknown }).status)
       : 0;
-    // A rejected token is deleted; a temporary network/server failure is not
-    // proof that the token is invalid, so preserve it for the next retry.
-    if (status >= 400 && status < 500) {
+    // Only an explicit authentication rejection deletes the token. Rate limits (429),
+    // timeouts (408) and network/server failures are transient, so the token is kept
+    // for the next retry.
+    if (status === 401 || status === 403) {
       await clearOwnerToken().catch(() => undefined);
     }
     return false;

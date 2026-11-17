@@ -10,6 +10,8 @@ import {
   type ModelChoice, type ProviderId,
 } from '@/lib/assistant/providerManager';
 
+const errorText = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback);
+
 export default function DefaultModelsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -21,49 +23,61 @@ export default function DefaultModelsScreen() {
   const [drafts, setDrafts] = useState<Partial<Record<ProviderId, string>>>({});
 
   const refresh = useCallback(async () => {
-    const [ids, current, catalog, custom] = await Promise.all([
-      getConnectedProviderIds(), getDefaultModel(), getAllDiscoveredModels(), getCustomModels(),
-    ]);
-    setConnected(ids);
-    setSelected(current);
-    setDiscovered(catalog);
-    setCustomModels(custom);
+    try {
+      const [ids, current, catalog, custom] = await Promise.all([
+        getConnectedProviderIds(), getDefaultModel(), getAllDiscoveredModels(), getCustomModels(),
+      ]);
+      setConnected(ids);
+      setSelected(current);
+      setDiscovered(catalog);
+      setCustomModels(custom);
+    } catch (cause) {
+      Alert.alert('Model তালিকা লোড হয়নি', errorText(cause, 'Secure Storage পড়া যায়নি।'));
+    }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
 
   const choose = async (choice: ModelChoice) => {
-    await saveDefaultModel(choice);
-    setSelected(choice);
-    Alert.alert('Default Model সেট হয়েছে', choice.label || choice.modelId);
+    try {
+      await saveDefaultModel(choice);
+      setSelected(choice);
+      Alert.alert('Default Model সেট হয়েছে', choice.label || choice.modelId);
+    } catch (cause) {
+      Alert.alert('Default Model সংরক্ষণ ব্যর্থ', errorText(cause, 'Secure Storage-এ লেখা যায়নি।'));
+    }
   };
 
   const addCustom = async (providerId: ProviderId) => {
     const modelId = (drafts[providerId] || '').trim();
     if (!modelId) {
-      Alert.alert('Model ID প্রয়োজন', 'Provider-এর সঠিক Model ID লিখুন।');
+      Alert.alert('Model ID প্রয়োজন', 'Provider-এর সঠিক Model ID লিখুন।');
       return;
     }
     const next = [
       ...customModels.filter((item) => !(item.providerId === providerId && item.modelId === modelId)),
       { providerId, modelId, label: modelId },
     ];
-    await saveCustomModels(next);
-    setCustomModels(next);
-    setDrafts((value) => ({ ...value, [providerId]: '' }));
+    try {
+      await saveCustomModels(next);
+      setCustomModels(next);
+      setDrafts((value) => ({ ...value, [providerId]: '' }));
+    } catch (cause) {
+      Alert.alert('Model সংরক্ষণ ব্যর্থ', errorText(cause, 'Secure Storage-এ লেখা যায়নি।'));
+    }
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 18, paddingTop: Math.max(insets.top, 12) + 12, paddingBottom: 36, gap: 12 }}>
       <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-        <Feather name="arrow-left" size={19} color={colors.foreground}/>
+        <Feather name="arrow-left" size={19} color={colors.foreground} />
         <Text style={{ color: colors.foreground, fontWeight: '700' }}>Model Provider</Text>
       </Pressable>
       <Text style={[styles.title, { color: colors.foreground }]}>Default Models</Text>
-      <Text style={{ color: colors.mutedForeground, lineHeight: 20 }}>Connection test থেকে পাওয়া Model বেছে নাও, অথবা নিজের Model ID যোগ করো। Default নির্বাচন Provider settings-এর একই SecureStore entry-তে সংরক্ষিত হবে।</Text>
+      <Text style={{ color: colors.mutedForeground, lineHeight: 20 }}>Connection test থেকে পাওয়া Model বেছে নাও, অথবা নিজের Model ID যোগ করো। Default নির্বাচন Provider settings-এর একই SecureStore entry-তে সংরক্ষিত হবে।</Text>
       {selected ? (
         <View style={[styles.selected, { borderColor: colors.primary, backgroundColor: colors.card }]}>
-          <Feather name="check-circle" size={18} color={colors.primary}/>
+          <Feather name="check-circle" size={18} color={colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 10, letterSpacing: 1 }}>ACTIVE DEFAULT MODEL</Text>
             <Text style={{ color: colors.foreground, fontWeight: '800', marginTop: 3 }}>{selected.label || selected.modelId}</Text>
@@ -71,7 +85,11 @@ export default function DefaultModelsScreen() {
           </View>
         </View>
       ) : null}
-      {connected.length === 0 ? <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}><Text style={{ color: colors.mutedForeground }}>এখনো কোনো Provider Key সংরক্ষণ করা হয়নি। আগে Model Provider থেকে সংযোগ করো।</Text></View> : null}
+      {connected.length === 0 ? (
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={{ color: colors.mutedForeground }}>এখনো কোনো Provider Key সংরক্ষণ করা হয়নি। আগে Model Provider থেকে সংযোগ করো।</Text>
+        </View>
+      ) : null}
       {connected.map((id) => {
         const provider = PROVIDERS.find((item) => item.id === id);
         if (!provider) return null;
@@ -87,12 +105,12 @@ export default function DefaultModelsScreen() {
             {all.map((item) => {
               const active = selected?.providerId === id && selected.modelId === item.modelId;
               return (
-                <Pressable key={item.modelId} onPress={() => void choose(item)} style={[styles.modelRow, { borderColor: colors.border, backgroundColor: active ? colors.secondary : 'transparent' }]}>
+                <Pressable key={item.modelId} onPress={() => { choose(item).catch(() => undefined); }} style={[styles.modelRow, { borderColor: colors.border, backgroundColor: active ? colors.secondary : 'transparent' }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: colors.foreground, fontWeight: active ? '800' : '500' }}>{item.label || item.modelId}</Text>
                     <Text style={{ color: colors.mutedForeground, fontSize: 10 }}>{item.modelId}</Text>
                   </View>
-                  <Feather name={active ? 'check-circle' : 'circle'} color={colors.primary} size={17}/>
+                  <Feather name={active ? 'check-circle' : 'circle'} color={colors.primary} size={17} />
                 </Pressable>
               );
             })}
@@ -106,14 +124,14 @@ export default function DefaultModelsScreen() {
                 autoCorrect={false}
                 style={[styles.input, { color: colors.foreground, borderColor: colors.border, flex: 1 }]}
               />
-              <Pressable onPress={() => void addCustom(id)} style={[styles.add, { backgroundColor: colors.primary }]}>
-                <Feather name="plus" size={17} color={colors.primaryForeground}/>
+              <Pressable onPress={() => { addCustom(id).catch(() => undefined); }} style={[styles.add, { backgroundColor: colors.primary }]}>
+                <Feather name="plus" size={17} color={colors.primaryForeground} />
               </Pressable>
             </View>
           </View>
         );
       })}
-      <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>Model catalog provider-এর API response থেকে আসে। Free/Paid access, rate limit ও quota provider account অনুযায়ী নির্ধারিত হয়।</Text>
+      <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>Model catalog provider-এর API response থেকে আসে। Free/Paid access, rate limit ও quota provider account অনুযায়ী নির্ধারিত হয়।</Text>
     </ScrollView>
   );
 }
