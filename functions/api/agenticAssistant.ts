@@ -347,7 +347,7 @@ export function validateAgenticPayload(body: unknown): AgenticValidation {
     if (typeof raw.providerId !== "string" || !allowedProviders.includes(raw.providerId)) {
       return { ok: false, code: "INVALID_AGENTIC_PROVIDER", error: "This provider is not supported by Agentic Chat. Local OmniRoute cannot be reached by the cloud Worker." };
     }
-    if (typeof raw.apiKey !== "string" || !raw.apiKey.trim() || raw.apiKey.length > 500 || /[\\r\\n]/.test(raw.apiKey)) {
+    if (typeof raw.apiKey !== "string" || !raw.apiKey.trim() || raw.apiKey.length > 500 || /[\r\n]/.test(raw.apiKey)) {
       return { ok: false, code: "INVALID_AGENTIC_PROVIDER", error: "Provider API key is missing or invalid." };
     }
     if (typeof raw.modelId !== "string" || !raw.modelId.trim() || raw.modelId.length > 200) {
@@ -361,7 +361,7 @@ export function validateAgenticPayload(body: unknown): AgenticValidation {
       return { ok: false, code: "INVALID_AGENTIC_PROVIDER", error: "Provider base URL must be a valid HTTPS URL." };
     }
     const host = endpoint.hostname.toLowerCase();
-    const isIpLiteral = /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host) || host.startsWith("[") || host.includes(":");
+    const isIpLiteral = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.startsWith("[") || host.includes(":");
     const officialDomains: Partial<Record<AgenticProviderConfig["providerId"], string>> = {
       gemini: "googleapis.com",
       groq: "groq.com",
@@ -382,7 +382,7 @@ export function validateAgenticPayload(body: unknown): AgenticValidation {
     }
     provider = {
       providerId: raw.providerId as AgenticProviderConfig["providerId"],
-      baseUrl: endpoint.toString().replace(/\\/+$/, ""),
+      baseUrl: endpoint.toString().replace(/\/+$/, ""),
       apiKey: raw.apiKey.trim(),
       modelId: raw.modelId.trim(),
     };
