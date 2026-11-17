@@ -35,7 +35,7 @@ function renderOwnerLogin(Screen: React.ComponentType) {
 }
 
 const host = (tag: string) => function Host({ children, accessibilityLabel, placeholder, disabled, onPress }: any) {
-  if (tag === 'button' && typeof onPress === 'function') pressHandlers.push(onPress);
+  if (tag === 'button' && typeof onPress === 'function' && textContent(children).includes('LOGIN NOW')) pressHandlers.push(onPress);
   return React.createElement(tag, {
     ...(accessibilityLabel ? { 'aria-label': accessibilityLabel } : {}),
     ...(placeholder ? { placeholder } : {}),
