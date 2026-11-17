@@ -27,8 +27,8 @@ function DarkAiEmblem() {
     <Path d="M108 116 Q180 35 252 116 L231 192 Q180 228 129 192 Z" fill="#03050B" stroke="#2D2452" strokeWidth="2"/>
     <Path d="M128 158 Q148 135 169 158 L151 168 Z" fill="url(#red)"/>
     <Path d="M192 158 Q213 135 232 158 L209 168 Z" fill="url(#red)"/>
-    <Path d="M192 158 Q213 135 232 158 L209 168 Z" fill="url(#red)"/>
-    <Path d="M132 160 L164 155 M196 155 L228 160" stroke="#FF2349" strokeWidth="5" strokeLinecap="round"/>
+    <Path d="M132 160 L164 155 M196 155 L228 160" stroke="#FF2349" strokeWidth="6" strokeLinecap="round"/>
+    <Path d="M24 137 L49 126 L40 147 L63 140 M336 137 L311 126 L320 147 L297 140" stroke="#B12BFF" strokeWidth="2.5" fill="none" opacity=".8"/>
     <Path d="M180 167 L165 210 L180 221 L195 210 Z" fill="#090D18" stroke="#8B1D7A" strokeWidth="2"/>
     <Path d="M116 72 Q180 35 244 72" stroke="#A21BFF" strokeWidth="3" fill="none" opacity=".75"/>
     <Path d="M132 78 L148 68 L164 78 M196 78 L212 68 L228 78" stroke="#FF3158" strokeWidth="2" fill="none"/>
