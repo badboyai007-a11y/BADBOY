@@ -82,7 +82,6 @@ export async function streamReply(
     },
     body: JSON.stringify({
       message,
-      ...(provider ? { provider } : {}),
       personality: `${settings.personality}\n\nLanguage preference: Reply in the language selected for voice input/output (locale: ${settings.voiceLanguage}). Keep the response in that language unless the user explicitly asks for another language.`,
       developerMode: settings.developerMode,
     }),
@@ -140,6 +139,7 @@ export async function streamAgenticReply(
     },
     body: JSON.stringify({
       message,
+      ...(provider ? { provider } : {}),
       personality: `${settings.personality}\n\nLanguage preference: ${settings.voiceLanguage}.`,
       memoryContext: safeMemoryContext,
       skillContext: safeSkillContext,
