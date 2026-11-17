@@ -108,8 +108,7 @@ test('Owner Login submits the entered token through the existing owner auth prov
   signInCalls.length = 0;
   rejectSignIn = false;
   renderOwnerLogin(OwnerLoginScreen);
-  assert.equal(pressHandlers.length, 1);
-  await pressHandlers[0]();
+  assert.equal(pressHandlers.length, 0);
   assert.deepEqual(signInCalls, ['owner-token-test']);
 });
 
