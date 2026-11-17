@@ -29,6 +29,13 @@ mock.module('react', {
   },
 });
 
+const textContent = (node: any): string => {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(textContent).join(' ');
+  if (React.isValidElement(node)) return textContent((node.props as any).children);
+  return '';
+};
+
 function renderOwnerLogin(Screen: React.ComponentType) {
   hookIndex = 0;
   return renderToStaticMarkup(React.createElement(Screen));
