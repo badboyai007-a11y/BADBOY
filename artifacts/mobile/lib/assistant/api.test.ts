@@ -18,11 +18,12 @@ mock.module('react-native', {
 mock.module('expo/fetch', {
   namedExports: { fetch: (...args: any[]) => fetchHandler(...args) },
 });
+const secureStoreValues = new Map<string, string>();
 mock.module('expo-secure-store', {
   namedExports: {
-    getItemAsync: async () => null,
-    setItemAsync: async () => undefined,
-    deleteItemAsync: async () => undefined,
+    getItemAsync: async (key: string) => secureStoreValues.get(key) ?? null,
+    setItemAsync: async (key: string, value: string) => { secureStoreValues.set(key, value); },
+    deleteItemAsync: async (key: string) => { secureStoreValues.delete(key); },
   },
 });
 mock.module('expo-file-system/legacy', {
@@ -131,6 +132,27 @@ test('streamAgenticReply sends owner-authenticated bounded history and consumes 
   assert.match(sent.skillContext, /Project Planner/);
   assert.match(sent.skillContext, /split work into tested steps/);
   assert.deepEqual(chunks, ['হিসাবের ফল ', '৪২']);
+});
+
+test('streamAgenticReply forwards the selected SecureStore provider and model to the owner Worker', async () => {
+  const { saveDefaultModel, saveProviderKey } = await import('./providerManager');
+  secureStoreValues.clear();
+  await saveProviderKey('groq', 'groq-secret-test');
+  await saveDefaultModel({ providerId: 'groq', modelId: 'llama-3.3-70b-versatile', label: 'Llama 3.3' });
+  let sent: any;
+  fetchHandler = async (_input, init) => {
+    sent = JSON.parse(String(init.body));
+    assert.equal(authFrom(init), 'Bearer owner-token-test');
+    return streamResponse(['data: [DONE]\\n\\n']);
+  };
+  await (await apiPromise).streamAgenticReply('hello', {
+    personality: 'friendly', voiceLanguage: 'en-US', developerMode: false,
+  } as any, [], () => {});
+  assert.equal(sent.provider.providerId, 'groq');
+  assert.equal(sent.provider.baseUrl, 'https://api.groq.com/openai/v1');
+  assert.equal(sent.provider.apiKey, 'groq-secret-test');
+  assert.equal(sent.provider.modelId, 'llama-3.3-70b-versatile');
+  secureStoreValues.clear();
 });
 
 test('streamReply rejects HTTP errors and provider error events', async () => {
