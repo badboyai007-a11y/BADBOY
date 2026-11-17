@@ -143,7 +143,7 @@ test('streamAgenticReply forwards the selected SecureStore provider and model to
   fetchHandler = async (_input, init) => {
     sent = JSON.parse(String(init.body));
     assert.equal(authFrom(init), 'Bearer owner-token-test');
-    return streamResponse(['data: [DONE]\\n\\n']);
+    return streamResponse(['data: [DONE]\n\n']);
   };
   await (await apiPromise).streamAgenticReply('hello', {
     personality: 'friendly', voiceLanguage: 'en-US', developerMode: false,
