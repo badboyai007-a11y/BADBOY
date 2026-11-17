@@ -16,13 +16,17 @@ function DarkAiEmblem() {
       <SvgGradient id="purple" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#A000FF"/><Stop offset="1" stopColor="#3911FF"/></SvgGradient>
       <SvgGradient id="red" x1="0" y1="0" x2="1" y2="0"><Stop offset="0" stopColor="#FF3B70"/><Stop offset="1" stopColor="#FF1717"/></SvgGradient>
     </Defs>
-    <Circle cx="180" cy="147" r="128" fill="none" stroke="#7100FF" strokeWidth="2" opacity=".35"/>
+    <Circle cx="180" cy="147" r="134" fill="none" stroke="#7100FF" strokeWidth="2" opacity=".48"/>
+    <Circle cx="180" cy="147" r="123" fill="none" stroke="#FF174D" strokeWidth="1.5" opacity=".25" strokeDasharray="2 11"/>
+    <Circle cx="151" cy="161" r="17" fill="#FF174D" opacity=".13"/>
+    <Circle cx="209" cy="161" r="17" fill="#FF174D" opacity=".13"/>
     <Circle cx="180" cy="147" r="115" fill="none" stroke="#F01869" strokeWidth="2" opacity=".3" strokeDasharray="5 8"/>
     <Path d="M18 70 L72 70 L92 48 M342 70 L288 70 L268 48 M20 220 L72 220 L91 242 M340 220 L288 220 L269 242" stroke="#6A20FF" strokeWidth="2" opacity=".7" fill="none"/>
     <Path d="M38 95 L63 95 L78 80 M322 95 L297 95 L282 80" stroke="#FF244F" strokeWidth="2" opacity=".65" fill="none"/>
     <Path d="M104 96 Q180 22 256 96 L278 228 Q246 276 180 282 Q114 276 82 228 Z" fill="url(#hood)" stroke="#6221A7" strokeWidth="3"/>
     <Path d="M108 116 Q180 35 252 116 L231 192 Q180 228 129 192 Z" fill="#03050B" stroke="#2D2452" strokeWidth="2"/>
     <Path d="M128 158 Q148 135 169 158 L151 168 Z" fill="url(#red)"/>
+    <Path d="M192 158 Q213 135 232 158 L209 168 Z" fill="url(#red)"/>
     <Path d="M192 158 Q213 135 232 158 L209 168 Z" fill="url(#red)"/>
     <Path d="M132 160 L164 155 M196 155 L228 160" stroke="#FF2349" strokeWidth="5" strokeLinecap="round"/>
     <Path d="M180 167 L165 210 L180 221 L195 210 Z" fill="#090D18" stroke="#8B1D7A" strokeWidth="2"/>
@@ -60,7 +64,7 @@ export default function OwnerLoginScreen() {
       <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content,{paddingTop:Math.max(insets.top,12)+8,paddingBottom:Math.max(insets.bottom,16)+14,minHeight:height}]}>
           <View style={styles.topLine}><Text style={styles.kicker}>THINK BEYOND</Text><Text style={styles.kickerRed}>LIMITS.</Text><View style={styles.live}><View style={styles.liveDot}/><Text style={styles.liveText}>SECURE SYSTEM</Text></View></View>
-          <View style={[styles.hero,{height:Math.min(270,Math.max(180,height*.28))}]}><DarkAiEmblem/></View>
+          <View style={[styles.hero,{height:Math.min(290,Math.max(180,height*.31))}]}><DarkAiEmblem/></View>
           <View style={styles.brandWrap}>
             <Text style={styles.brand}>BADBOY <Text style={styles.brandRed}>AI</Text></Text>
             <Text style={styles.tagline}>SMART  •  SECURE  •  POWERFUL</Text>
@@ -111,11 +115,11 @@ const styles=StyleSheet.create({
  liveText:{color:'#B8AFCB',fontSize:8,fontWeight:'900',letterSpacing:1},
  hero:{height:220,width:'100%',alignSelf:'center'},
  brandWrap:{alignItems:'center',marginTop:-8,marginBottom:9},
- brand:{color:'#F6F4FF',fontSize:38,fontWeight:'900',fontStyle:'italic',letterSpacing:-1.5,textShadowColor:'#A100FF',textShadowRadius:15},
+ brand:{color:'#F6F4FF',fontSize:40,fontWeight:'900',fontStyle:'italic',letterSpacing:-1.5,textShadowColor:'#A100FF',textShadowRadius:15},
  brandRed:{color:'#FF284F'},
  tagline:{color:'#C6BDD9',fontSize:10,fontWeight:'900',letterSpacing:2,marginTop:1},
- frame:{borderRadius:23,padding:2,shadowColor:'#8D1AFF',shadowOpacity:.55,shadowRadius:18,elevation:12},
- panel:{backgroundColor:'rgba(5,6,15,0.97)',borderRadius:21,paddingHorizontal:15,paddingTop:15,paddingBottom:13,alignItems:'center',borderWidth:1,borderColor:'#33214E'},
+ frame:{borderRadius:23,padding:2,shadowColor:'#8D1AFF',shadowOpacity:.7,shadowRadius:22,elevation:16},
+ panel:{backgroundColor:'rgba(5,6,15,0.97)',borderRadius:21,paddingHorizontal:15,paddingTop:15,paddingBottom:13,alignItems:'center',borderWidth:1,borderColor:'#493064'},
  shield:{width:44,height:44,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:'#25143D',borderWidth:1,borderColor:'#8C36FF',marginBottom:6},
  loginTitle:{color:'#F6F3FF',fontSize:25,fontWeight:'900',fontStyle:'italic',letterSpacing:1},
  loginRed:{color:'#FF3156'},
