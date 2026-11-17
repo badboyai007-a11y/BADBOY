@@ -498,6 +498,7 @@ async function requestCompletion(
       headers: {
         Authorization: `Bearer ${provider?.apiKey ?? apiKey}`,
         "Content-Type": "application/json",
+        "Cache-Control": "no-store",
         "X-Title": "Badboy Agentic Assistant",
       },
       body: JSON.stringify({
@@ -514,7 +515,9 @@ async function requestCompletion(
     if (![400, 404, 408, 429, 500, 502, 503, 504].includes(response.status)) return response;
     await response.body?.cancel().catch(() => undefined);
   }
-  return jsonResponse({ code: "AGENT_MODELS_UNAVAILABLE", error: `No configured free model is available (last HTTP ${lastStatus}).` }, lastStatus === 429 ? 429 : 502);
+  return provider
+    ? jsonResponse({ code: "AGENT_PROVIDER_UNAVAILABLE", error: `The selected provider/model is unavailable (HTTP ${lastStatus}). Check the provider model and tool-calling support.` }, lastStatus === 429 ? 429 : 502)
+    : jsonResponse({ code: "AGENT_MODELS_UNAVAILABLE", error: `No configured free model is available (last HTTP ${lastStatus}).` }, lastStatus === 429 ? 429 : 502);
 }
 
 async function completeText(apiKey: string, messages: ChatMessage[], tools = false, toolDefinitions?: readonly unknown[], responseFormat?: "json_object", provider?: AgenticProviderConfig): Promise<{ content: string; messages: ChatMessage[] }> {
