@@ -106,7 +106,7 @@ async function getAgenticProviderRequest(): Promise<AgenticProviderRequest | und
   }
   const apiKey = await getProviderKey(selected.providerId);
   if (!apiKey) throw new Error(`${provider.name} API Key is missing. Reconnect this provider in Settings.`);
-  let baseUrl = (await getProviderBaseUrl(selected.providerId)).replace(/\\/+$/, '');
+  let baseUrl = (await getProviderBaseUrl(selected.providerId)).replace(/\/+$/, '');
   if (provider.compatible === 'gemini') baseUrl += '/openai';
   if (provider.compatible === 'cohere') baseUrl += '/compatibility/v1';
   if (provider.compatible === 'cloudflare') {
