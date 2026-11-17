@@ -1,3 +1,5 @@
+Object.defineProperty(globalThis, '__DEV__', { value: false, configurable: true });
+
 import assert from 'node:assert/strict';
 import { mock, test } from 'node:test';
 
