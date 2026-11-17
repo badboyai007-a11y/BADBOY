@@ -7,6 +7,11 @@ let fetchHandler: (...args: any[]) => Promise<any> = async () => {
 let fileContent = '';
 const requestedFiles: string[] = [];
 
+mock.module('react-native', {
+  namedExports: {
+    Platform: { OS: 'android', select: (options: Record<string, unknown>) => options.android ?? options.default ?? options.ios },
+  },
+});
 mock.module('expo/fetch', {
   namedExports: { fetch: (...args: any[]) => fetchHandler(...args) },
 });
