@@ -1095,12 +1095,17 @@ export default function ChatScreen() {
           <View style={[styles.welcomeMark, { backgroundColor: colors.secondary, borderColor: colors.primary }]}>
             <BadboyLogo size={48} />
           </View>
-          <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>কীভাবে সাহায্য করতে পারি?</Text>
-          <Text style={[styles.welcomeText, { color: colors.mutedForeground }]}>
-            আমি তোমার AI সহকারী। নিচের একটি বিষয় বেছে নাও অথবা মেসেজ লিখে শুরু করো।
+          <Text style={styles.welcomeTitle}>Hey, I'm <Text style={styles.welcomeGradient}>BADBOY</Text>.</Text>
+          <Text style={styles.welcomeText}>
+            Your premium AI copilot — built to think fast, build hard and never hold back.
           </Text>
           {quickActionsExpanded ? (
-            <View style={styles.quickGrid}>
+            <View style={styles.quickSection}>
+              <View style={styles.quickHeading}>
+                <Text style={styles.quickHeadingLabel}>QUICK ACTIONS</Text>
+                <Text style={styles.quickHeadingCount}>8 AVAILABLE</Text>
+              </View>
+              <View style={styles.quickGrid}>
               {[
                 { label: 'Coding', icon: 'code', prompt: 'আমাকে coding-এ সাহায্য করো।' },
                 { label: 'Research', icon: 'search', prompt: 'এই বিষয়ে বিস্তারিত research করো: ' },
@@ -1116,6 +1121,7 @@ export default function ChatScreen() {
                   <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
                 </Pressable>
               ))}
+              </View>
             </View>
           ) : null}
         </View>
@@ -1223,7 +1229,30 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
-      {/* Composer Row */}
+      {/* Composer: existing controls retain their original handlers and permissions. */}
+      <View style={styles.composerShell}>
+        <View style={styles.composerTop}>
+          <Pressable
+                    onPress={() => {
+                      const enabled = !(settings.autoSpeakReplies && settings.autoSubmitVoice);
+                      if (enabled && (!settings.voiceInputEnabled || !settings.voiceProcessingConsent)) {
+                        setError('Auto Voice Conversation চালু করতে Settings থেকে Voice Input ও Voice Consent চালু করুন।');
+                        return;
+                      }
+                      updateSettings({ autoSpeakReplies: enabled, autoSubmitVoice: enabled });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={settings.autoSpeakReplies && settings.autoSubmitVoice ? 'Auto Voice Conversation বন্ধ করুন' : 'Auto Voice Conversation চালু করুন'}
+                    style={[styles.autoVoiceButton, { backgroundColor: settings.autoSpeakReplies && settings.autoSubmitVoice ? 'rgba(168,85,247,0.20)' : 'rgba(255,255,255,0.04)', borderColor: settings.autoSpeakReplies && settings.autoSubmitVoice ? 'rgba(168,85,247,0.55)' : 'rgba(255,255,255,0.10)' }]}
+                  >
+                    <Feather name="headphones" size={13} color={settings.autoSpeakReplies && settings.autoSubmitVoice ? "#c4a6ff" : "#8b88a0"} />
+                  </Pressable>
+          <Text style={styles.autoVoiceLabel}>AUTO VOICE</Text>
+          <View style={styles.composerStatus}>
+            <View style={[styles.statusDot, { backgroundColor: listening ? '#ff5b7d' : busy ? '#f59e0b' : '#3ddc97' }]} />
+            <Text style={styles.composerStatusText}>{listening ? 'LISTENING' : busy ? 'THINKING' : 'READY'}</Text>
+          </View>
+        </View>
       <View
         style={[
           styles.composer,
@@ -1269,21 +1298,6 @@ export default function ChatScreen() {
             : <Feather name="mic" size={18} color={listening ? colors.primaryForeground : colors.foreground} />}
         </Pressable>
         <Pressable
-          onPress={() => {
-            const enabled = !(settings.autoSpeakReplies && settings.autoSubmitVoice);
-            if (enabled && (!settings.voiceInputEnabled || !settings.voiceProcessingConsent)) {
-              setError('Auto Voice Conversation চালু করতে Settings থেকে Voice Input ও Voice Consent চালু করুন।');
-              return;
-            }
-            updateSettings({ autoSpeakReplies: enabled, autoSubmitVoice: enabled });
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={settings.autoSpeakReplies && settings.autoSubmitVoice ? 'Auto Voice Conversation বন্ধ করুন' : 'Auto Voice Conversation চালু করুন'}
-          style={[styles.roundButton, { backgroundColor: settings.autoSpeakReplies && settings.autoSubmitVoice ? colors.primary : colors.secondary }]}
-        >
-          <Feather name="headphones" size={18} color={settings.autoSpeakReplies && settings.autoSubmitVoice ? colors.primaryForeground : colors.foreground} />
-        </Pressable>
-        <Pressable
           onPress={() => void sendMessage(draft)}
           disabled={!draft.trim() || busy}
           accessibilityRole="button"
@@ -1293,12 +1307,61 @@ export default function ChatScreen() {
           {busy ? <ActivityIndicator size="small" color={colors.primaryForeground} /> : <Feather name="arrow-up" size={20} color={colors.primaryForeground} />}
         </Pressable>
       </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+
+  // Premium BADBOY chat visual layer. Functional handlers and settings remain unchanged.
+  screen: { flex: 1, backgroundColor: '#06050b' },
+  header: { paddingHorizontal: 12, paddingTop: 3, paddingBottom: 8, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', alignItems: 'center', borderBottomWidth: 0, columnGap: 5, rowGap: 5, backgroundColor: '#090711' },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, flexShrink: 1, minWidth: 112 },
+  brandTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 1.2, color: '#ffffff' },
+  brandSub: { fontSize: 8, marginTop: 3, letterSpacing: 1.8, color: '#77728d' },
+  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5 },
+  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, maxWidth: 125, backgroundColor: '#17241f' },
+  statusBadgeText: { fontSize: 8, fontWeight: '700', color: '#3ddc97' },
+  iconButton: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  langToggle: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 5, marginHorizontal: 1, maxWidth: 58, borderColor: 'rgba(255,255,255,0.10)', backgroundColor: 'rgba(255,255,255,0.04)' },
+  langText: { fontSize: 9, fontWeight: '800', color: '#c4a6ff' },
+  providerStrip: { minHeight: 28, paddingHorizontal: 12, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 7, borderBottomWidth: 0, marginHorizontal: 12, marginBottom: 7, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.035)' },
+  providerMini: { flexDirection: 'row', alignItems: 'center', gap: 5, minWidth: 0 },
+  providerMiniText: { fontSize: 9, fontWeight: '700', maxWidth: 115, color: '#cfcbe2' },
+  providerDivider: { width: 1, height: 13, backgroundColor: 'rgba(255,255,255,0.12)' },
+  onlinePill: { marginLeft: 'auto', borderRadius: 20, paddingHorizontal: 7, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  onlineText: { fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  welcome: { flex: 1, alignItems: 'flex-start', justifyContent: 'flex-start', paddingHorizontal: 16, paddingTop: 15, paddingBottom: 12, backgroundColor: '#06050b' },
+  welcomeMark: { display: 'none', width: 0, height: 0, marginBottom: 0 },
+  welcomeTitle: { fontSize: 20, fontWeight: '800', textAlign: 'left', letterSpacing: -0.45, color: '#ffffff' },
+  welcomeGradient: { color: '#c084fc' },
+  welcomeText: { fontSize: 11, lineHeight: 17, textAlign: 'left', marginTop: 5, maxWidth: 300, color: '#858198' },
+  quickSection: { width: '100%', marginTop: 22 },
+  quickHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 2, marginBottom: 8 },
+  quickHeadingLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 2, color: '#77718f' },
+  quickHeadingCount: { fontSize: 8, fontWeight: '700', letterSpacing: 1, color: '#514d65' },
+  quickGrid: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 7, marginTop: 0 },
+  quickAction: { width: '31.5%', minHeight: 64, borderWidth: 1, borderRadius: 13, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 7, backgroundColor: 'rgba(255,255,255,0.035)', borderColor: 'rgba(255,255,255,0.08)' },
+  messageList: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 14 },
+  messageRow: { width: '100%', alignItems: 'flex-start', marginVertical: 6 },
+  userRow: { alignItems: 'flex-end' },
+  messageBubble: { maxWidth: '86%', paddingVertical: 10, paddingHorizontal: 13, borderRadius: 16, borderTopLeftRadius: 5, borderWidth: 1, backgroundColor: 'rgba(34,211,238,0.06)', borderColor: 'rgba(34,211,238,0.17)' },
+  userBubble: { borderBottomRightRadius: 5, borderTopLeftRadius: 16, backgroundColor: 'rgba(139,92,246,0.23)', borderColor: 'rgba(168,85,247,0.38)' },
+  messageActions: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 7, marginLeft: 3, flexWrap: 'wrap' },
+  messageAction: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 5, borderColor: 'rgba(255,255,255,0.10)' },
+  composerShell: { marginHorizontal: 12, marginBottom: Platform.OS === 'web' ? 12 : Math.max(insets.bottom, 8) + 8, padding: 7, borderRadius: 23, borderWidth: 1, borderColor: 'rgba(168,85,247,0.26)', backgroundColor: '#100d1a', shadowColor: '#8A20FF', shadowOpacity: 0.22, shadowRadius: 18, elevation: 6 },
+  composerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 3, paddingBottom: 7, minHeight: 27 },
+  autoVoiceButton: { minHeight: 21, borderWidth: 1, borderRadius: 999, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  autoVoiceLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 1.1, color: '#b98cff', marginRight: 'auto', marginLeft: 6 },
+  composerStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 'auto' },
+  statusDot: { width: 5, height: 5, borderRadius: 3 },
+  composerStatusText: { fontSize: 8, fontWeight: '800', letterSpacing: 1, color: '#77718f' },
+  composer: { marginHorizontal: 0, marginBottom: 0, borderWidth: 0, borderRadius: 16, minHeight: 43, maxHeight: 130, paddingHorizontal: 2, paddingVertical: 0, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'transparent', shadowOpacity: 0, elevation: 0 },
+  roundButton: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+  input: { flex: 1, minHeight: 38, maxHeight: 105, paddingHorizontal: 6, paddingTop: 8, paddingBottom: 8, fontSize: 12, color: '#eceaf5' },
+  emojiTray: { marginHorizontal: 12, marginBottom: 7, borderWidth: 1, borderRadius: 16, paddingHorizontal: 8, paddingVertical: 6, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4, backgroundColor: '#141020', borderColor: 'rgba(168,85,247,0.28)' },
+
   drawerScrim: { ...StyleSheet.absoluteFill, zIndex: 100, flexDirection: 'row' },
   drawerOutside: { flex: 1 },
   drawerPanel: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '82%', maxWidth: 340, borderRightWidth: 1, paddingHorizontal: 16, zIndex: 101, elevation: 18 },
