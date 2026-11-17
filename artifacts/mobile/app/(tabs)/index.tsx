@@ -1246,8 +1246,8 @@ export default function ChatScreen() {
                     style={[styles.autoVoiceButton, { backgroundColor: settings.autoSpeakReplies && settings.autoSubmitVoice ? 'rgba(168,85,247,0.20)' : 'rgba(255,255,255,0.04)', borderColor: settings.autoSpeakReplies && settings.autoSubmitVoice ? 'rgba(168,85,247,0.55)' : 'rgba(255,255,255,0.10)' }]}
                   >
                     <Feather name="headphones" size={13} color={settings.autoSpeakReplies && settings.autoSubmitVoice ? "#c4a6ff" : "#8b88a0"} />
+                    <Text style={styles.autoVoiceLabel}>AUTO VOICE</Text>
                   </Pressable>
-          <Text style={styles.autoVoiceLabel}>AUTO VOICE</Text>
           <View style={styles.composerStatus}>
             <View style={[styles.statusDot, { backgroundColor: listening ? '#ff5b7d' : busy ? '#f59e0b' : '#3ddc97' }]} />
             <Text style={styles.composerStatusText}>{listening ? 'LISTENING' : busy ? 'THINKING' : 'READY'}</Text>
@@ -1314,7 +1314,7 @@ const styles = StyleSheet.create({
   composerShell: { marginHorizontal: 12, padding: 7, borderRadius: 23, borderWidth: 1, borderColor: 'rgba(168,85,247,0.26)', backgroundColor: '#100d1a', shadowColor: '#8A20FF', shadowOpacity: 0.22, shadowRadius: 18, elevation: 6 },
   composerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 3, paddingBottom: 7, minHeight: 27 },
   autoVoiceButton: { minHeight: 21, borderWidth: 1, borderRadius: 999, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  autoVoiceLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 1.1, color: '#b98cff', marginRight: 'auto', marginLeft: 6 },
+  autoVoiceLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 1.1, color: '#b98cff' },
   composerStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 'auto' },
   statusDot: { width: 5, height: 5, borderRadius: 3 },
   composerStatusText: { fontSize: 8, fontWeight: '800', letterSpacing: 1, color: '#77718f' },
