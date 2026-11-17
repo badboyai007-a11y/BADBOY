@@ -893,7 +893,7 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.screen, { backgroundColor: colors.background }]}
+      style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 4 : 0}
     >
@@ -903,8 +903,8 @@ export default function ChatScreen() {
           styles.header,
           {
             paddingTop: Math.max(insets.top, 8),
-            backgroundColor: colors.card,
-            borderBottomColor: colors.border,
+            backgroundColor: '#090711',
+            borderBottomColor: 'transparent',
           },
         ]}
       >
@@ -962,11 +962,11 @@ export default function ChatScreen() {
         onPress={() => router.push('/(tabs)/providers' as never)}
         accessibilityRole="button"
         accessibilityLabel="Default provider ও model settings"
-        style={[styles.providerStrip, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+        style={styles.providerStrip}
       >
-        <View style={styles.providerMini}><Feather name="cpu" size={12} color={colors.primary}/><Text numberOfLines={1} style={[styles.providerMiniText,{color:colors.foreground}]}>{defaultModel ? (getProvider(defaultModel.providerId)?.name || defaultModel.providerId) : 'Provider not selected'}</Text></View>
+        <View style={styles.providerMini}><Feather name="cpu" size={12} color={colors.primary}/><Text numberOfLines={1} style={styles.providerMiniText}>{defaultModel ? (getProvider(defaultModel.providerId)?.name || defaultModel.providerId) : 'Provider not selected'}</Text></View>
         <View style={[styles.providerDivider,{backgroundColor:colors.border}]}/>
-        <View style={styles.providerMini}><Feather name="layers" size={12} color={colors.primary}/><Text numberOfLines={1} style={[styles.providerMiniText,{color:colors.foreground,flex:1}]}>{defaultModel?.label || defaultModel?.modelId || 'Choose model'}</Text></View>
+        <View style={styles.providerMini}><Feather name="layers" size={12} color={colors.primary}/><Text numberOfLines={1} style={[styles.providerMiniText,{flex:1}]}>{defaultModel?.label || defaultModel?.modelId || 'Choose model'}</Text></View>
         <View style={[styles.onlinePill,{backgroundColor:settings.onlineAI?'rgba(22,190,120,0.13)':'rgba(140,140,140,0.14)'}]}><View style={[styles.onlineDot,{backgroundColor:settings.onlineAI?'#19C783':'#929292'}]}/><Text style={[styles.onlineText,{color:settings.onlineAI?'#19C783':colors.mutedForeground}]}>{settings.onlineAI?'ONLINE':'OFFLINE'}</Text></View>
       </Pressable>
 
@@ -1116,9 +1116,9 @@ export default function ChatScreen() {
                 { label: 'Tools', icon: 'tool', prompt: 'উপযুক্ত tools ব্যবহার করে কাজটি করো: ' },
                 { label: 'Creative', icon: 'edit-3', prompt: 'সৃজনশীলভাবে এটি তৈরি করো: ' },
               ].map((item) => (
-                <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{backgroundColor:colors.card,borderColor:colors.border}]}>
+                <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={styles.quickAction}>
                   <Feather name={item.icon as any} size={17} color={colors.primary}/>
-                  <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
+                  <Text style={{color:'#cfcbe2',fontSize:11,fontWeight:'700'}}>{item.label}</Text>
                 </Pressable>
               ))}
               </View>
@@ -1230,7 +1230,7 @@ export default function ChatScreen() {
       ) : null}
 
       {/* Composer: existing controls retain their original handlers and permissions. */}
-      <View style={styles.composerShell}>
+      <View style={[styles.composerShell, { marginBottom: Platform.OS === 'web' ? 12 : Math.max(insets.bottom, 8) + 8 }]}>
         <View style={styles.composerTop}>
           <Pressable
                     onPress={() => {
@@ -1257,10 +1257,6 @@ export default function ChatScreen() {
         style={[
           styles.composer,
           {
-            borderColor: colors.border,
-            backgroundColor: colors.card,
-            marginBottom:
-              Platform.OS === 'web' ? 12 : Math.max(insets.bottom, 8) + 16,
           },
         ]}
       >
@@ -1313,6 +1309,20 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#06050b' },
+  welcomeGradient: { color: '#22d3ee' },
+  quickSection: { width: '100%', marginTop: 22 },
+  quickHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 2, marginBottom: 8 },
+  quickHeadingLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 2, color: '#77718f' },
+  quickHeadingCount: { fontSize: 8, fontWeight: '700', letterSpacing: 1, color: '#514d65' },
+  composerShell: { marginHorizontal: 12, padding: 7, borderRadius: 23, borderWidth: 1, borderColor: 'rgba(168,85,247,0.26)', backgroundColor: '#100d1a', shadowColor: '#8A20FF', shadowOpacity: 0.22, shadowRadius: 18, elevation: 6 },
+  composerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 3, paddingBottom: 7, minHeight: 27 },
+  autoVoiceButton: { minHeight: 21, borderWidth: 1, borderRadius: 999, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  autoVoiceLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 1.1, color: '#b98cff', marginRight: 'auto', marginLeft: 6 },
+  composerStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 'auto' },
+  statusDot: { width: 5, height: 5, borderRadius: 3 },
+  composerStatusText: { fontSize: 8, fontWeight: '800', letterSpacing: 1, color: '#77718f' },
+
 
   // Premium BADBOY chat visual layer. Functional handlers and settings remain unchanged.
   screen: { flex: 1, backgroundColor: '#06050b' },
