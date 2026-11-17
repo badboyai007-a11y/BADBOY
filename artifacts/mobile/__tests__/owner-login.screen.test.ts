@@ -108,7 +108,8 @@ test('Owner Login submits the entered token through the existing owner auth prov
   signInCalls.length = 0;
   rejectSignIn = false;
   renderOwnerLogin(OwnerLoginScreen);
-  assert.equal(pressHandlers.length, 0);
+  assert.equal(pressHandlers.length, 1);
+  await pressHandlers[0]();
   assert.deepEqual(signInCalls, ['owner-token-test']);
 });
 
@@ -141,8 +142,7 @@ test('Owner Login ignores a second submit while an authentication request is pen
   hookState[1] = true;
   pressHandlers.length = 0;
   renderOwnerLogin(OwnerLoginScreen);
-  assert.equal(pressHandlers.length, 1);
-  await pressHandlers[0]();
+  assert.equal(pressHandlers.length, 0);
   assert.deepEqual(signInCalls, ['owner-token-test']);
 
   resolvePendingSignIn?.();
