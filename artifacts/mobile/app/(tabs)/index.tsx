@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -122,7 +122,13 @@ export default function ChatScreen() {
   wakeWordAllowedRef.current = Platform.OS === 'android' && settings.voiceProcessingConsent && settings.wakeWordEnabled && settings.voiceInputEnabled;
 
   useEffect(() => { setSelectedLang(settings.voiceLanguage); }, [settings.voiceLanguage]);
-  useEffect(() => { void getDefaultModel().then(setDefaultModel).catch(() => setDefaultModel(null)); }, []);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void getDefaultModel()
+      .then((model) => { if (active) setDefaultModel(model); })
+      .catch(() => { if (active) setDefaultModel(null); });
+    return () => { active = false; };
+  }, []));
   useEffect(() => { setQuickActionsExpanded(messages.length === 0); }, [messages.length]);
   useEffect(() => {
     if (!settings.voiceOutputEnabled) {
