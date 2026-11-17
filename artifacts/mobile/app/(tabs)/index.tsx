@@ -1110,7 +1110,7 @@ export default function ChatScreen() {
                 { label: 'Android', icon: 'smartphone', prompt: 'Android control-এর জন্য সাহায্য করো: ' },
                 { label: 'Tools', icon: 'tool', prompt: 'উপযুক্ত tools ব্যবহার করে কাজটি করো: ' },
                 { label: 'Creative', icon: 'edit-3', prompt: 'সৃজনশীলভাবে এটি তৈরি করো: ' },
-              ] .map((item, index) => (
+              ].map((item, index) => (
                 <Pressable key={item.label} onPress={() => setDraft(item.prompt)} style={[styles.quickAction,{width:index >= 6 ? '46%' : '30%',backgroundColor:colors.card,borderColor:colors.border}]}>
                   <Feather name={item.icon as any} size={17} color={colors.primary}/>
                   <Text style={{color:colors.foreground,fontSize:11,fontWeight:'700'}}>{item.label}</Text>
@@ -1345,7 +1345,7 @@ const styles = StyleSheet.create({
   messageList: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
   messageRow: { width: '100%', flexDirection:'row',alignItems: 'flex-start',gap:8,marginVertical: 7 },
   userRow: { justifyContent:'flex-end',alignItems: 'flex-end' },
-  messageBubble: { maxWidth: '82%', paddingVertical: 10, paddingHorizontal: 13, borderRadius: 16, borderTopLeftRadius:5,borderWidth: 1,shadowColor:'#8B5CF6',shadowOpacity:0.10,shadowRadius:12,elevation:2 },
+  messageBubble: { maxWidth: '78%', paddingVertical: 10, paddingHorizontal: 13, borderRadius: 16, borderTopLeftRadius:5,borderWidth: 1,shadowColor:'#8B5CF6',shadowOpacity:0.10,shadowRadius:12,elevation:2 },
   userBubble: { borderTopLeftRadius:16,borderTopRightRadius:5,borderBottomRightRadius:16 }, 
   ytButton: {
     flexDirection: 'row',
