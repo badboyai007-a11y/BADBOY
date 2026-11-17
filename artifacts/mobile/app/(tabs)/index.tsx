@@ -907,65 +907,64 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 4 : 0}
     >
-      {/* Badboy Futuristic Top Bar */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: Math.max(insets.top, 8),
-            backgroundColor: '#090711',
-            borderBottomColor: 'transparent',
-          },
-        ]}
-      >
-        <Pressable onPress={() => setDrawerOpen(true)} accessibilityRole="button" accessibilityLabel="সাইড মেনু খুলুন" style={[styles.iconButton, { backgroundColor: colors.secondary, marginRight: 8 }]}>
-          <Feather name="menu" size={20} color={colors.foreground} />
+      {/* Compact neon BADBOY header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 8) }]}>
+        <Pressable
+          onPress={() => setDrawerOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="সাইড মেনু খুলুন"
+          style={styles.headerButton}
+        >
+          <Feather name="menu" size={17} color="#a5a2ba" />
         </Pressable>
+
         <View style={styles.brand}>
-          <Animated.View style={[{ transform: [{ scale: corePulse }] }]}>
-            <BadboyLogo size={38} />
-          </Animated.View>
-          <View>
-            <View style={styles.titleRow}>
-              <Text style={[styles.brandTitle, { color: colors.foreground }]}>Badboy AI</Text>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
-                <Text style={styles.statusBadgeText}>{getStatusText()}</Text>
-              </View>
+          <LinearGradient colors={['#a855f7', '#6d28d9', '#22d3ee']} style={styles.brandLogo}>
+            <BadboyLogo size={22} />
+          </LinearGradient>
+          <View style={styles.brandCopy}>
+            <View style={styles.brandTitleRow}>
+              <Text style={styles.brandTitle}>BADBOY</Text>
+              <Text style={styles.brandAccent}>AI</Text>
             </View>
-            <Text style={[styles.brandSub, { color: colors.mutedForeground }]}>
-              {settings.onlineAI ? 'তোমার AI সহকারী' : 'অফলাইন মোড'}
-            </Text>
+            <Text style={styles.brandSub}>NEURAL ASSISTANT</Text>
           </View>
         </View>
 
-        {/* ChatGPT-style chat options */}
-        <Pressable onPress={showChatOptions} accessibilityRole="button" accessibilityLabel="চ্যাট অপশন খুলুন" style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 6 }]}>
-          <Feather name="more-horizontal" size={19} color={colors.foreground} />
-        </Pressable>
-        <Pressable onPress={() => setQuickActionsExpanded((value) => !value)} accessibilityRole="button" accessibilityLabel={quickActionsExpanded ? 'Quick actions hide করুন' : 'Quick actions দেখান'} style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 4 }]}>
-          <Feather name="settings" size={17} color={colors.foreground}/>
-        </Pressable>
-
-        {/* Language Selector Toggle */}
-        <Pressable
-          onPress={() => setSelectedLang((prev) => getNextVoiceLanguage(prev))}
-          style={[styles.langToggle, { borderColor: colors.border, backgroundColor: colors.secondary }]}
-          accessibilityRole="button"
-          accessibilityLabel="ভাষা পরিবর্তন করুন"
-        >
-          <Text style={[styles.langText, { color: colors.primary }]}>
-            {getVoiceLanguageLabel(selectedLang)}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="নতুন চ্যাট শুরু করুন"
-          onPress={startNewChat}
-          style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 4 }]}
-        >
-          <Feather name="plus" size={19} color={colors.foreground} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => setSelectedLang((previous) => getNextVoiceLanguage(previous))}
+            accessibilityRole="button"
+            accessibilityLabel="ভাষা পরিবর্তন করুন"
+            style={styles.headerButton}
+          >
+            <Text style={styles.langText}>{getVoiceLanguageLabel(selectedLang)}</Text>
+          </Pressable>
+          <Pressable
+            onPress={showChatOptions}
+            accessibilityRole="button"
+            accessibilityLabel="চ্যাট অপশন খুলুন"
+            style={styles.headerButton}
+          >
+            <Feather name="more-vertical" size={16} color="#a5a2ba" />
+          </Pressable>
+          <Pressable
+            onPress={() => setQuickActionsExpanded((expanded) => !expanded)}
+            accessibilityRole="button"
+            accessibilityLabel={quickActionsExpanded ? 'Quick actions hide করুন' : 'Quick actions দেখান'}
+            style={[styles.headerButton, quickActionsExpanded && styles.headerButtonActive]}
+          >
+            <Feather name="settings" size={15} color={quickActionsExpanded ? '#c4a6ff' : '#a5a2ba'} />
+          </Pressable>
+          <Pressable
+            onPress={startNewChat}
+            accessibilityRole="button"
+            accessibilityLabel="নতুন চ্যাট শুরু করুন"
+            style={styles.headerButton}
+          >
+            <Feather name="plus" size={17} color="#a5a2ba" />
+          </Pressable>
+        </View>
       </View>
 
       <Pressable
@@ -974,10 +973,20 @@ export default function ChatScreen() {
         accessibilityLabel="Default provider ও model settings"
         style={styles.providerStrip}
       >
-        <View style={styles.providerMini}><Feather name="cpu" size={12} color={colors.primary}/><Text numberOfLines={1} style={styles.providerMiniText}>{defaultModel ? (getProvider(defaultModel.providerId)?.name || defaultModel.providerId) : 'Provider not selected'}</Text></View>
-        <View style={[styles.providerDivider,{backgroundColor:colors.border}]}/>
-        <View style={styles.providerMini}><Feather name="layers" size={12} color={colors.primary}/><Text numberOfLines={1} style={[styles.providerMiniText,{flex:1}]}>{defaultModel?.label || defaultModel?.modelId || 'Choose model'}</Text></View>
-        <View style={[styles.onlinePill,{backgroundColor:settings.onlineAI?'rgba(22,190,120,0.13)':'rgba(140,140,140,0.14)'}]}><View style={[styles.onlineDot,{backgroundColor:settings.onlineAI?'#19C783':'#929292'}]}/><Text style={[styles.onlineText,{color:settings.onlineAI?'#19C783':colors.mutedForeground}]}>{settings.onlineAI?'ONLINE':'OFFLINE'}</Text></View>
+        <View style={styles.providerDot} />
+        <Text numberOfLines={1} style={styles.providerName}>
+          {defaultModel ? (getProvider(defaultModel.providerId)?.name || defaultModel.providerId) : 'Provider not selected'}
+        </Text>
+        <View style={styles.providerDivider} />
+        <Text numberOfLines={1} style={styles.providerModel}>
+          {defaultModel?.label || defaultModel?.modelId || 'Choose model'}
+        </Text>
+        <View style={[styles.onlinePill, { backgroundColor: `${getStatusColor()}22` }]}>
+          <View style={[styles.onlineDot, { backgroundColor: getStatusColor() }]} />
+          <Text numberOfLines={1} style={[styles.onlineText, { color: getStatusColor() }]}>
+            {getStatusText()}
+          </Text>
+        </View>
       </Pressable>
 
       {drawerOpen ? (
