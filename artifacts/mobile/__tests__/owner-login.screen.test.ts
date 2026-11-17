@@ -47,14 +47,23 @@ mock.module('react-native', {
   namedExports: {
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     KeyboardAvoidingView: host('main'),
-    Platform: { OS: 'android' },
+    Platform: { OS: 'android', select: (options: Record<string, unknown>) => options.android ?? options.default ?? options.ios },
+    ScrollView: host('main'),
+    useWindowDimensions: () => ({ width: 390, height: 844 }),
     Pressable: host('button'),
-    StyleSheet: { create: (styles: unknown) => styles },
+    StyleSheet: { create: (styles: unknown) => styles, absoluteFill: {} },
     Text: host('span'),
     TextInput: host('input'),
     View: host('section'),
   },
 });
+mock.module('@expo/vector-icons', { namedExports: { Feather: () => null } });
+mock.module('expo-linear-gradient', { namedExports: { LinearGradient: ({ children }: any) => React.createElement('div', null, children) } });
+mock.module('react-native-svg', { namedExports: {
+  default: ({ children }: any) => React.createElement('svg', null, children),
+  Circle: 'circle', Defs: 'defs', Ellipse: 'ellipse', LinearGradient: 'linearGradient', Path: 'path', Stop: 'stop',
+} });
+mock.module('react-native-safe-area-context', { namedExports: { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) } });
 mock.module('../context/OwnerAuthContext.tsx', {
   namedExports: { useOwnerAuth: () => ({ signIn: async (token: string) => {
     signInCalls.push(token);
