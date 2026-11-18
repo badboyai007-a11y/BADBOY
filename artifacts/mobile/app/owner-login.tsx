@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -36,7 +35,7 @@ export default function OwnerLoginScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <View style={styles.scroll}>
         <View style={styles.hero}>
           <View style={styles.orbitOuter}><View style={styles.orbitInner}><Text style={styles.heroMark}>B</Text></View></View>
           <Text style={styles.kicker}>THINK BEYOND LIMITS</Text>
@@ -47,7 +46,7 @@ export default function OwnerLoginScreen() {
         <View style={styles.loginCard}>
           <View style={styles.lockBadge}><Text style={styles.lockGlyph}>♙</Text></View>
           <Text style={styles.title}>OWNER <Text style={styles.titleAccent}>LOGIN</Text></Text>
-          <Text style={styles.description}>Enter your Owner Token to access all Badboy AI features.</Text>
+          <Text style={styles.description}>Enter your Owner Token to access all Badboy AI features.</Text><Text style={styles.secureCaption}>Secure Sign In</Text>
           <View style={styles.inputWrap}>
             <Text style={styles.inputGlyph}>⌑</Text>
             <TextInput
@@ -91,15 +90,15 @@ export default function OwnerLoginScreen() {
           <View style={styles.feature}><Text style={styles.featureIcon}>◇</Text><Text style={styles.featureTitle}>Multi-AI</Text><Text style={styles.featureCaption}>Premium</Text></View>
         </View>
         <Text style={styles.version}>✦ BADBOY AI  •  V1.0.0 ✦</Text>
-        <Text style={styles.note}>Token is stored securely on this device. Chat History and personal Memory remain on your phone; Developer Agent Project Memory and Tasks are protected by Owner Token in Cloudflare D1.</Text>
-      </ScrollView>
+        <Text style={styles.note}>Token SecureStore-এ নিরাপদে রাখা হবে। Chat History ও সাধারণ Memory ফোনেই থাকবে; Developer Agent-এর Project Memory ও Tasks Owner Token-সুরক্ষিত Cloudflare D1-এ সংরক্ষিত হয়।</Text>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#07030d' },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 18, paddingTop: 28, paddingBottom: 28, gap: 18 },
+  scroll: { flex: 1, justifyContent: 'center', paddingHorizontal: 18, paddingTop: 28, paddingBottom: 28, gap: 18 },
   hero: { alignItems: 'center', paddingVertical: 8 },
   orbitOuter: { width: 142, height: 142, borderRadius: 71, borderWidth: 2, borderColor: '#8b2cff', alignItems: 'center', justifyContent: 'center', shadowColor: '#a020f0', shadowOpacity: 0.9, shadowRadius: 22, elevation: 12, backgroundColor: '#160923' },
   orbitInner: { width: 116, height: 116, borderRadius: 58, borderWidth: 2, borderColor: '#f02b75', alignItems: 'center', justifyContent: 'center', backgroundColor: '#08030f' },
@@ -114,6 +113,7 @@ const styles = StyleSheet.create({
   title: { color: '#ffffff', fontSize: 27, fontWeight: '900', textAlign: 'center', letterSpacing: 1 },
   titleAccent: { color: '#ff315e' },
   description: { color: '#d8c7e5', fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  secureCaption: { color: '#d946ef', fontSize: 10, fontWeight: '800', textAlign: 'center', letterSpacing: 1.5, marginTop: -7 },
   inputWrap: { minHeight: 55, flexDirection: 'row', alignItems: 'center', borderWidth: 1.3, borderColor: '#8b2cff', borderRightColor: '#ff315e', borderRadius: 15, paddingHorizontal: 13, backgroundColor: '#08030f' },
   inputGlyph: { color: '#d946ef', fontSize: 24, marginRight: 9 },
   input: { flex: 1, minHeight: 52, color: '#ffffff', fontSize: 15 },
