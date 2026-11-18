@@ -51,6 +51,7 @@ import { useColors } from '@/hooks/useColors';
 import { getOfflineWakeWordStatus, startOfflineWakeWord, stopOfflineWakeWord, subscribeToWakeWord, subscribeToWakeWordStatus } from '@/lib/assistant/wakeWord';
 import { getActiveCustomSkillContext } from '@/lib/assistant/skillStorage';
 import { loadEnabledPluginIds } from '@/lib/assistant/pluginStorage';
+import { getDeveloperModeSkillContext } from '@/lib/assistant/developerModeSkill';
 
 const VOICE_RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
@@ -343,7 +344,9 @@ export default function ChatScreen() {
       }
       let skillContext = '';
       try {
-        skillContext = await getActiveCustomSkillContext() ?? '';
+        const activeCustomSkill = await getActiveCustomSkillContext() ?? '';
+        const automaticDeveloperSkill = settings.developerMode ? getDeveloperModeSkillContext() : '';
+        skillContext = [automaticDeveloperSkill, activeCustomSkill].filter(Boolean).join('\\n\\n').slice(0, 4000);
       } catch {
         // An unavailable local skill store must not block ordinary assistant chat.
       }
@@ -725,7 +728,11 @@ export default function ChatScreen() {
     setBusy(true);
     setError(null);
     try {
-      await streamReply(previousUser.content, settings, (chunk) => {
+      await streamAgenticReply(
+        previousUser.content,
+        settings,
+        messages.slice(0, index).slice(-8).map(({ role, content }) => ({ role, content })),
+        (chunk) => {
         const updated = { ...replacement, content: replacement.content + chunk };
         working = working.map((item) => item.id === replacement.id ? updated : item);
         setMessages(working);
