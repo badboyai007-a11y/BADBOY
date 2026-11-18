@@ -689,21 +689,30 @@ export default function SettingsScreen() {
       contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 12) + 14, paddingBottom: Math.max(insets.bottom, 20) + 90 }]}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={[styles.brandHeader, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <BadboyLogo size={52} />
-        <View style={styles.brandCopy}>
-          <Text style={[styles.brandName, { color: colors.foreground }]}>Badboy AI</Text>
-          <Text style={[styles.brandCaption, { color: colors.mutedForeground }]}>BADBOY AI MANAGER · Owner Control</Text>
+      <View style={styles.settingsHeading}>
+        <View style={[styles.crownMark, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Feather name="award" size={25} color={colors.primary} />
         </View>
-        <View style={[styles.settingsPill, { borderColor: colors.border }]}>
-          <Feather name="sliders" size={14} color={colors.primary} />
+        <View style={styles.brandCopy}>
+          <Text style={[styles.title, { color: colors.foreground }]}>Settings</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Customize your Badboy AI experience</Text>
         </View>
       </View>
-      <Text style={[styles.eyebrow, { color: colors.primary }]}>♛  BADBOY AI MANAGER  ♛</Text>
-      <Text style={[styles.title, { color: colors.foreground }]}>Settings</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-        Manage your AI experience, security, appearance and developer tools.
-      </Text>
+      <View style={[styles.profileCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <BadboyLogo size={104} />
+        <View style={styles.profileDetails}>
+          <View style={styles.profileNameRow}>
+            <Text style={[styles.profileName, { color: colors.foreground }]}>Badboy AI</Text>
+            <Feather name="award" size={19} color="#ffbd35" />
+          </View>
+          <Text style={[styles.versionPill, { color: colors.secondaryForeground, backgroundColor: colors.secondary }]}>v1.0.0</Text>
+          <Text style={[styles.brandCaption, { color: colors.mutedForeground }]}>Smart · Secure · Powerful</Text>
+          <View style={styles.onlineStatus}>
+            <View style={styles.onlineDot} />
+            <Text style={[styles.brandCaption, { color: colors.foreground }]}>Online</Text>
+          </View>
+        </View>
+      </View>
 
       <Text style={[styles.eyebrow, { color: colors.primary }]}>APPEARANCE</Text>
       <View style={[styles.section, sectionCard]}>
@@ -1649,17 +1658,26 @@ function SettingSwitch({
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 16, gap: 13 },
+  content: { paddingHorizontal: 13, gap: 13, width: '100%', maxWidth: 620, alignSelf: 'center' },
+  settingsHeading: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 3, marginBottom: 2 },
+  crownMark: { width: 54, height: 54, borderWidth: 1.5, borderRadius: 18, alignItems: 'center', justifyContent: 'center', shadowColor: '#c026ff', shadowOpacity: 0.35, shadowRadius: 10, elevation: 4 },
+  profileCard: { minHeight: 176, borderWidth: 1.5, borderRadius: 22, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 14, shadowColor: '#ff315e', shadowOpacity: 0.22, shadowRadius: 13, elevation: 5 },
+  profileDetails: { flex: 1, minWidth: 0, gap: 7 },
+  profileNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap' },
+  profileName: { fontSize: 21, fontWeight: '900' },
+  versionPill: { alignSelf: 'flex-start', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14, fontSize: 13, fontWeight: '700' },
+  onlineStatus: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
+  onlineDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#00e676' },
   brandHeader: { minHeight: 82, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 5, shadowColor: '#c026ff', shadowOpacity: 0.22, shadowRadius: 12, elevation: 5 },
   brandMark: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   brandCopy: { flex: 1, gap: 3 },
   brandName: { fontSize: 18, fontWeight: '900', letterSpacing: 0.1 },
   brandCaption: { fontSize: 11, letterSpacing: 0.4 },
   settingsPill: { width: 34, height: 34, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginTop: 1 },
-  title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.8, marginTop: -7 },
-  subtitle: { fontSize: 14, lineHeight: 21, marginTop: -5, marginBottom: 7 },
-  section: { borderWidth: 1.2, borderRadius: 18, padding: 15, shadowColor: '#8b2cff', shadowOpacity: 0.12, shadowRadius: 8, elevation: 2 },
+  eyebrow: { fontSize: 12, fontWeight: '900', letterSpacing: 1.1, marginTop: 3, paddingLeft: 3, textShadowColor: '#c026ff', textShadowRadius: 8 },
+  title: { fontSize: 25, fontWeight: '900', letterSpacing: -0.4 },
+  subtitle: { fontSize: 11, lineHeight: 16, marginTop: 1 },
+  section: { borderWidth: 1.4, borderRadius: 18, padding: 13, shadowColor: '#d946ef', shadowOpacity: 0.2, shadowRadius: 9, elevation: 3 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 14 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 5 },
