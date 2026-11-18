@@ -1050,7 +1050,7 @@ export default function ChatScreen() {
                   {[
                     { label: 'Image Generator', icon: 'image' as const },
                     { label: 'Code Helper', icon: 'code' as const },
-                    { label: 'Creative Ideas', icon: 'lightbulb' as const },
+                    { label: 'Creative Ideas', icon: 'sun' as const },
                     { label: 'Study Helper', icon: 'book-open' as const },
                     { label: 'General Chat', icon: 'message-circle' as const },
                     { label: 'Music Assistant', icon: 'music' as const },
@@ -1299,6 +1299,9 @@ const styles = StyleSheet.create({
   welcomeText: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginTop: 8, maxWidth: 360 },
   suggestions: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 9, marginTop: 12 },
   suggestion: { width: '48%', minHeight: 66, borderWidth: 1.2, borderRadius: 15, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', shadowColor: '#8b2cff', shadowOpacity: 0.16, shadowRadius: 7, elevation: 2 },
+  toolsLauncher: { minHeight: 48, width: '100%', borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 18 },
+  toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, justifyContent: 'space-between' },
+  toolTile: { width: '48%', minHeight: 76, borderWidth: 1, borderRadius: 13, alignItems: 'center', justifyContent: 'center', gap: 7, padding: 8 },
   messageList: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
   messageRow: { width: '100%', alignItems: 'flex-start', marginVertical: 4 },
   userRow: { alignItems: 'flex-end' },
