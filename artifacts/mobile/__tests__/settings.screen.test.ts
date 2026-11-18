@@ -91,7 +91,7 @@ const settings = {
   autoSpeakReplies: false, autoSubmitVoice: false, wakeWordEnabled: false,
   voiceLanguage: 'bn-BD', voiceIdentifier: null, roadmap,
 };
-mock.module('../assets/images/badboy-hooded-art.jpg', { defaultExport: {} });
+mock.module('../assets/images/badboy-settings-avatar.jpg', { defaultExport: {} });
 mock.module('expo-router', { namedExports: { useRouter: () => ({ back: () => {} }) } });
 
 mock.module('react-native', {
