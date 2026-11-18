@@ -951,6 +951,26 @@ export default function ChatScreen() {
       </View>
 
 
+      <View style={[styles.providerStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable onPress={() => router.push('/(tabs)/settings' as never)} accessibilityRole="button" accessibilityLabel="AI Provider settings" style={styles.providerCell}>
+          <Feather name="gem" size={17} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>AI PROVIDER</Text>
+            <Text style={[styles.providerValue, { color: colors.foreground }]}>Manage Providers</Text>
+          </View>
+          <Feather name="chevron-down" size={14} color={colors.primary} />
+        </Pressable>
+        <View style={[styles.providerDivider, { backgroundColor: colors.border }]} />
+        <Pressable onPress={() => router.push('/(tabs)/settings' as never)} accessibilityRole="button" accessibilityLabel="Model selection settings" style={styles.providerCell}>
+          <Feather name="cpu" size={17} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>MODEL SELECTION</Text>
+            <Text style={[styles.providerValue, { color: colors.foreground }]}>Choose Model</Text>
+          </View>
+          <Feather name="chevron-down" size={14} color={colors.primary} />
+        </Pressable>
+      </View>
+
       {drawerOpen ? (
         <View style={[styles.drawerScrim, { backgroundColor: 'rgba(0,0,0,0.58)' }]}>
           <Pressable style={styles.drawerOutside} onPress={() => setDrawerOpen(false)} accessibilityLabel="মেনু বন্ধ করুন" />
@@ -1081,7 +1101,7 @@ export default function ChatScreen() {
             আমি তোমার AI সহকারী। নিচের একটি বিষয় বেছে নাও অথবা মেসেজ লিখে শুরু করো।
           </Text>
           <View style={styles.suggestions}>
-            {['কোড লিখতে সাহায্য', 'নতুন কিছু শিখি', 'প্রজেক্ট ঠিক করি', 'একটি সৃজনশীল গল্প লেখো'].map((item) => (
+            {['🖼 Image Generator', 'Code Helper', 'Creative Ideas', 'Study Helper', 'General Chat', 'Music Assistant', 'Android Control', 'More Tools'].map((item) => (
               <Pressable
                 key={item}
                 onPress={() => setDraft(item)}
@@ -1222,12 +1242,17 @@ const styles = StyleSheet.create({
   visualizerContainer: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 38, marginHorizontal: 8 },
   visualizerBar: { width: 3, borderRadius: 2 },
   iconButton: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  welcome: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingBottom: 20 },
-  welcomeMark: { width: 76, height: 76, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  providerStrip: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, marginHorizontal: 12, marginTop: 8, marginBottom: 4, paddingHorizontal: 10, paddingVertical: 9, shadowColor: '#c026ff', shadowOpacity: 0.16, shadowRadius: 8, elevation: 3 },
+  providerCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  providerLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  providerValue: { fontSize: 11, fontWeight: '800', marginTop: 2 },
+  providerDivider: { width: 1, alignSelf: 'stretch', marginHorizontal: 10 },
+  welcome: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, paddingBottom: 16, gap: 12 },
+  welcomeMark: { width: 76, height: 76, borderRadius: 24, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 10, shadowColor: '#c026ff', shadowOpacity: 0.35, shadowRadius: 16, elevation: 6 },
   welcomeTitle: { fontSize: 24, fontWeight: '700', textAlign: 'center', letterSpacing: 0.1 },
   welcomeText: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginTop: 8, maxWidth: 360 },
-  suggestions: { width: '100%', gap: 10, marginTop: 26 },
-  suggestion: { borderWidth: 1, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16 },
+  suggestions: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 9, marginTop: 12 },
+  suggestion: { width: '48%', minHeight: 66, borderWidth: 1.2, borderRadius: 15, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', shadowColor: '#8b2cff', shadowOpacity: 0.16, shadowRadius: 7, elevation: 2 },
   messageList: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
   messageRow: { width: '100%', alignItems: 'flex-start', marginVertical: 4 },
   userRow: { alignItems: 'flex-end' },
