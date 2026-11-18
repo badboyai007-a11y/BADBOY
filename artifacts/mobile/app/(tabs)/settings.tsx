@@ -1,6 +1,5 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { BadboyLogo } from '@/components/BadboyLogo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import {
@@ -780,6 +779,60 @@ export default function SettingsScreen() {
       </Pressable>
 
             <Text style={[styles.eyebrow, { color: colors.primary }]}>AI &amp; FEATURES</Text>
+      <View style={[styles.section, sectionCard]}>
+        <View style={styles.sectionTitleRow}>
+          <Feather name="zap" size={17} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>AI Provider &amp; Model</Text>
+        </View>
+        <Pressable
+          onPress={() => Alert.alert('AI Provider', 'এই অ্যাপের Agentic Assistant বর্তমানে OpenRouter API ব্যবহার করে।')}
+          style={styles.accountInfoRow}
+          accessibilityRole="button"
+        >
+          <Feather name="hexagon" size={19} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.label, { color: colors.foreground }]}>AI Provider</Text>
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>OpenRouter</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </Pressable>
+        <Pressable
+          onPress={() => Alert.alert('Model Selection', 'Badboy task অনুযায়ী OpenRouter-এর free model-গুলোর মধ্যে স্বয়ংক্রিয়ভাবে model নির্বাচন ও fallback করে।')}
+          style={styles.accountInfoRow}
+          accessibilityRole="button"
+        >
+          <Feather name="cpu" size={19} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.label, { color: colors.foreground }]}>Model Selection</Text>
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>Automatic free-model routing</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </Pressable>
+        <Pressable
+          onPress={() => Alert.alert('Multi-AI Settings', 'Free model routing task অনুযায়ী একাধিক OpenRouter model-এ fallback করতে পারে।')}
+          style={styles.accountInfoRow}
+          accessibilityRole="button"
+        >
+          <Feather name="layers" size={19} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.label, { color: colors.foreground }]}>Multi-AI Settings</Text>
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>Task-based free-model fallback</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </Pressable>
+        <Pressable
+          onPress={() => Alert.alert('Features Control', `Online AI is currently ${settings.onlineAI ? 'enabled' : 'disabled'}. Change it in Privacy & Personalization below.`)}
+          style={styles.accountInfoRow}
+          accessibilityRole="button"
+        >
+          <Feather name="sliders" size={19} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.label, { color: colors.foreground }]}>Features Control</Text>
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>Online AI: {settings.onlineAI ? 'Enabled' : 'Disabled'}</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </Pressable>
+      </View>
       {/* Central Agent Task Execution Engine */}
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}>
