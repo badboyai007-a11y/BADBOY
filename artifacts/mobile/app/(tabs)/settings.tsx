@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { BadboyLogo } from '@/components/BadboyLogo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
@@ -6,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -76,6 +78,7 @@ interface LocalTelegramMessage {
 
 export default function SettingsScreen() {
   const colors = useColors();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { settings, updateSettings, clearChat, expertReviewDraft, clearExpertReviewDraft } = useAssistant();
   const { signOut } = useOwnerAuth();
@@ -690,29 +693,69 @@ export default function SettingsScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.settingsHeading}>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Back to chat"
+          style={[styles.backButton, { borderColor: colors.border, backgroundColor: colors.card }]}
+        >
+          <Feather name="arrow-left" size={21} color={colors.foreground} />
+        </Pressable>
         <View style={[styles.crownMark, { borderColor: colors.border, backgroundColor: colors.card }]}>
-          <Feather name="award" size={25} color={colors.primary} />
+          <Feather name="award" size={27} color={colors.primary} />
         </View>
         <View style={styles.brandCopy}>
           <Text style={[styles.title, { color: colors.foreground }]}>Settings</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Customize your Badboy AI experience</Text>
         </View>
       </View>
+
       <View style={[styles.profileCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <BadboyLogo size={104} />
+        <View style={styles.profileAvatarFrame}>
+          <Image
+            source={require('../../assets/images/badboy-hooded-art.jpg')}
+            resizeMode="cover"
+            style={styles.profileAvatar}
+            accessibilityLabel="Badboy AI hooded avatar"
+          />
+        </View>
         <View style={styles.profileDetails}>
           <View style={styles.profileNameRow}>
             <Text style={[styles.profileName, { color: colors.foreground }]}>Badboy AI</Text>
             <Feather name="award" size={19} color="#ffbd35" />
           </View>
+          <Text style={[styles.versionPill, { color: colors.secondaryForeground, backgroundColor: colors.secondary }]}>v1.0.0</Text>
+          <Text style={[styles.brandCaption, { color: colors.mutedForeground }]}>Smart · Secure · Powerful</Text>
+          <View style={styles.onlineStatus}>
+            <View style={styles.onlineDot} />
+            <Text style={[styles.brandCaption, { color: colors.foreground }]}>Online</Text>
+          </View>
+        </View>
+      </View>
 
       <Text style={[styles.eyebrow, { color: colors.primary }]}>ACCOUNT &amp; ACCESS</Text>
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}>
-          <Feather name="shield" size={17} color={colors.primary} />
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Owner Access &amp; Data Controls</Text>
+          <Feather name="user" size={17} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Owner Panel</Text>
         </View>
-        <Text style={[styles.body, { color: colors.mutedForeground }]}>Owner session এবং এই ডিভাইসের chat history নিয়ন্ত্রণ করুন।</Text>
+        <Text style={[styles.body, { color: colors.mutedForeground }]}>Manage owner features & access</Text>
+        <View style={[styles.accountInfoRow, { borderColor: colors.border }]}>
+          <Feather name="key" size={19} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.label, { color: colors.foreground }]}>Token Management</Text>
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>Owner token is protected by Android SecureStore</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </View>
+        <View style={[styles.accountInfoRow, { borderColor: colors.border }]}>
+          <Feather name="lock" size={19} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.label, { color: colors.foreground }]}>Login Security</Text>
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>Owner login is required to access the main app</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+        </View>
       </View>
       <Pressable
         onPress={() => Alert.alert('চ্যাট ইতিহাস মুছবেন?', 'এই ফোনে সংরক্ষিত সব chat history মুছে যাবে।', [
@@ -735,21 +778,8 @@ export default function SettingsScreen() {
         <Feather name="log-out" size={16} color={colors.destructive} />
         <Text style={{ color: colors.destructive, fontWeight: '700' }}>Owner Sign Out</Text>
       </Pressable>
-      <View style={styles.footerBrand}>
-        <Text style={[styles.footerTitle, { color: colors.primary }]}>♛  Badboy AI Manager  ♛</Text>
-        <Text style={[styles.smallNote, { color: colors.mutedForeground, marginTop: 0 }]}>Built for the Real Power Users… ♥</Text>
-      </View>
 
-          <Text style={[styles.versionPill, { color: colors.secondaryForeground, backgroundColor: colors.secondary }]}>v1.0.0</Text>
-          <Text style={[styles.brandCaption, { color: colors.mutedForeground }]}>Smart · Secure · Powerful</Text>
-          <View style={styles.onlineStatus}>
-            <View style={styles.onlineDot} />
-            <Text style={[styles.brandCaption, { color: colors.foreground }]}>Online</Text>
-          </View>
-        </View>
-      </View>
-
-      <Text style={[styles.eyebrow, { color: colors.primary }]}>AI &amp; FEATURES</Text>
+            <Text style={[styles.eyebrow, { color: colors.primary }]}>AI &amp; FEATURES</Text>
       {/* Central Agent Task Execution Engine */}
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}>
@@ -1637,6 +1667,10 @@ export default function SettingsScreen() {
         {telegramError ? <Text style={[styles.errorText, { color: colors.destructive }]}>{telegramError}</Text> : null}
       </View>
 
+      <View style={styles.footerBrand}>
+        <Text style={[styles.footerTitle, { color: colors.primary }]}>♛  Badboy AI Manager  ♛</Text>
+        <Text style={[styles.smallNote, { color: colors.mutedForeground, marginTop: 0 }]}>Built for the Real Power Users… ♥</Text>
+      </View>
     </ScrollView>
   );
 }
@@ -1675,9 +1709,13 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 13, gap: 13, width: '100%', maxWidth: 620, alignSelf: 'center' },
   footerBrand: { alignItems: 'center', paddingVertical: 14, gap: 2 },
   footerTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.4 },
-  settingsHeading: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 3, marginBottom: 2 },
+  settingsHeading: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 3, marginBottom: 2 },
+  backButton: { width: 42, height: 42, borderWidth: 1.2, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   crownMark: { width: 54, height: 54, borderWidth: 1.5, borderRadius: 18, alignItems: 'center', justifyContent: 'center', shadowColor: '#c026ff', shadowOpacity: 0.35, shadowRadius: 10, elevation: 4 },
-  profileCard: { minHeight: 176, borderWidth: 1.5, borderRadius: 22, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 14, shadowColor: '#ff315e', shadowOpacity: 0.22, shadowRadius: 13, elevation: 5 },
+  profileCard: { minHeight: 164, borderWidth: 1.5, borderRadius: 22, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 14, shadowColor: '#ff315e', shadowOpacity: 0.22, shadowRadius: 13, elevation: 5 },
+  profileAvatarFrame: { width: 108, height: 108, borderRadius: 54, padding: 3, borderWidth: 2, borderColor: '#c026ff', overflow: 'hidden', backgroundColor: '#100718' },
+  profileAvatar: { width: '100%', height: '100%', borderRadius: 52 },
+  accountInfoRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: 9, marginTop: 10 },
   profileDetails: { flex: 1, minWidth: 0, gap: 7 },
   profileNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap' },
   profileName: { fontSize: 21, fontWeight: '900' },
