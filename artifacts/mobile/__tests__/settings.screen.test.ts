@@ -217,6 +217,12 @@ test('Settings screen renders existing voice, privacy, developer and account con
   const html = renderToStaticMarkup(React.createElement(SettingsScreen));
   assert.match(html, /BADBOY|Badboy/);
   assert.match(html, /Settings|সেটিংস|ব্যক্তিগত/);
+  assert.match(html, /Customize your Badboy AI experience/);
+  assert.match(html, /v1\\.0\\.0/);
+  assert.match(html, /Online/);
+  assert.match(html, /APPEARANCE/);
+  assert.match(html, /AI &amp; FEATURES|AI & FEATURES/);
+  assert.match(html, /APP MANAGEMENT/);
   assert.match(html, /ভয়েস|Voice/);
   assert.match(html, /Wake Word|ওয়েক|Hey Badboy/i);
   assert.match(html, /Owner Sign Out/);
