@@ -53,7 +53,7 @@ export default function OwnerLoginScreen() {
             <TextInput
               value={token}
               onChangeText={setToken}
-              placeholder="Owner Token"
+              placeholder="Paste Owner Token"
               placeholderTextColor="#a99ab8"
               autoCapitalize="none"
               autoCorrect={false}
@@ -91,7 +91,7 @@ export default function OwnerLoginScreen() {
           <View style={styles.feature}><Text style={styles.featureIcon}>◇</Text><Text style={styles.featureTitle}>Multi-AI</Text><Text style={styles.featureCaption}>Premium</Text></View>
         </View>
         <Text style={styles.version}>✦ BADBOY AI  •  V1.0.0 ✦</Text>
-        <Text style={styles.note}>Token SecureStore-এ নিরাপদে রাখা হবে। Chat History ও সাধারণ Memory ফোনেই থাকবে; Developer Agent-এর Project Memory ও Tasks Owner Token-সুরক্ষিত Cloudflare D1-এ সংরক্ষিত হয়।</Text>
+        <Text style={styles.note}>Token is stored securely in Android SecureStore. Chat History ও সাধারণ Memory ফোনেই থাকবে; Developer Agent-এর Project Memory ও Tasks Owner Token-সুরক্ষিত Cloudflare D1-এ সংরক্ষিত হয়.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
