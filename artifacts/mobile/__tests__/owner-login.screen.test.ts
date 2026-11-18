@@ -76,6 +76,8 @@ test('Owner Login starts with a disabled secure-token action and explains local 
   assert.match(html, /Owner Login/);
   assert.match(html, /Paste Owner Token/);
   assert.match(html, /Secure Sign In/);
+  assert.match(html, />OR</);
+  assert.match(html, /Built for the Real Power Users/);
   assert.match(html, /disabled/);
   assert.match(html, /SecureStore/);
   assert.match(html, /Chat History ও সাধারণ Memory ফোনেই থাকবে/);
