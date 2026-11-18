@@ -953,7 +953,7 @@ export default function ChatScreen() {
 
       <View style={[styles.providerStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Pressable onPress={() => router.push('/(tabs)/settings' as never)} accessibilityRole="button" accessibilityLabel="AI Provider settings" style={styles.providerCell}>
-          <Feather name="diamond" size={17} color={colors.primary} />
+          <Feather name="zap" size={17} color={colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>AI PROVIDER</Text>
             <Text style={[styles.providerValue, { color: colors.foreground }]}>Manage Providers</Text>
