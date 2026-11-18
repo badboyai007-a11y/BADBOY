@@ -712,7 +712,7 @@ export default function SettingsScreen() {
       <View style={[styles.profileCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
         <View style={styles.profileAvatarFrame}>
           <Image
-            source={require('../../assets/images/badboy-hooded-art.jpg')}
+            source={require('../../assets/images/badboy-settings-avatar.jpg')}
             resizeMode="cover"
             style={styles.profileAvatar}
             accessibilityLabel="Badboy AI hooded avatar"
