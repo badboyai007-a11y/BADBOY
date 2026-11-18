@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useOwnerAuth } from '@/context/OwnerAuthContext';
+import { BadboyLogo } from '@/components/BadboyLogo';
 
 export default function OwnerLoginScreen() {
   const { signIn } = useOwnerAuth();
@@ -38,7 +39,7 @@ export default function OwnerLoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
-          <View style={styles.orbitOuter}><View style={styles.orbitInner}><Text style={styles.heroMark}>B</Text></View></View>
+          <View style={styles.orbitOuter}><BadboyLogo size={112} /></View>
           <Text style={styles.kicker}>THINK BEYOND LIMITS</Text>
           <Text style={styles.brand}>Badboy <Text style={styles.brandAccent}>AI</Text></Text>
           <Text style={styles.tagline}>Smart  •  Secure  •  Powerful</Text>
