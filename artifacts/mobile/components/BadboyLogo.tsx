@@ -20,7 +20,7 @@ export function BadboyLogo({ size = 40 }: BadboyLogoProps) {
         </LinearGradient>
         <LinearGradient id="borderGlow" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
           <Stop offset="0%" stopColor="#f0abfc" stopOpacity="0.8" />
-          <Stop offset="100%" stopColor="#168bff" stopOpacity="0.3" />
+          <Stop offset="100%" stopColor="#ff315e" stopOpacity="0.3" />
         </LinearGradient>
       </Defs>
 
