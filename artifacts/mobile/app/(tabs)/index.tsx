@@ -346,7 +346,7 @@ export default function ChatScreen() {
       try {
         const activeCustomSkill = await getActiveCustomSkillContext() ?? '';
         const automaticDeveloperSkill = settings.developerMode ? getDeveloperModeSkillContext() : '';
-        skillContext = [automaticDeveloperSkill, activeCustomSkill].filter(Boolean).join('\\n\\n').slice(0, 4000);
+        skillContext = [automaticDeveloperSkill, activeCustomSkill].filter(Boolean).join('\n\n').slice(0, 4000);
       } catch {
         // An unavailable local skill store must not block ordinary assistant chat.
       }
