@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -35,7 +36,7 @@ export default function OwnerLoginScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <View style={styles.orbitOuter}><View style={styles.orbitInner}><Text style={styles.heroMark}>B</Text></View></View>
           <Text style={styles.kicker}>THINK BEYOND LIMITS</Text>
@@ -91,14 +92,14 @@ export default function OwnerLoginScreen() {
         </View>
         <Text style={styles.version}>✦ BADBOY AI  •  V1.0.0 ✦</Text>
         <Text style={styles.note}>Token SecureStore-এ নিরাপদে রাখা হবে। Chat History ও সাধারণ Memory ফোনেই থাকবে; Developer Agent-এর Project Memory ও Tasks Owner Token-সুরক্ষিত Cloudflare D1-এ সংরক্ষিত হয়।</Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#07030d' },
-  scroll: { flex: 1, justifyContent: 'center', paddingHorizontal: 18, paddingTop: 28, paddingBottom: 28, gap: 18 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 18, paddingTop: 28, paddingBottom: 28, gap: 18 },
   hero: { alignItems: 'center', paddingVertical: 8 },
   orbitOuter: { width: 142, height: 142, borderRadius: 71, borderWidth: 2, borderColor: '#8b2cff', alignItems: 'center', justifyContent: 'center', shadowColor: '#a020f0', shadowOpacity: 0.9, shadowRadius: 22, elevation: 12, backgroundColor: '#160923' },
   orbitInner: { width: 116, height: 116, borderRadius: 58, borderWidth: 2, borderColor: '#f02b75', alignItems: 'center', justifyContent: 'center', backgroundColor: '#08030f' },
