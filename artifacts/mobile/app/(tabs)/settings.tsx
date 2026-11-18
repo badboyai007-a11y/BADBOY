@@ -1602,6 +1602,14 @@ export default function SettingsScreen() {
         {telegramError ? <Text style={[styles.errorText, { color: colors.destructive }]}>{telegramError}</Text> : null}
       </View>
 
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>ACCOUNT &amp; ACCESS</Text>
+      <View style={[styles.section, sectionCard]}>
+        <View style={styles.sectionTitleRow}>
+          <Feather name="shield" size={17} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Owner Access &amp; Data Controls</Text>
+        </View>
+        <Text style={[styles.body, { color: colors.mutedForeground }]}>Owner session এবং এই ডিভাইসের chat history নিয়ন্ত্রণ করুন।</Text>
+      </View>
       <Pressable
         onPress={() => Alert.alert('চ্যাট ইতিহাস মুছবেন?', 'এই ফোনে সংরক্ষিত সব chat history মুছে যাবে।', [
           { text: 'বাতিল', style: 'cancel' },
@@ -1623,6 +1631,10 @@ export default function SettingsScreen() {
         <Feather name="log-out" size={16} color={colors.destructive} />
         <Text style={{ color: colors.destructive, fontWeight: '700' }}>Owner Sign Out</Text>
       </Pressable>
+      <View style={styles.footerBrand}>
+        <Text style={[styles.footerTitle, { color: colors.primary }]}>♛  Badboy AI Manager  ♛</Text>
+        <Text style={[styles.smallNote, { color: colors.mutedForeground, marginTop: 0 }]}>Built for the Real Power Users… ♥</Text>
+      </View>
     </ScrollView>
   );
 }
@@ -1659,6 +1671,8 @@ function SettingSwitch({
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 13, gap: 13, width: '100%', maxWidth: 620, alignSelf: 'center' },
+  footerBrand: { alignItems: 'center', paddingVertical: 14, gap: 2 },
+  footerTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.4 },
   settingsHeading: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 3, marginBottom: 2 },
   crownMark: { width: 54, height: 54, borderWidth: 1.5, borderRadius: 18, alignItems: 'center', justifyContent: 'center', shadowColor: '#c026ff', shadowOpacity: 0.35, shadowRadius: 10, elevation: 4 },
   profileCard: { minHeight: 176, borderWidth: 1.5, borderRadius: 22, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 14, shadowColor: '#ff315e', shadowOpacity: 0.22, shadowRadius: 13, elevation: 5 },
