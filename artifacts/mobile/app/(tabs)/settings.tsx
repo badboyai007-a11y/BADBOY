@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { BadboyLogo } from '@/components/BadboyLogo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import {
@@ -689,21 +690,19 @@ export default function SettingsScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={[styles.brandHeader, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <View style={[styles.brandMark, { backgroundColor: colors.primary }]}>
-          <Feather name="zap" size={19} color={colors.primaryForeground} />
-        </View>
+        <BadboyLogo size={48} />
         <View style={styles.brandCopy}>
           <Text style={[styles.brandName, { color: colors.foreground }]}>Badboy AI</Text>
-          <Text style={[styles.brandCaption, { color: colors.mutedForeground }]}>তোমার AI সহকারী · Settings</Text>
+          <Text style={[styles.brandCaption, { color: colors.mutedForeground }]}>BADBOY AI MANAGER · Owner Control</Text>
         </View>
         <View style={[styles.settingsPill, { borderColor: colors.border }]}>
           <Feather name="sliders" size={14} color={colors.primary} />
         </View>
       </View>
-      <Text style={[styles.eyebrow, { color: colors.primary }]}>PERSONAL CONTROL CENTER</Text>
-      <Text style={[styles.title, { color: colors.foreground }]}>সেটিংস</Text>
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>♛  BADBOY AI MANAGER  ♛</Text>
+      <Text style={[styles.title, { color: colors.foreground }]}>Settings</Text>
       <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-        তোমার অভিজ্ঞতা, ভয়েস, গোপনীয়তা ও ডেভেলপার টুল—সব এক জায়গায়।
+        Manage your AI experience, security, appearance and developer tools.
       </Text>
 
       <View style={[styles.section, sectionCard]}>
@@ -1645,16 +1644,16 @@ function SettingSwitch({
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, gap: 13 },
-  brandHeader: { minHeight: 68, borderWidth: 1, borderRadius: 20, paddingHorizontal: 13, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 5 },
+  brandHeader: { minHeight: 82, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 5, shadowColor: '#c026ff', shadowOpacity: 0.22, shadowRadius: 12, elevation: 5 },
   brandMark: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   brandCopy: { flex: 1, gap: 3 },
-  brandName: { fontSize: 16, fontWeight: '800', letterSpacing: 0.1 },
-  brandCaption: { fontSize: 12 },
+  brandName: { fontSize: 18, fontWeight: '900', letterSpacing: 0.1 },
+  brandCaption: { fontSize: 11, letterSpacing: 0.4 },
   settingsPill: { width: 34, height: 34, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginTop: 1 },
   title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.8, marginTop: -7 },
   subtitle: { fontSize: 14, lineHeight: 21, marginTop: -5, marginBottom: 7 },
-  section: { borderWidth: 1, borderRadius: 20, padding: 15 },
+  section: { borderWidth: 1.2, borderRadius: 18, padding: 15, shadowColor: '#8b2cff', shadowOpacity: 0.12, shadowRadius: 8, elevation: 2 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 14 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 5 },
