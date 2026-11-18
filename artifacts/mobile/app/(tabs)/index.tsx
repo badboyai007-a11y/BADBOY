@@ -953,7 +953,7 @@ export default function ChatScreen() {
 
       <View style={[styles.providerStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Pressable onPress={() => router.push('/(tabs)/settings' as never)} accessibilityRole="button" accessibilityLabel="AI Provider settings" style={styles.providerCell}>
-          <Feather name="gem" size={17} color={colors.primary} />
+          <Feather name="diamond" size={17} color={colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>AI PROVIDER</Text>
             <Text style={[styles.providerValue, { color: colors.foreground }]}>Manage Providers</Text>
@@ -1096,9 +1096,9 @@ export default function ChatScreen() {
           <View style={[styles.welcomeMark, { backgroundColor: colors.secondary, borderColor: colors.primary }]}>
             <BadboyLogo size={48} />
           </View>
-          <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>কীভাবে সাহায্য করতে পারি?</Text>
+          <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Welcome to Badboy AI</Text>
           <Text style={[styles.welcomeText, { color: colors.mutedForeground }]}>
-            আমি তোমার AI সহকারী। নিচের একটি বিষয় বেছে নাও অথবা মেসেজ লিখে শুরু করো।
+            Smart  •  Secure  •  Powerful\nAsk anything, explore ideas, get help — I’m here for you!
           </Text>
           <View style={styles.suggestions}>
             {['🖼 Image Generator', 'Code Helper', 'Creative Ideas', 'Study Helper', 'General Chat', 'Music Assistant', 'Android Control', 'More Tools'].map((item) => (
