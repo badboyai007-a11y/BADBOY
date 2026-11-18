@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { BadboyLogo } from '@/components/BadboyLogo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import {
@@ -689,7 +690,7 @@ export default function SettingsScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={[styles.brandHeader, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <View style={[styles.brandMark, { backgroundColor: colors.primary }]}><Feather name="zap" size={21} color={colors.primaryForeground} /></View>
+        <BadboyLogo size={52} />
         <View style={styles.brandCopy}>
           <Text style={[styles.brandName, { color: colors.foreground }]}>Badboy AI</Text>
           <Text style={[styles.brandCaption, { color: colors.mutedForeground }]}>BADBOY AI MANAGER · Owner Control</Text>
