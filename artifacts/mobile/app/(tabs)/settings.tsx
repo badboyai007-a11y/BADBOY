@@ -705,6 +705,7 @@ export default function SettingsScreen() {
         Manage your AI experience, security, appearance and developer tools.
       </Text>
 
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>APPEARANCE</Text>
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}><Feather name="droplet" size={17} color={colors.primary} /><Text style={[styles.sectionTitle,{color:colors.foreground}]}>অ্যাপ থিম</Text></View>
         <Text style={[styles.body,{color:colors.mutedForeground,marginBottom:10}]}>পছন্দের রং বেছে নাও। পরিবর্তন সঙ্গে সঙ্গে পুরো অ্যাপে দেখা যাবে এবং এই ফোনেই সংরক্ষিত থাকবে।</Text>
@@ -715,6 +716,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>AI &amp; FEATURES</Text>
       {/* Central Agent Task Execution Engine */}
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}>
@@ -777,6 +779,7 @@ export default function SettingsScreen() {
         ) : null}
       </View>
 
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>PRIVACY &amp; PERSONALIZATION</Text>
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}>
           <Feather name="wifi" size={17} color={colors.primary} />
@@ -873,6 +876,7 @@ export default function SettingsScreen() {
         ) : null}
       </View>
 
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>DEVELOPER TOOLS</Text>
       {/* Developer Control Center */}
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}>
@@ -1332,6 +1336,7 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>VOICE &amp; DEVICE</Text>
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}>
           <Feather name="mic" size={17} color={colors.primary} />
@@ -1461,6 +1466,7 @@ export default function SettingsScreen() {
         {deviceActionError ? <Text style={[styles.errorText, { color: colors.destructive }]}>{deviceActionError}</Text> : null}
       </View>
 
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>APP MANAGEMENT</Text>
       <View style={[styles.section, sectionCard]}>
         <View style={styles.sectionTitleRow}>
           <Feather name="layers" size={17} color={colors.primary} />
