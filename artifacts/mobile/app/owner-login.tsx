@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { useOwnerAuth } from '@/context/OwnerAuthContext';
-import { BadboyLogo } from '@/components/BadboyLogo';
 
 export default function OwnerLoginScreen() {
   const { signIn } = useOwnerAuth();
