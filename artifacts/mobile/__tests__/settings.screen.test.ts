@@ -223,6 +223,8 @@ test('Settings screen renders existing voice, privacy, developer and account con
   assert.match(html, /APPEARANCE/);
   assert.match(html, /AI &amp; FEATURES|AI & FEATURES/);
   assert.match(html, /APP MANAGEMENT/);
+  assert.ok(html.indexOf('ACCOUNT &amp; ACCESS') < html.indexOf('AI &amp; FEATURES'));
+  assert.ok(html.indexOf('AI &amp; FEATURES') < html.indexOf('APPEARANCE'));
   assert.match(html, /ভয়েস|Voice/);
   assert.match(html, /Wake Word|ওয়েক|Hey Badboy/i);
   assert.match(html, /Owner Sign Out/);
