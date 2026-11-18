@@ -45,10 +45,13 @@ const host = (tag: string) => function Host({ children, accessibilityLabel, plac
   }, children);
 };
 
+mock.module('../assets/images/badboy-hooded-art.jpg', { defaultExport: {} });
+
 mock.module('react-native', {
   namedExports: {
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     KeyboardAvoidingView: host('main'),
+    ImageBackground: host('figure'),
     Platform: { OS: 'android' },
     Pressable: host('button'),
     ScrollView: host('main'),
@@ -78,6 +81,7 @@ test('Owner Login starts with a disabled secure-token action and explains local 
   assert.match(html, /Secure Sign In/);
   assert.match(html, />OR</);
   assert.match(html, /Built for the Real Power Users/);
+  assert.match(html, /THINK BEYOND LIMITS/);
   assert.match(html, /disabled/);
   assert.match(html, /SecureStore/);
   assert.match(html, /Chat History ও সাধারণ Memory ফোনেই থাকবে/);
