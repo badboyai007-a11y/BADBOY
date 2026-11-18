@@ -16,6 +16,7 @@ import { BadboyLogo } from '@/components/BadboyLogo';
 export default function OwnerLoginScreen() {
   const { signIn } = useOwnerAuth();
   const [token, setToken] = useState('');
+  const [tokenVisible, setTokenVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,13 +59,21 @@ export default function OwnerLoginScreen() {
               placeholderTextColor="#a99ab8"
               autoCapitalize="none"
               autoCorrect={false}
-              secureTextEntry
+              secureTextEntry={!tokenVisible}
               textContentType="password"
               style={styles.input}
               editable={!busy}
               accessibilityLabel="Owner Token"
             />
-            <Text style={styles.inputHint}>●</Text>
+            <Pressable
+              onPress={() => setTokenVisible((visible) => !visible)}
+              accessibilityRole="button"
+              accessibilityLabel={tokenVisible ? 'Hide Owner Token' : 'Show Owner Token'}
+              style={styles.visibilityButton}
+              hitSlop={10}
+            >
+              <Text style={styles.visibilityGlyph}>{tokenVisible ? '◉' : '◎'}</Text>
+            </Pressable>
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <Pressable
@@ -119,7 +128,8 @@ const styles = StyleSheet.create({
   inputWrap: { minHeight: 55, flexDirection: 'row', alignItems: 'center', borderWidth: 1.3, borderColor: '#8b2cff', borderRightColor: '#ff315e', borderRadius: 15, paddingHorizontal: 13, backgroundColor: '#08030f' },
   inputGlyph: { color: '#d946ef', fontSize: 24, marginRight: 9 },
   input: { flex: 1, minHeight: 52, color: '#ffffff', fontSize: 15 },
-  inputHint: { color: '#d946ef', fontSize: 12 },
+  visibilityButton: { minWidth: 36, minHeight: 42, alignItems: 'center', justifyContent: 'center' },
+  visibilityGlyph: { color: '#d8a4ff', fontSize: 21, fontWeight: '800' },
   error: { color: '#ff718e', fontSize: 13, marginTop: -4 },
   button: { minHeight: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#7c16d8', borderWidth: 1.5, borderColor: '#f044a3', shadowColor: '#a020f0', shadowOpacity: 0.45, shadowRadius: 13, elevation: 6 },
   buttonDisabled: { opacity: 0.45 },
