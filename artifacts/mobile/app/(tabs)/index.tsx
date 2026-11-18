@@ -914,6 +914,15 @@ export default function ChatScreen() {
           </View>
         </View>
 
+        <Pressable
+          onPress={() => router.push('/(tabs)/settings' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="Settings"
+          style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 6 }]}
+        >
+          <Feather name="settings" size={19} color={colors.primary} />
+        </Pressable>
+
         {/* ChatGPT-style chat options */}
         <Pressable onPress={showChatOptions} accessibilityRole="button" accessibilityLabel="চ্যাট অপশন খুলুন" style={[styles.iconButton, { backgroundColor: colors.secondary, marginLeft: 6 }]}>
           <Feather name="more-horizontal" size={19} color={colors.foreground} />
