@@ -218,7 +218,7 @@ test('Settings screen renders existing voice, privacy, developer and account con
   assert.match(html, /BADBOY|Badboy/);
   assert.match(html, /Settings|সেটিংস|ব্যক্তিগত/);
   assert.match(html, /Customize your Badboy AI experience/);
-  assert.match(html, /v1\\.0\\.0/);
+  assert.match(html, /v1[.]0[.]0/);
   assert.match(html, /Online/);
   assert.match(html, /APPEARANCE/);
   assert.match(html, /AI &amp; FEATURES|AI & FEATURES/);
