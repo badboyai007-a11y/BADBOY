@@ -91,7 +91,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerModal, setDrawerModal] = useState<'search' | 'history' | 'options' | 'newChat' | null>(null);
+  const [drawerModal, setDrawerModal] = useState<'search' | 'history' | 'options' | 'newChat' | 'tools' | null>(null);
   const [chatSearch, setChatSearch] = useState('');
   const { messages, setMessages, settings, updateSettings, setExpertReviewDraft } = useAssistant();
   const { signOut } = useOwnerAuth();
@@ -1035,13 +1035,45 @@ export default function ChatScreen() {
           <View style={[styles.chatModal, { backgroundColor: colors.card, borderColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.brandTitle, { color: colors.foreground }]}>
-                {drawerModal === 'search' ? 'চ্যাট খুঁজুন' : 'চ্যাট হিস্টোরি'}
+                {drawerModal === 'search' ? 'চ্যাট খুঁজুন' : drawerModal === 'tools' ? 'Badboy AI Tools' : drawerModal === 'options' ? 'আরও অপশন' : 'চ্যাট হিস্টোরি'}
               </Text>
               <Pressable onPress={() => setDrawerModal(null)} accessibilityRole="button" accessibilityLabel="বন্ধ করুন" style={styles.iconButton}>
                 <Feather name="x" size={20} color={colors.foreground} />
               </Pressable>
             </View>
-            {drawerModal === 'options' ? (
+            {drawerModal === 'tools' ? (
+              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 20, gap: 14 }}>
+                <View style={styles.toolsGrid}>
+                  {[
+                    { label: 'Image Generator', icon: 'image' as const },
+                    { label: 'Code Helper', icon: 'code' as const },
+                    { label: 'Creative Ideas', icon: 'lightbulb' as const },
+                    { label: 'Study Helper', icon: 'book-open' as const },
+                    { label: 'General Chat', icon: 'message-circle' as const },
+                    { label: 'Music Assistant', icon: 'music' as const },
+                    { label: 'Android Control', icon: 'smartphone' as const },
+                    { label: 'More Tools', icon: 'grid' as const },
+                  ].map((tool) => (
+                    <Pressable key={tool.label} accessibilityRole="button" onPress={() => { setDrawerModal(null); setDraft(tool.label); }} style={[styles.toolTile, { borderColor: colors.border, backgroundColor: colors.secondary }]}>
+                      <Feather name={tool.icon} size={21} color={colors.primary} />
+                      <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>{tool.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={{ color: colors.mutedForeground, fontSize: 12, fontWeight: '700' }}>MORE CHAT OPTIONS</Text>
+                {[
+                  { label: 'AI ব্যক্তিত্ব / উত্তর-স্টাইল', action: () => { setDrawerModal(null); chooseAiStyle(); } },
+                  { label: 'গল্প, কবিতা, স্ক্রিপ্ট', action: () => { setDrawerModal(null); showCreativeOptions(); } },
+                  { label: 'নতুন চ্যাট', action: () => setDrawerModal('newChat') },
+                  { label: 'চ্যাট শেয়ার', action: () => { setDrawerModal(null); void shareConversation(); } },
+                  { label: 'চ্যাট মুছুন', action: () => { setDrawerModal(null); clearChat(); } },
+                ].map((option) => (
+                  <Pressable key={option.label} accessibilityRole="button" onPress={option.action} style={[styles.drawerItem, { minHeight: 46, backgroundColor: colors.secondary }]}>
+                    <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: '600' }}>{option.label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : drawerModal === 'options' ? (
               <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 20, gap: 10 }}>
                 {[
                   { label: 'AI ব্যক্তিত্ব / উত্তর-স্টাইল', action: () => { setDrawerModal(null); chooseAiStyle(); } },
@@ -1111,17 +1143,17 @@ export default function ChatScreen() {
           <Text style={[styles.welcomeText, { color: colors.mutedForeground }]}>
             Smart  •  Secure  •  Powerful\nAsk anything, explore ideas, get help — I’m here for you!
           </Text>
-          <View style={styles.suggestions}>
-            {['🖼 Image Generator', 'Code Helper', 'Creative Ideas', 'Study Helper', 'General Chat', 'Music Assistant', 'Android Control', 'More Tools'].map((item) => (
-              <Pressable
-                key={item}
-                onPress={() => setDraft(item)}
-                style={[styles.suggestion, { borderColor: colors.border, backgroundColor: colors.card }]}
-              >
-                <Text style={{ color: colors.foreground, fontSize: 14 }}>{item}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open all Badboy AI tools"
+            onPress={() => setDrawerModal('tools')}
+            style={[styles.toolsLauncher, { borderColor: colors.border, backgroundColor: colors.card }]}
+          >
+            <Feather name="grid" size={18} color={colors.primary} />
+            <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: '700', flex: 1 }}>Tools &amp; Features</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>8 tools + more</Text>
+            <Feather name="chevron-right" size={17} color={colors.primary} />
+          </Pressable>
         </View>
       ) : (
         <FlatList
