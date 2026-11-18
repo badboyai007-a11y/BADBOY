@@ -51,7 +51,7 @@ export default function OwnerLoginScreen() {
           <Text style={styles.kicker}>THINK BEYOND LIMITS…</Text>
           <Text style={styles.brand}>Badboy <Text style={styles.brandAccent}>AI</Text></Text>
           <Text style={styles.tagline}>Smart  •  Secure  •  Powerful</Text>
-        </ImageBackground> </View>
+        </ImageBackground>
 
         <View style={styles.loginCard}>
           <View style={styles.lockBadge}><Text style={styles.lockGlyph}>♙</Text></View>
