@@ -10,6 +10,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Linking,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -966,23 +967,31 @@ export default function ChatScreen() {
 
 
       <View style={[styles.providerStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Pressable onPress={() => router.push('/(tabs)/settings' as never)} accessibilityRole="button" accessibilityLabel="AI Provider settings" style={styles.providerCell}>
-          <Feather name="zap" size={17} color={colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>AI PROVIDER</Text>
-            <Text style={[styles.providerValue, { color: colors.foreground }]}>Manage Providers</Text>
+        <Pressable onPress={() => router.push('/(tabs)/settings' as never)} accessibilityRole="button" accessibilityLabel="AI Provider: OpenRouter" style={styles.providerCell}>
+          <Feather name="hexagon" size={18} color={colors.primary} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>PROVIDER</Text>
+            <Text numberOfLines={1} style={[styles.providerValue, { color: colors.foreground }]}>OpenRouter</Text>
           </View>
-          <Feather name="chevron-down" size={14} color={colors.primary} />
+          <Feather name="chevron-down" size={13} color={colors.primary} />
         </Pressable>
         <View style={[styles.providerDivider, { backgroundColor: colors.border }]} />
-        <Pressable onPress={() => router.push('/(tabs)/settings' as never)} accessibilityRole="button" accessibilityLabel="Model selection settings" style={styles.providerCell}>
-          <Feather name="cpu" size={17} color={colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>MODEL SELECTION</Text>
-            <Text style={[styles.providerValue, { color: colors.foreground }]}>Choose Model</Text>
+        <Pressable onPress={() => router.push('/(tabs)/settings' as never)} accessibilityRole="button" accessibilityLabel="Model: automatic free model routing" style={styles.providerCell}>
+          <Feather name="cpu" size={18} color={colors.primary} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>MODEL</Text>
+            <Text numberOfLines={1} style={[styles.providerValue, { color: colors.foreground }]}>Auto Free Model</Text>
           </View>
-          <Feather name="chevron-down" size={14} color={colors.primary} />
+          <Feather name="chevron-down" size={13} color={colors.primary} />
         </Pressable>
+        <View style={[styles.providerDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.providerStatus}>
+          <View style={[styles.onlineDot, { backgroundColor: settings.onlineAI ? '#00e676' : '#f97316' }]} />
+          <View>
+            <Text style={[styles.providerValue, { color: colors.foreground }]}>{settings.onlineAI ? 'Online' : 'Offline'}</Text>
+            <Text style={[styles.providerLabel, { color: colors.mutedForeground }]}>STATUS</Text>
+          </View>
+        </View>
       </View>
 
       {drawerOpen ? (
@@ -1139,13 +1148,28 @@ export default function ChatScreen() {
 
       {!messages.length ? (
         <View style={styles.welcome}>
-          <View style={[styles.welcomeMark, { backgroundColor: colors.secondary, borderColor: colors.primary }]}>
-            <BadboyLogo size={48} />
+          <View style={[styles.welcomeCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <Image
+              source={require('../../assets/images/badboy-hooded-art.jpg')}
+              resizeMode="cover"
+              style={styles.welcomeArt}
+              accessibilityLabel="Badboy AI hooded character artwork"
+            />
+            <View style={styles.welcomeCopy}>
+              <View style={styles.welcomeCrown}>
+                <Feather name="award" size={19} color="#d946ef" />
+                <Text style={[styles.welcomeIntro, { color: colors.foreground }]}>Welcome to</Text>
+              </View>
+              <Text style={styles.welcomeBrand}>Badboy <Text style={styles.welcomeBrandAccent}>AI</Text></Text>
+              <Text style={[styles.welcomeTagline, { color: colors.primary }]}>Smart · Secure · Powerful</Text>
+              <Text style={[styles.welcomeText, { color: colors.foreground }]}>Ask anything, explore ideas, get help — I’m here for you!</Text>
+              <View style={styles.multiAiPill}>
+                <Feather name="zap" size={14} color="#fbbf24" />
+                <Text style={styles.multiAiText}>Powered by Multi-AI</Text>
+              </View>
+              <Text style={[styles.multiAiCaption, { color: colors.mutedForeground }]}>Free · Fast · Reliable</Text>
+            </View>
           </View>
-          <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>Welcome to Badboy AI</Text>
-          <Text style={[styles.welcomeText, { color: colors.mutedForeground }]}>
-            Smart  •  Secure  •  Powerful\nAsk anything, explore ideas, get help — I’m here for you!
-          </Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open all Badboy AI tools"
@@ -1289,11 +1313,24 @@ const styles = StyleSheet.create({
   visualizerBar: { width: 3, borderRadius: 2 },
   iconButton: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   providerStrip: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, marginHorizontal: 12, marginTop: 8, marginBottom: 4, paddingHorizontal: 10, paddingVertical: 9, shadowColor: '#c026ff', shadowOpacity: 0.16, shadowRadius: 8, elevation: 3 },
-  providerCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  providerCell: { flex: 1.15, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  providerStatus: { flex: 0.72, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00e676' },
   providerLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
   providerValue: { fontSize: 11, fontWeight: '800', marginTop: 2 },
   providerDivider: { width: 1, alignSelf: 'stretch', marginHorizontal: 10 },
-  welcome: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, paddingBottom: 16, gap: 12 },
+  welcome: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingBottom: 16, gap: 12 },
+  welcomeCard: { width: '100%', minHeight: 228, flexDirection: 'row', overflow: 'hidden', borderWidth: 1.5, borderRadius: 20, shadowColor: '#c026ff', shadowOpacity: 0.28, shadowRadius: 14, elevation: 6 },
+  welcomeArt: { width: '42%', minHeight: 228, backgroundColor: '#100718' },
+  welcomeCopy: { flex: 1, minWidth: 0, justifyContent: 'center', paddingVertical: 13, paddingHorizontal: 10, gap: 5 },
+  welcomeCrown: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  welcomeIntro: { fontSize: 17, fontWeight: '800' },
+  welcomeBrand: { color: '#f5d0fe', fontSize: 27, fontWeight: '900', fontStyle: 'italic', letterSpacing: -1.2 },
+  welcomeBrandAccent: { color: '#ff315e' },
+  welcomeTagline: { fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
+  multiAiPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#8b2cff', borderRadius: 18, paddingHorizontal: 9, paddingVertical: 6, backgroundColor: '#241038', marginTop: 3 },
+  multiAiText: { color: '#f5e9ff', fontSize: 10, fontWeight: '800' },
+  multiAiCaption: { fontSize: 10, textAlign: 'center' },
   welcomeMark: { width: 76, height: 76, borderRadius: 24, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginBottom: 10, shadowColor: '#c026ff', shadowOpacity: 0.35, shadowRadius: 16, elevation: 6 },
   welcomeTitle: { fontSize: 24, fontWeight: '700', textAlign: 'center', letterSpacing: 0.1 },
   welcomeText: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginTop: 8, maxWidth: 360 },
