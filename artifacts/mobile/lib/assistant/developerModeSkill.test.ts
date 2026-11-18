@@ -1,20 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert/strict';
+import test from 'node:test';
 import { getDeveloperModeSkillContext } from './developerModeSkill';
 
-describe('getDeveloperModeSkillContext', () => {
-  it('automatically provides implementation, debugging, security and QA workflows', () => {
-    const context = getDeveloperModeSkillContext();
-    expect(context).toContain('BADBOY DEVELOPER MODE');
-    expect(context).toContain('Code implementation');
-    expect(context).toContain('Debugging');
-    expect(context).toContain('Code review and security');
-    expect(context).toContain('Testing and QA');
-  });
+test('automatically provides implementation, debugging, security and QA workflows', () => {
+  const context = getDeveloperModeSkillContext();
+  assert.match(context, /BADBOY DEVELOPER MODE/);
+  assert.match(context, /Code implementation/);
+  assert.match(context, /Debugging/);
+  assert.match(context, /Code review and security/);
+  assert.match(context, /Testing and QA/);
+});
 
-  it('keeps tool access, owner approval and truthful reporting boundaries', () => {
-    const context = getDeveloperModeSkillContext();
-    expect(context).toContain('Never claim');
-    expect(context).toContain('Do not invent tool capabilities');
-    expect(context).toContain('Ask before destructive actions');
-  });
+test('keeps tool access, owner approval and truthful reporting boundaries', () => {
+  const context = getDeveloperModeSkillContext();
+  assert.match(context, /Never claim/);
+  assert.match(context, /Do not invent tool capabilities/);
+  assert.match(context, /Ask before destructive actions/);
 });
