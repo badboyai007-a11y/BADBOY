@@ -1150,7 +1150,7 @@ export default function ChatScreen() {
         <View style={styles.welcome}>
           <View style={[styles.welcomeCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
             <Image
-              source={require('../../assets/images/badboy-hooded-art.jpg')}
+              source={require('../../assets/images/badboy-chat-hero.jpg')}
               resizeMode="cover"
               style={styles.welcomeArt}
               accessibilityLabel="Badboy AI hooded character artwork"
