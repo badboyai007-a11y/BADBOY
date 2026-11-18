@@ -85,6 +85,11 @@ export default function OwnerLoginScreen() {
           >
             {busy ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>⇥  Login Now</Text>}
           </Pressable>
+          <View style={styles.orDivider}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>OR</Text>
+            <View style={styles.orLine} />
+          </View>
           <View style={styles.warning}>
             <Text style={styles.warningIcon}>!</Text>
             <View style={{ flex: 1 }}>
@@ -101,6 +106,7 @@ export default function OwnerLoginScreen() {
           <View style={styles.feature}><Text style={styles.featureIcon}>◇</Text><Text style={styles.featureTitle}>Multi-AI</Text><Text style={styles.featureCaption}>Premium</Text></View>
         </View>
         <Text style={styles.version}>✦ BADBOY AI  •  V1.0.0 ✦</Text>
+        <Text style={styles.footerTagline}>Built for the Real Power Users…</Text>
         <Text style={styles.note}>Token is stored securely in Android SecureStore. Chat History ও সাধারণ Memory ফোনেই থাকবে; Developer Agent-এর Project Memory ও Tasks Owner Token-সুরক্ষিত Cloudflare D1-এ সংরক্ষিত হয়.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -136,6 +142,10 @@ const styles = StyleSheet.create({
   buttonPressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
   buttonText: { color: '#ffffff', fontSize: 19, fontWeight: '900', letterSpacing: 0.3 },
   warning: { flexDirection: 'row', alignItems: 'center', gap: 11, borderWidth: 1, borderColor: '#e52b50', borderRadius: 14, padding: 12, backgroundColor: '#1b0710' },
+  orDivider: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginVertical: 2 },
+  orLine: { flex: 1, height: 1, backgroundColor: '#6f2b91' },
+  orText: { color: '#e9d5ff', fontSize: 12, fontWeight: '900', letterSpacing: 1.5 },
+  footerTagline: { color: '#d8c7e5', fontSize: 11, fontStyle: 'italic', textAlign: 'center', marginTop: -10 },
   warningIcon: { width: 29, height: 29, borderRadius: 15, overflow: 'hidden', textAlign: 'center', textAlignVertical: 'center', color: '#ffffff', backgroundColor: '#e52b50', fontSize: 20, fontWeight: '900' },
   warningTitle: { color: '#ffffff', fontWeight: '800', fontSize: 13 },
   warningText: { color: '#ff9aaa', fontSize: 12, lineHeight: 17, marginTop: 2 },
