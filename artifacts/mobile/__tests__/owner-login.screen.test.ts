@@ -49,6 +49,7 @@ mock.module('react-native', {
     KeyboardAvoidingView: host('main'),
     Platform: { OS: 'android' },
     Pressable: host('button'),
+    ScrollView: host('main'),
     StyleSheet: { create: (styles: unknown) => styles },
     Text: host('span'),
     TextInput: host('input'),
