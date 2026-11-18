@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  ImageBackground,
   Platform,
   Pressable,
   ScrollView,
@@ -39,12 +40,18 @@ export default function OwnerLoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.hero}>
-          <View style={styles.orbitOuter}><BadboyLogo size={112} /></View>
-          <Text style={styles.kicker}>THINK BEYOND LIMITS</Text>
+        <ImageBackground
+          source={require('../assets/images/badboy-hooded-art.jpg')}
+          resizeMode="cover"
+          imageStyle={styles.heroArtworkImage}
+          style={styles.hero}
+          accessibilityLabel="Badboy AI hooded neon artwork"
+        >
+          <View style={styles.heroOverlay} />
+          <Text style={styles.kicker}>THINK BEYOND LIMITS…</Text>
           <Text style={styles.brand}>Badboy <Text style={styles.brandAccent}>AI</Text></Text>
           <Text style={styles.tagline}>Smart  •  Secure  •  Powerful</Text>
-        </View>
+        </ImageBackground> </View>
 
         <View style={styles.loginCard}>
           <View style={styles.lockBadge}><Text style={styles.lockGlyph}>♙</Text></View>
@@ -116,11 +123,13 @@ export default function OwnerLoginScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#07030d' },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 18, paddingTop: 28, paddingBottom: 28, gap: 18 },
-  hero: { alignItems: 'center', paddingVertical: 8 },
+  hero: { minHeight: 286, width: '100%', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 14, paddingBottom: 16, paddingTop: 22, overflow: 'hidden', borderRadius: 20, borderWidth: 1.5, borderColor: '#8b2cff', shadowColor: '#a020f0', shadowOpacity: 0.45, shadowRadius: 18, elevation: 8 },
+  heroArtworkImage: { borderRadius: 18 },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,2,12,0.18)' },
   orbitOuter: { width: 142, height: 142, borderRadius: 71, borderWidth: 2, borderColor: '#8b2cff', alignItems: 'center', justifyContent: 'center', shadowColor: '#a020f0', shadowOpacity: 0.9, shadowRadius: 22, elevation: 12, backgroundColor: '#160923' },
   orbitInner: { width: 116, height: 116, borderRadius: 58, borderWidth: 2, borderColor: '#f02b75', alignItems: 'center', justifyContent: 'center', backgroundColor: '#08030f' },
   heroMark: { color: '#f3e8ff', fontSize: 76, fontWeight: '900', textShadowColor: '#a020f0', textShadowRadius: 18 },
-  kicker: { color: '#d8a4ff', fontSize: 11, fontWeight: '900', letterSpacing: 3, marginTop: 14 },
+  kicker: { color: '#f3e8ff', fontSize: 11, fontWeight: '900', letterSpacing: 3, marginTop: 14, textShadowColor: '#8b2cff', textShadowRadius: 9 },
   brand: { color: '#ffffff', fontSize: 42, fontWeight: '900', fontStyle: 'italic', letterSpacing: -1.8, textShadowColor: '#8b2cff', textShadowRadius: 15 },
   brandAccent: { color: '#ff315e' },
   tagline: { color: '#f1dfff', fontSize: 13, fontWeight: '800', letterSpacing: 1.2, marginTop: 2 },
