@@ -736,7 +736,11 @@ export default function ChatScreen() {
         const updated = { ...replacement, content: replacement.content + chunk };
         working = working.map((item) => item.id === replacement.id ? updated : item);
         setMessages(working);
-      });
+        },
+        '',
+        settings.developerMode ? getDeveloperModeSkillContext() : '',
+        await loadEnabledPluginIds().catch(() => []),
+      );
     } catch (cause) {
       setMessages(messages);
       setError(cause instanceof Error ? cause.message : 'নতুন উত্তর পাওয়া যায়নি।');
@@ -916,7 +920,7 @@ export default function ChatScreen() {
               </View>
             </View>
             <Text style={[styles.brandSub, { color: colors.mutedForeground }]}>
-              {settings.onlineAI ? 'তোমার AI সহকারী' : 'অফলাইন মোড'}
+              {settings.developerMode ? 'Developer Mode · Auto Skills Active' : settings.onlineAI ? 'তোমার AI সহকারী' : 'অফলাইন মোড'}
             </Text>
           </View>
         </View>
