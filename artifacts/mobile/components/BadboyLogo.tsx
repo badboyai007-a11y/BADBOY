@@ -10,16 +10,16 @@ export function BadboyLogo({ size = 40 }: BadboyLogoProps) {
     <Svg width={size} height={size} viewBox="0 0 40 40" fill="none">
       <Defs>
         <LinearGradient id="bgGlow" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <Stop offset="0%" stopColor="#061a2d" />
-          <Stop offset="100%" stopColor="#020b18" />
+          <Stop offset="0%" stopColor="#160923" />
+          <Stop offset="100%" stopColor="#07030d" />
         </LinearGradient>
         <LinearGradient id="cyanNeon" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <Stop offset="0%" stopColor="#00d9ff" />
-          <Stop offset="60%" stopColor="#168bff" />
-          <Stop offset="100%" stopColor="#7c3aed" />
+          <Stop offset="0%" stopColor="#c026ff" />
+          <Stop offset="60%" stopColor="#e11d48" />
+          <Stop offset="100%" stopColor="#ff315e" />
         </LinearGradient>
         <LinearGradient id="borderGlow" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <Stop offset="0%" stopColor="#00f0ff" stopOpacity="0.8" />
+          <Stop offset="0%" stopColor="#f0abfc" stopOpacity="0.8" />
           <Stop offset="100%" stopColor="#168bff" stopOpacity="0.3" />
         </LinearGradient>
       </Defs>
